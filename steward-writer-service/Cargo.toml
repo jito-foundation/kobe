@@ -1,0 +1,24 @@
+[package]
+name = "kobe-steward-writer-service"
+description = "Kobe Steward Writer Service is a specialized data collection service that monitors and records Jito Steward program events"
+version = "1.0.0"
+authors = { workspace = true }
+repository = { workspace = true }
+homepage = { workspace = true }
+license = { workspace = true }
+edition = { workspace = true }
+readme = "./README.md"
+
+[dependencies]
+anchor-client = { workspace = true }
+clap = { workspace = true }
+env_logger = { workspace = true }
+jito-steward = { workspace = true }
+kobe-core = { workspace = true }
+log = { workspace = true }
+mongodb = { workspace = true }
+solana-client = { workspace = true }
+solana-metrics = { workspace = true }
+solana-sdk = { workspace = true }
+solana-transaction-status = { workspace = true }
+tokio = { workspace = true }

@@ -1,0 +1,35 @@
+[package]
+name = "kobe-cranker"
+description = "Kobe Cranker is an automated stake pool management service that performs critical epoch-boundary operations for Jito's liquid staking infrastructure"
+version = "1.0.0"
+authors = { workspace = true }
+repository = { workspace = true }
+homepage = { workspace = true }
+license = { workspace = true }
+edition = { workspace = true }
+readme = "./README.md"
+
+[dependencies]
+anyhow = { workspace = true }
+backon = { workspace = true }
+clap = { workspace = true }
+env_logger = { workspace = true }
+futures = { workspace = true }
+kobe-core = { workspace = true }
+log = { workspace = true }
+reqwest = { workspace = true, features = ["blocking"] }
+sentry = { workspace = true }
+sentry-log = { workspace = true }
+solana-cli-config = { workspace = true }
+solana-cli-output = { workspace = true }
+solana-client = { workspace = true }
+solana-metrics = { workspace = true }
+solana-program = { workspace = true }
+solana-pubkey = { workspace = true }
+solana-rpc-client-api = { workspace = true }
+solana-sdk = { workspace = true }
+solana-transaction-status = { workspace = true }
+spl-stake-pool = { workspace = true }
+spl-stake-pool-cli = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }

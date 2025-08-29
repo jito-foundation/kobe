@@ -1,0 +1,36 @@
+[package]
+name = "kobe-writer-service"
+description = "Kobe Writer is a data collection service"
+version = "1.0.0"
+authors = { workspace = true }
+repository = { workspace = true }
+homepage = { workspace = true }
+license = { workspace = true }
+edition = { workspace = true }
+readme = "./README.md"
+
+[dependencies]
+backoff = { workspace = true }
+chrono = { workspace = true }
+clap = { workspace = true }
+dotenvy = { workspace = true }
+env_logger = { workspace = true }
+jito-tip-distribution = { workspace = true }
+kobe-core = { workspace = true }
+log = { workspace = true }
+mongodb = { workspace = true }
+reqwest = { workspace = true }
+sentry = { workspace = true }
+sentry-log = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+solana-clap-utils = { workspace = true }
+solana-client = { workspace = true }
+solana-metrics = { workspace = true }
+solana-program = { workspace = true }
+solana-sdk = { workspace = true }
+spl-stake-pool = { workspace = true }
+spl-stake-pool-cli = { workspace = true }
+spl-token = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }

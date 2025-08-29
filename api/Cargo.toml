@@ -1,0 +1,34 @@
+[package]
+name = "kobe-api"
+description = "Kobe API is Jito's comprehensive data service that provides access to Maximal Extractable Value (MEV) rewards, validator performance metrics, and stake pool analytics"
+version = "1.0.0"
+authors = { workspace = true }
+repository = { workspace = true }
+homepage = { workspace = true }
+license = { workspace = true }
+edition = { workspace = true }
+readme = "./README.md"
+
+[dependencies]
+axum = { workspace = true, features = ["macros"] }
+cached = { workspace = true }
+chrono = { workspace = true }
+clap = { workspace = true }
+env_logger = { workspace = true }
+http = { workspace = true }
+kobe-core = { workspace = true }
+log = { workspace = true }
+mongodb = { workspace = true }
+reqwest = { workspace = true, features = ["json"] }
+sentry = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+solana-borsh = { workspace = true }
+solana-client = { workspace = true }
+solana-pubkey = { workspace = true }
+spl-stake-pool = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tower = { workspace = true }
+tower-http = { workspace = true }
+tracing-core = { workspace = true }

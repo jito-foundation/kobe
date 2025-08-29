@@ -1,0 +1,184 @@
+version: "3.3"
+services:
+  kobe-cranker:
+    container_name: kobe-cranker
+    environment:
+      - CONFIG_FILE=$CONFIG_FILE
+      - STAKER=$STAKER
+      - POOL_ADDRESS=$POOL_ADDRESS
+      - FEE_PAYER=$FEE_PAYER
+      - DRY_RUN=$DRY_RUN
+      - SIMULATE=$SIMULATE
+      - SOLANA_CLUSTER=$SOLANA_CLUSTER
+      - VALIDATORS_APP_TOKEN=$VALIDATORS_APP_TOKEN
+      - MEV_REVENUE=$MEV_REVENUE
+      - DELEGATION_STRATEGY=$DELEGATION_STRATEGY
+      - DELEGATION_FILE=$DELEGATION_FILE
+      - DIRECT_DELEGATION_FILE=$DIRECT_DELEGATION_FILE
+      - SENTRY_API_URL=$SENTRY_API_URL
+      - RUST_LOG=info
+      - SLACK_API_TOKEN=$SLACK_API_TOKEN
+      - RPC_URL=$RPC_URL
+      - TX_PROXY_URL=$TX_PROXY_URL
+      - SOLANA_METRICS_CONFIG=$SOLANA_METRICS_CONFIG
+      - REGION=$REGION
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: kobe-cranker
+    volumes:
+      - ./credentials:/var/secrets
+      - ./files:/files
+    labels:
+      com.datadoghq.ad.logs: '[{"source": "kobe", "service":"cranker"}]'
+      com.datadoghq.ad.tags: '["network:$SOLANA_CLUSTER"]'
+    restart: on-failure:5
+
+  api-mainnet:
+    container_name: api-mainnet
+    environment:
+      - SOLANA_CLUSTER=$SOLANA_CLUSTER
+      - IP=$IP
+      - PORT=$PORT
+      - MONGO_CONNECTION_URI=$MONGO_CONNECTION_URI
+      - MONGO_DB_NAME=$MONGO_DB_NAME
+      - SENTRY_API_URL=$SENTRY_API_URL
+      - RUST_LOG=info
+      - SOLANA_METRICS_CONFIG=$SOLANA_METRICS_CONFIG
+      - DUNE_API_KEY=$DUNE_API_KEY
+      - RPC_URL=$RPC_URL
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: api
+    volumes:
+      - ./credentials:/var/secrets
+    expose:
+      - $PORT
+    ports:
+      - $PORT:$PORT
+    labels:
+      com.datadoghq.ad.logs: '[{"source": "kobe", "service":"api"}]'
+      com.datadoghq.ad.tags: '["network:$SOLANA_CLUSTER"]'
+    restart: on-failure:5
+
+  api-testnet:
+    container_name: api-testnet
+    environment:
+      - SOLANA_CLUSTER=$SOLANA_CLUSTER
+      - IP=$IP
+      - PORT=$PORT
+      - MONGO_CONNECTION_URI=$MONGO_CONNECTION_URI
+      - MONGO_DB_NAME=$MONGO_DB_NAME
+      - SENTRY_API_URL=$SENTRY_API_URL
+      - RUST_LOG=info
+      - SOLANA_METRICS_CONFIG=$SOLANA_METRICS_CONFIG
+      - DUNE_API_KEY=$DUNE_API_KEY
+      - RPC_URL=$RPC_URL
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: api
+    volumes:
+      - ./credentials:/var/secrets
+    expose:
+      - $PORT
+    ports:
+      - $PORT:$PORT
+    labels:
+      com.datadoghq.ad.logs: '[{"source": "kobe", "service":"api"}]'
+      com.datadoghq.ad.tags: '["network:$SOLANA_CLUSTER"]'
+    restart: on-failure:5
+
+  writer-service-mainnet:
+    container_name: writer-service-mainnet
+    environment:
+      - RPC_URL=$RPC_URL
+      - MONGO_CONNECTION_URI=$MONGO_CONNECTION_URI
+      - MONGO_DB_NAME=$MONGO_DB_NAME
+      - SOLANA_CLUSTER=$SOLANA_CLUSTER
+      - VALIDATORS_APP_TOKEN=$VALIDATORS_APP_TOKEN
+      - RUST_LOG=info
+      - TESTNET_CLUSTER_URL=$TESTNET_CLUSTER_URL
+      - MAINNET_CLUSTER_URL=$MAINNET_CLUSTER_URL
+      - SENTRY_API_URL=$SENTRY_API_URL
+      - SOLANA_METRICS_CONFIG=$SOLANA_METRICS_CONFIG
+      - MAINNET_GCP_SERVER_NAMES=$MAINNET_GCP_SERVER_NAMES
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: writer-service
+    labels:
+      com.datadoghq.ad.logs: '[{"source": "kobe", "service":"writer-service"}]'
+      com.datadoghq.ad.tags: '["network:$SOLANA_CLUSTER"]'
+    restart: on-failure:5
+
+  writer-service-testnet:
+    container_name: writer-service-testnet
+    environment:
+      - RPC_URL=$RPC_URL
+      - MONGO_CONNECTION_URI=$MONGO_CONNECTION_URI
+      - MONGO_DB_NAME=$MONGO_DB_NAME
+      - SOLANA_CLUSTER=$SOLANA_CLUSTER
+      - VALIDATORS_APP_TOKEN=$VALIDATORS_APP_TOKEN
+      - RUST_LOG=info
+      - TESTNET_CLUSTER_URL=$TESTNET_CLUSTER_URL
+      - MAINNET_CLUSTER_URL=$MAINNET_CLUSTER_URL
+      - SENTRY_API_URL=$SENTRY_API_URL
+      - SOLANA_METRICS_CONFIG=$SOLANA_METRICS_CONFIG
+      - MAINNET_GCP_SERVER_NAMES=$MAINNET_GCP_SERVER_NAMES
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: writer-service
+    labels:
+      com.datadoghq.ad.logs: '[{"source": "kobe", "service":"writer-service"}]'
+      com.datadoghq.ad.tags: '["network:$SOLANA_CLUSTER"]'
+    restart: on-failure:5
+
+  steward-writer-service-mainnet:
+    container_name: steward-writer-service-mainnet
+    environment:
+      - RUST_LOG=info
+      - MONGO_CONNECTION_URI=$MONGO_CONNECTION_URI
+      - MONGO_DB_NAME=$MONGO_DB_NAME
+      - RPC_URL=$RPC_URL
+      - PROGRAM_ID=$PROGRAM_ID
+      - STAKE_POOL=$STAKE_POOL
+      - CLUSTER_NAME=$CLUSTER_NAME
+      - GOOGLE_APPLICATION_CREDENTIALS=$GOOGLE_APPLICATION_CREDENTIALS
+      - SOLANA_METRICS_CONFIG=$SOLANA_METRICS_CONFIG
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: steward-writer-service
+    volumes:
+      - ./credentials:/var/secrets
+    labels:
+      com.datadoghq.ad.logs: '[{"source": "kobe", "service":"steward-writer-service"}]'
+      com.datadoghq.ad.tags: '["network:$SOLANA_CLUSTER"]'
+    restart: on-failure:5
+
+  steward-writer-service-testnet:
+    container_name: steward-writer-service-testnet
+    image: kobe-steward-writer-service-testnet
+    environment:
+      - RUST_LOG=info
+      - MONGO_CONNECTION_URI=$MONGO_CONNECTION_URI
+      - MONGO_DB_NAME=$MONGO_DB_NAME
+      - RPC_URL=$RPC_URL
+      - PROGRAM_ID=$PROGRAM_ID
+      - STAKE_POOL=$STAKE_POOL
+      - CLUSTER_NAME=$CLUSTER_NAME
+      - GOOGLE_APPLICATION_CREDENTIALS=$GOOGLE_APPLICATION_CREDENTIALS
+      - SOLANA_METRICS_CONFIG=$SOLANA_METRICS_CONFIG
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: steward-writer-service
+    volumes:
+      - ./credentials:/var/secrets
+    labels:
+      com.datadoghq.ad.logs: '[{"source": "kobe", "service":"steward-writer-service"}]'
+      com.datadoghq.ad.tags: '["network:$SOLANA_CLUSTER"]'
+    restart: on-failure:5

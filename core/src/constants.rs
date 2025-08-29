@@ -1,0 +1,24 @@
+pub const DATA_CENTER_CONCENTRATION_WEIGHT: f64 = 10.0;
+pub const PUBLISHED_INFORMATION_WEIGHT: f64 = 10.0;
+pub const SUPERMINORITY_WEIGHT: f64 = 100.0;
+pub const TOTAL_STAKE_PROP_WEIGHT: f64 = 5000.0;
+pub const CONSENSUS_MODS_WEIGHT: f64 = 50.0;
+pub const TOTAL_SOLANA_STAKED_LAMPORTS: f64 = 400_000_000.0 * 1_000_000_000.0;
+pub const MINIMUM_DELEGATION_LAMPORTS: u64 = 1_000_000_000;
+pub const RENT_EXEMPT_LAMPORTS: u64 = 2_282_880;
+pub const TIP_DISTRIBUTION_PROGRAM_MAINNET: &str = "4R3gSG8BpU4t19KYj8CfnbtRpnT8gtk4dvTHxVRwc2r7";
+pub const TIP_DISTRIBUTION_PROGRAM_TESTNET: &str = "F2Zu7QZiTYUhPd7u9ukRVwxh7B71oA3NMJcHuCHc29P2";
+pub const VALIDATOR_HISTORY_PROGRAM_MAINNET: &str = "HistoryJTGbKQD2mRgLZ3XhqHnN811Qpez8X9kCcGHoa";
+pub const VALIDATOR_HISTORY_PROGRAM_TESTNET: &str = "HistoryJTGbKQD2mRgLZ3XhqHnN811Qpez8X9kCcGHoa";
+pub const PRIORITY_FEE_DISTRIBUTION_PROGRAM: &str = "Priority6weCZ5HwDn29NxLFpb7TDp2iLZ6XKc5e8d3";
+pub const DATABASE_NAME: &str = "validators";
+pub const VALIDATOR_COLLECTION_NAME: &str = "validators";
+pub const STAKE_POOL_STATS_COLLECTION_NAME: &str = "stake_pool_stats";
+pub const VALIDATOR_REWARDS_COLLECTION_NAME: &str = "validator_rewards";
+pub const STAKER_REWARDS_COLLECTION_NAME: &str = "staker_rewards";
+pub const STEWARD_EVENTS_COLLECTION_NAME: &str = "steward_events";
+pub const TESTNET_STAKE_POOL_ADDRESS: &str = "Jito4APyf642JPZPx3hGc6WWJ8zPKtRbRs4P815Awbb";
+pub const MAINNET_STAKE_POOL_ADDRESS: &str = "Jito4APyf642JPZPx3hGc6WWJ8zPKtRbRs4P815Awbb";
+pub const MAINNET_SNAPSHOT_BUCKET_URL: &str =
+    "https://storage.googleapis.com/storage/v1/b/jito-mainnet/o";
+pub const CRANKER_UPDATE_CHANNEL: &str = "stake-pool-alerts";

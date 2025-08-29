@@ -1,0 +1,47 @@
+name: Build
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  build-and-test:
+    name: build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: ./.github/actions/setup
+
+      - name: ⚡ Cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: 🔨 Build
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+
+  clean_code_check:
+    name: lint
+    needs: build-and-test
+    uses: ./.github/workflows/clean_code.yaml
+    secrets:
+      GHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      ACCESS_TOKEN: ${{ secrets.ACCESS_TOKEN }}
+
+  run_tests:
+    uses: ./.github/workflows/test.yaml
+    needs: build-and-test
+    secrets:
+      DOCKERHUB_ORG: ${{ secrets.DOCKERHUB_ORG }}
+    with:
+      TAG: ${{ github.sha }}

@@ -5,7 +5,7 @@ use bincode::deserialize;
 use jito_priority_fee_distribution::state::PriorityFeeDistributionAccount;
 use jito_priority_fee_distribution_sdk::derive_priority_fee_distribution_account_address;
 use jito_tip_distribution::state::TipDistributionAccount;
-use log::*;
+use log::warn;
 use solana_account::Account;
 use solana_account_decoder::{
     parse_config::{parse_config, ConfigAccountType},
@@ -31,37 +31,55 @@ use crate::{
 
 type Error = Box<dyn std::error::Error>;
 
+#[derive(Default, Debug)]
+pub struct ValidatorChainData {
+    /// Validator display name
+    pub name: Option<String>,
+
+    /// Validator website URL
+    pub website: Option<String>,
+
+    /// MEV commission rate in basis points (100 = 1%)
+    pub mev_commission_bps: Option<u16>,
+
+    /// Total MEV rewards earned this epoch in lamports
+    pub mev_revenue_lamports: u64,
+
+    /// Whether validator is running Jito client
+    pub running_jito: bool,
+
+    /// Validator's vote credits relative to network average
+    pub vote_credit_proportion: f64,
+
+    /// Stake pool validator info
+    pub stake_info: Option<ValidatorStakeInfo>,
+
+    /// Total lamports staked across all validators
+    pub total_staked_lamports: u64,
+
+    /// Inflation rewards earned this epoch in lamports
+    pub inflation_rewards_lamports: u64,
+
+    /// Priority fee commission rate in basis points
+    pub priority_fee_commission_bps: u16,
+
+    /// Total priority fee rewards earned this epoch in lamports
+    pub priority_fee_revenue_lamports: u64,
+}
+
 /// Unified validator data fetcher that handles all on-chain data collection
+///
+/// Fetches MEV rewards, priority fees, vote credits, staking info, and validator metadata directly
+/// from on-chain data
 pub struct ValidatorDataFetcher {
     /// RPC Client
     rpc_client: Arc<RpcClient>,
 
-    /// Cluster
+    /// Network Cluster (mainnet-beta/testnet)
     cluster: Cluster,
 
-    /// Validator list pubkey
+    /// Stake pool's validator list pubkey
     validator_list_pubkey: Pubkey,
-}
-
-#[derive(Default, Debug)]
-pub struct ValidatorChainData {
-    /// Validator's name
-    pub name: Option<String>,
-
-    /// Website
-    pub website: Option<String>,
-
-    /// MEV commission BPS
-    pub mev_commission_bps: Option<u16>,
-
-    pub mev_revenue_lamports: u64,
-    pub running_jito: bool,
-    pub vote_credit_proportion: f64,
-    pub stake_info: Option<ValidatorStakeInfo>,
-    pub total_staked_lamports: u64,
-    pub inflation_rewards_lamports: u64,
-    pub priority_fee_commission_bps: u16,
-    pub priority_fee_revenue_lamports: u64,
 }
 
 impl ValidatorDataFetcher {
@@ -80,9 +98,13 @@ impl ValidatorDataFetcher {
 
     /// Fetches on-chain data for all validators
     ///
-    /// Aggregate multiple types of on-chain data including MEV distributions, vote credits, staking
-    /// information, and validator history to build a complete picture of validator performance and
-    /// economics for a given epoch.
+    /// Automatically discovers validators from vote accounts and aggregates:
+    /// - MEV rewards and commission rates from tip distribution accounts
+    /// - Priority fee rewards and commission rates
+    /// - Vote credits and performance metrics
+    /// - Staking information and inflation rewards
+    /// - Validator metadata (name, website) from config accounts
+    /// - Jito client detection from tip accounts and validator history
     pub async fn fetch_chain_data(
         &self,
         epoch: u64,
@@ -258,7 +280,10 @@ impl ValidatorDataFetcher {
         }
     }
 
-    /// Fetch validator info and return as a map
+    /// Fetch validator info (name, website) from on-chain ValidatorInfo accounts
+    ///
+    /// Maps node pubkeys from config accounts to vote account pubkeys,
+    /// extracting validator metadata like display names and websites.
     async fn fetch_validator_info_map(
         &self,
         vote_accounts: &RpcVoteAccountStatus,
@@ -286,8 +311,16 @@ impl ValidatorDataFetcher {
                     for vote_account in vote_accounts.current.iter() {
                         if vote_account.node_pubkey.eq(&key.pubkey) {
                             let vote_pubkey = Pubkey::from_str(&vote_account.vote_pubkey)?;
-                            let name = value.config_data.get("name").map(|n| n.to_string());
-                            let website = value.config_data.get("website").map(|w| w.to_string());
+                            let name = value
+                                .config_data
+                                .get("name")
+                                .and_then(|v| v.as_str())
+                                .map(|s| s.to_string());
+                            let website = value
+                                .config_data
+                                .get("website")
+                                .and_then(|v| v.as_str())
+                                .map(|s| s.to_string());
                             info_map.insert(vote_pubkey, (name, website));
                         }
                     }
@@ -298,7 +331,11 @@ impl ValidatorDataFetcher {
         Ok(info_map)
     }
 
-    /// Fetch all tip distribution accounts
+    /// Fetch Jito tip distribution accounts for MEV reward tracking
+    ///
+    /// Retrieves tip distribution accounts for all validators to determine:
+    /// - Which validators are running Jito client
+    /// - MEV commission rates and revenue amounts
     async fn fetch_tip_distribution_accounts(
         &self,
         validator_vote_pubkeys: &[Pubkey],
@@ -337,7 +374,10 @@ impl ValidatorDataFetcher {
         Ok(commission_map)
     }
 
-    /// Fetch all priority fee distribution accounts
+    /// Fetch priority fee distribution accounts
+    ///
+    /// Retrieves priority fee distribution accounts to determine commission rates
+    /// and revenue from priority fees collected by validators.
     async fn fetch_priority_fee_distribution_accounts(
         &self,
         validator_vote_pubkeys: &[Pubkey],
@@ -385,7 +425,10 @@ impl ValidatorDataFetcher {
         Ok(commission_map)
     }
 
-    /// Fetch all validator history accounts
+    /// Fetch all validator history accounts for client type detection
+    ///
+    /// Retrieves validator history to determine which client software validators
+    /// are running (Jito, Solana Labs, etc.) for the current epoch.
     async fn fetch_validator_history_accounts(
         &self,
     ) -> Result<HashMap<Pubkey, ValidatorHistory>, Error> {
@@ -400,7 +443,10 @@ impl ValidatorDataFetcher {
             .collect())
     }
 
-    /// Fetch total MEV rewards for the epoch
+    /// Calculate total MEV rewards distributed across all validators for an epoch
+    ///
+    /// Sums up the lamports in all tip distribution accounts, subtracting
+    /// the rent exemption amount to get actual reward amounts.
     pub async fn fetch_mev_rewards(&self, epoch: u64) -> Result<u64, Error> {
         let vote_accounts = self.rpc_client.get_vote_accounts().await?;
         let validator_vote_pubkeys: Vec<Pubkey> = vote_accounts
@@ -440,10 +486,15 @@ impl ValidatorDataFetcher {
         Ok(total)
     }
 
+    /// Get current network inflation rate
     async fn fetch_inflation_rate(&self) -> Result<f64, Error> {
         Ok(self.rpc_client.get_inflation_rate().await?.total)
     }
 
+    /// Calculate vote credit performance metrics for all validators
+    ///
+    /// Computes average vote credits per validator over recent epochs and calculates
+    /// the global network average for performance comparison.
     fn calculate_vote_credits(
         &self,
         vote_accounts: &RpcVoteAccountStatus,
@@ -478,6 +529,7 @@ impl ValidatorDataFetcher {
         Ok((global_average, vote_credits_map))
     }
 
+    /// Calculate total stake across all validators in the network
     pub fn calculate_total_stake(&self, vote_accounts: &RpcVoteAccountStatus) -> u64 {
         vote_accounts
             .current
@@ -487,6 +539,7 @@ impl ValidatorDataFetcher {
             .sum()
     }
 
+    /// Get stake amount for a specific validator
     fn get_validator_stake(
         &self,
         vote_accounts: &RpcVoteAccountStatus,
@@ -501,6 +554,7 @@ impl ValidatorDataFetcher {
             .unwrap_or(0)
     }
 
+    /// Calculate inflation rewards for a validator based on stake and performance
     fn calculate_inflation_rewards(
         &self,
         inflation_rate: f64,
@@ -511,7 +565,7 @@ impl ValidatorDataFetcher {
         (inflation_rate / EPOCHS_PER_YEAR * staked_amount * vote_credit_proportion) as u64
     }
 
-    // Program ID getters
+    /// Get Jito tip distribution program ID for the current cluster
     fn get_tip_distribution_program_id(&self) -> Pubkey {
         match self.cluster {
             Cluster::Testnet => Pubkey::from_str(TIP_DISTRIBUTION_PROGRAM_TESTNET).unwrap(),
@@ -519,6 +573,7 @@ impl ValidatorDataFetcher {
         }
     }
 
+    /// Get validator history program ID for the current cluster
     fn get_validator_history_program_id(&self) -> Pubkey {
         match &self.cluster {
             Cluster::Testnet => Pubkey::from_str(VALIDATOR_HISTORY_PROGRAM_TESTNET).unwrap(),
@@ -526,6 +581,7 @@ impl ValidatorDataFetcher {
         }
     }
 
+    /// Get priority fee distribution program ID
     fn get_priority_fee_distribution_program_id(&self) -> solana_pubkey::Pubkey {
         solana_pubkey::Pubkey::from_str(PRIORITY_FEE_DISTRIBUTION_PROGRAM).unwrap()
     }

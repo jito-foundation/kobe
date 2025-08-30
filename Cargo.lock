@@ -2702,6 +2702,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "jito-tip-distribution-sdk"
+version = "0.1.6"
+source = "git+https://github.com/jito-foundation/jito-programs?branch=master#8f55af0a9b31ac2192415b59ce2c47329ee255a2"
+dependencies = [
+ "anchor-lang",
+ "jito-tip-distribution",
+]
+
+[[package]]
 name = "jni"
 version = "0.21.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2800,6 +2809,7 @@ name = "kobe-core"
 version = "1.0.0"
 dependencies = [
  "anchor-lang",
+ "bincode",
  "chrono",
  "env_logger 0.10.2",
  "futures",
@@ -2809,18 +2819,23 @@ dependencies = [
  "jito-priority-fee-distribution-sdk",
  "jito-steward",
  "jito-tip-distribution",
+ "jito-tip-distribution-sdk",
  "log",
  "mongodb",
  "reqwest",
  "serde",
+ "solana-account",
+ "solana-account-decoder",
  "solana-client",
  "solana-clock",
  "solana-commitment-config",
+ "solana-config-interface",
  "solana-native-token",
  "solana-pubkey",
  "solana-rpc-client-api",
  "solana-signature",
  "solana-transaction-status",
+ "solana-vote-interface",
  "spl-stake-pool",
  "spl-stake-pool-cli",
  "stakenet-sdk",
@@ -5107,6 +5122,19 @@ dependencies = [
  "serde_derive",
  "solana-instruction",
  "solana-sdk-ids",
+]
+
+[[package]]
+name = "solana-config-interface"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3fbdbcfedb467322ac9686ca61da0a1fdede2fd99a01fb2ed52b49452abd22e0"
+dependencies = [
+ "serde",
+ "serde_derive",
+ "solana-pubkey",
+ "solana-sdk-ids",
+ "solana-short-vec",
 ]
 
 [[package]]

@@ -13,8 +13,8 @@ use serde::{Deserialize, Serialize};
 use solana_pubkey::Pubkey;
 
 use crate::{
-    constants::VALIDATOR_COLLECTION_NAME, db_models::error::DataStoreError, fetcher::ChainData,
-    validators_app::ValidatorsAppResponseEntry,
+    constants::VALIDATOR_COLLECTION_NAME, db_models::error::DataStoreError,
+    fetcher::ValidatorChainData, validators_app::ValidatorsAppResponseEntry,
 };
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq)]
@@ -57,7 +57,7 @@ pub struct Validator {
 impl Validator {
     pub fn new(
         validators_app_entry: &ValidatorsAppResponseEntry,
-        on_chain_data: &ChainData,
+        on_chain_data: &ValidatorChainData,
     ) -> Self {
         let (active_stake, transient_stake) = if let Some(stake_info) = on_chain_data.stake_info {
             (
@@ -82,7 +82,7 @@ impl Validator {
             mev_revenue_lamports: on_chain_data.mev_revenue_lamports,
             priority_fee_commission_bps: Some(on_chain_data.priority_fee_commission_bps),
             priority_fee_revenue_lamports: Some(on_chain_data.priority_fee_revenue_lamports),
-            name: validators_app_entry.name.clone(),
+            name: on_chain_data.name.to_owned(),
             published_information_score: validators_app_entry.published_information_score,
             root_distance_score: validators_app_entry.root_distance_score,
             running_jito: on_chain_data.running_jito,
@@ -100,7 +100,7 @@ impl Validator {
             timestamp,
             vote_account: validators_app_entry.vote_account.to_string(),
             vote_credit_proportion: on_chain_data.vote_credit_proportion,
-            www_url: validators_app_entry.www_url.clone(),
+            www_url: on_chain_data.website.to_owned(),
             inflation_rewards_lamports: on_chain_data.inflation_rewards_lamports,
         }
     }

@@ -147,11 +147,10 @@ pub async fn write_validator_info(
     db: &Database,
     stake_pool_manager: &StakePoolManager,
     epoch: u64,
-    validator_list_address: &Pubkey,
 ) -> Result<()> {
     let collection = db.collection::<Validator>(VALIDATOR_COLLECTION_NAME);
     let validators = stake_pool_manager
-        .fetch_all_validators(epoch, validator_list_address)
+        .fetch_all_validators(epoch)
         .await
         .map_err(|e| {
             error!("Cannot write validators to DB: {e:?}");

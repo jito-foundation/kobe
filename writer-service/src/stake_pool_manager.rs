@@ -1,10 +1,10 @@
-use std::{str::FromStr, thread::sleep, time::Duration as CoreDuration};
+use std::{str::FromStr, sync::Arc, thread::sleep, time::Duration as CoreDuration};
 
 use chrono::{Duration, DurationRound, Utc};
 use kobe_core::{
     constants::{MAINNET_STAKE_POOL_ADDRESS, TESTNET_STAKE_POOL_ADDRESS},
     db_models::{stake_pool_stats::StakePoolStats, validators::Validator},
-    fetcher::{fetch_chain_data, fetch_mev_rewards, fetch_total_staked_lamports},
+    fetcher::{fetch_total_staked_lamports, ValidatorDataFetcher},
     validators_app::{Client, Cluster},
 };
 use log::info;
@@ -16,39 +16,39 @@ use spl_stake_pool_cli::client::get_stake_pool;
 use crate::{result::Result, rpc_utils};
 
 pub struct StakePoolManager {
-    pub rpc_client: RpcClient,
+    /// RPC Client
+    pub rpc_client: Arc<RpcClient>,
+
+    /// Validator data fetcher
+    validator_data_fetcher: ValidatorDataFetcher,
+
     pub validators_app_client: Client,
     pub cluster: Cluster,
 }
 
 impl StakePoolManager {
-    pub fn new(rpc_client: RpcClient, validators_app_client: Client, cluster: Cluster) -> Self {
+    pub fn new(
+        rpc_client: Arc<RpcClient>,
+        validator_data_fetcher: ValidatorDataFetcher,
+        validators_app_client: Client,
+        cluster: Cluster,
+    ) -> Self {
         Self {
             rpc_client,
+            validator_data_fetcher,
             validators_app_client,
             cluster,
         }
     }
 
-    pub async fn fetch_all_validators(
-        &self,
-        epoch: u64,
-        validator_list_address: &Pubkey,
-    ) -> Result<Vec<Validator>> {
+    pub async fn fetch_all_validators(&self, epoch: u64) -> Result<Vec<Validator>> {
         let validators_app_client = self.validators_app_client.clone();
         let network_validators = tokio::task::spawn_blocking(move || {
             validators_app_client.validators(None, None, epoch)
         })
         .await??;
 
-        let on_chain_data = fetch_chain_data(
-            network_validators.as_ref(),
-            &self.rpc_client,
-            &self.cluster,
-            epoch,
-            validator_list_address,
-        )
-        .await?;
+        let on_chain_data = self.validator_data_fetcher.fetch_chain_data(epoch).await?;
 
         let validators: Vec<Validator> = network_validators
             .as_ref()
@@ -67,19 +67,11 @@ impl StakePoolManager {
     pub async fn get_mev_rewards(&self) -> Result<u64> {
         let rpc_client = &self.rpc_client;
         let current_epoch = rpc_utils::retry_get_epoch_info(rpc_client).await?;
-        let validators_app_client = self.validators_app_client.clone();
-        let network_validators = tokio::task::spawn_blocking(move || {
-            validators_app_client.validators(None, None, current_epoch)
-        })
-        .await??;
 
-        let total_mev_rewards = fetch_mev_rewards(
-            network_validators.as_ref(),
-            rpc_client,
-            &self.cluster,
-            current_epoch,
-        )
-        .await?;
+        let total_mev_rewards = self
+            .validator_data_fetcher
+            .fetch_mev_rewards(current_epoch)
+            .await?;
 
         Ok(total_mev_rewards)
     }

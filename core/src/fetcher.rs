@@ -31,6 +31,7 @@ use crate::{
 
 type Error = Box<dyn std::error::Error>;
 
+/// Unified validator data fetcher that handles all on-chain data collection
 pub struct ValidatorDataFetcher {
     /// RPC Client
     rpc_client: Arc<RpcClient>,
@@ -52,6 +53,7 @@ pub struct ValidatorChainData {
 
     /// MEV commission BPS
     pub mev_commission_bps: Option<u16>,
+
     pub mev_revenue_lamports: u64,
     pub running_jito: bool,
     pub vote_credit_proportion: f64,
@@ -76,230 +78,66 @@ impl ValidatorDataFetcher {
         }
     }
 
-    /// Fetch all validators info
-    ///
-    /// Returns the HashMap of node pubkey, validator info
-    /// Look like:
-    ///[2025-08-29T20:22:59Z INFO  kobe_core::fetcher] UiConfig { keys: [UiConfigKey { pubkey: "Va1idator1nfo111111111111111111111111111111", signer: false }, UiConfigKey { pubkey: "3WyA7gWkTwdeYLqyQsX1tS9LoC51VdA2SX5LbqwwWRzm", signer: true }], config_data: Object {"details": String("Power up your staking rewards"), "iconUrl": String("https://i.imgur.com/6CI235o.jpeg"), "name": String("Chainsaw"), "website": String("https://chainsaw-solana.com/")} }
-    async fn fetch_validator_info(
-        &self,
-        vote_accounts: &RpcVoteAccountStatus,
-        validators_chain_data: &mut HashMap<Pubkey, ValidatorChainData>,
-    ) -> Result<(), Error> {
-        let all_config = self
-            .rpc_client
-            .get_program_accounts(&solana_config_interface::id())
-            .await
-            .unwrap();
-        let validator_info: Vec<(Pubkey, Account)> = all_config
-            .into_iter()
-            .filter(|(_, validator_info_account)| {
-                match deserialize::<ConfigKeys>(&validator_info_account.data) {
-                    Ok(key_list) => key_list.keys.contains(&(validator_info::id(), false)),
-                    Err(_) => false,
-                }
-            })
-            .collect();
-
-        for (pubkey, info) in validator_info {
-            if let Ok(ConfigAccountType::ValidatorInfo(value)) = parse_config(&info.data, &pubkey) {
-                if let Some(key) = value.keys.get(1) {
-                    for vote_account in vote_accounts.current.iter() {
-                        if vote_account.node_pubkey.eq(&key.pubkey) {
-                            let chain_data = ValidatorChainData {
-                                name: value.config_data.get("name").map(|name| name.to_string()),
-                                website: value
-                                    .config_data
-                                    .get("website")
-                                    .map(|website| website.to_string()),
-                                ..Default::default()
-                            };
-                            validators_chain_data
-                                .insert(Pubkey::from_str(&vote_account.vote_pubkey)?, chain_data);
-                        }
-                    }
-                }
-            }
-        }
-
-        Ok(())
-    }
-
-    /// Fetch all tip distribution accounts
-    ///
-    /// Set the commission rate on each validator if it exists. That means this validator is running jito this epoch
-    /// Commission rate also used for scoring
-    /// Done in batches for efficiency
-    ///
-    /// # Retruns
-    ///
-    /// HashMap of key: vote account, value: tip distributioin account
-    async fn fetch_tip_distribution_accounts(
-        &self,
-        validator_vote_pubkeys: &[Pubkey],
-        epoch: u64,
-    ) -> Result<HashMap<Pubkey, TipDistributionAccount>, Error> {
-        let mut commission_map = HashMap::new();
-        for chunk in validator_vote_pubkeys.chunks(100) {
-            let pubkeys = chunk
-                .iter()
-                .map(|c| {
-                    jito_tip_distribution_sdk::derive_tip_distribution_account_address(
-                        &self.get_tip_distribution_program_id(),
-                        c,
-                        epoch,
-                    )
-                    .0
-                })
-                .collect::<Vec<Pubkey>>();
-            let response = self.rpc_client.get_multiple_accounts(&pubkeys).await;
-            if let Ok(result) = response {
-                for (v, acc) in core::iter::zip(chunk, result) {
-                    if let Some(account) = acc {
-                        if self.get_tip_distribution_program_id() != account.owner {
-                            warn!("Validator {} may be trying to mess with their Tip Distribution Account", v);
-                            continue;
-                        }
-                        let tip_distribution =
-                            TipDistributionAccount::try_deserialize(&mut account.data.as_slice())?;
-
-                        commission_map.insert(*v, tip_distribution);
-                    }
-                }
-            } else if let Err(e) = response {
-                error!("Rpc error: {e:#?}");
-            }
-        }
-
-        Ok(commission_map)
-    }
-
-    async fn fetch_priority_fee_distribution_accounts(
-        &self,
-        validator_vote_pubkeys: &[Pubkey],
-        epoch: u64,
-    ) -> Result<HashMap<Pubkey, PriorityFeeDistributionAccount>, Error> {
-        // Set the commission rate on each validator if it exists. That means this validator is running jito this epoch
-        // Commission rate also used for scoring
-        // Done in batches for efficiency
-        let mut commission_map = HashMap::new();
-        for chunk in validator_vote_pubkeys.chunks(100) {
-            let pubkeys = chunk
-                .iter()
-                .map(|c| {
-                    let vote_account_pubkey =
-                        solana_pubkey::Pubkey::from_str(&c.to_string()).unwrap();
-                    let pfda_pubkey: solana_pubkey::Pubkey =
-                        derive_priority_fee_distribution_account_address(
-                            &self.get_priority_fee_distribution_program_id(),
-                            &vote_account_pubkey,
-                            epoch,
-                        )
-                        .0;
-                    Pubkey::from_str(&pfda_pubkey.to_string()).unwrap()
-                })
-                .collect::<Vec<Pubkey>>();
-            let response = self.rpc_client.get_multiple_accounts(&pubkeys).await;
-            if let Ok(result) = response {
-                for (v, acc) in core::iter::zip(chunk, result) {
-                    if let Some(account) = acc {
-                        let program_pubkey = Pubkey::from_str(
-                            &self.get_priority_fee_distribution_program_id().to_string(),
-                        )
-                        .unwrap();
-                        if program_pubkey != account.owner {
-                            warn!("Validator {} may be trying to mess with their Tip Distribution Account", v);
-                            continue;
-                        }
-                        let tip_distribution = PriorityFeeDistributionAccount::try_deserialize(
-                            &mut account.data.as_slice(),
-                        )?;
-                        commission_map.insert(*v, tip_distribution);
-                    }
-                }
-            } else if let Err(e) = response {
-                error!("Rpc error: {e:#?}");
-            }
-        }
-
-        Ok(commission_map)
-    }
-
-    /// Fetch all [`ValidatorHistory`] accounts and retruns thems as a lookup map
-    ///
-    /// ## Overview
-    ///
-    /// This function retrieves all validator history accounts for the specified program and creates a
-    /// HashMap indexed by vote account pubkey
-    async fn fetch_validator_history_accounts(
-        &self,
-    ) -> Result<HashMap<Pubkey, ValidatorHistory>, Error> {
-        let validator_history_program_id = self.get_validator_history_program_id();
-        let mut validator_history_map: HashMap<Pubkey, ValidatorHistory> = HashMap::new();
-        let validator_histories =
-            get_all_validator_history_accounts(&self.rpc_client, validator_history_program_id)
-                .await?;
-
-        for validator_history in validator_histories {
-            validator_history_map.insert(validator_history.vote_account, validator_history);
-        }
-
-        Ok(validator_history_map)
-    }
-
-    pub async fn fetch_mev_rewards(&self, epoch: u64) -> Result<u64, Error> {
-        let vote_accounts = self.rpc_client.get_vote_accounts().await?;
-        let validator_vote_pubkeys: Vec<Pubkey> = vote_accounts
-            .current
-            .iter()
-            .filter_map(|account| Pubkey::from_str(&account.vote_pubkey).ok())
-            .collect();
-
-        let mut total = 0;
-        let tip_distribution_account_rent = self
-            .rpc_client
-            .get_minimum_balance_for_rent_exemption(TipDistributionAccount::SIZE)
-            .await?;
-        for chunk in validator_vote_pubkeys.chunks(100) {
-            let pubkeys = chunk
-                .iter()
-                .map(|c| {
-                    jito_tip_distribution_sdk::derive_tip_distribution_account_address(
-                        &self.get_tip_distribution_program_id(),
-                        c,
-                        epoch,
-                    )
-                    .0
-                })
-                .collect::<Vec<Pubkey>>();
-            let response = self.rpc_client.get_multiple_accounts(&pubkeys).await;
-            if let Ok(result) = response {
-                for (v, acc) in core::iter::zip(chunk, result) {
-                    if let Some(account) = acc {
-                        if self.get_tip_distribution_program_id() != account.owner {
-                            warn!("Validator {} may be trying to mess with their Tip Distribution Account", v);
-                            continue;
-                        }
-
-                        total += account.lamports - tip_distribution_account_rent;
-                    }
-                }
-            } else if let Err(e) = response {
-                error!("Rpc error: {e:#?}");
-            }
-        }
-        Ok(total)
-    }
-
-    /// Fetches on-chain data for a set of validators
-    ///
-    /// # Overview
+    /// Fetches on-chain data for all validators
     ///
     /// Aggregate multiple types of on-chain data including MEV distributions, vote credits, staking
     /// information, and validator history to build a complete picture of validator performance and
     /// economics for a given epoch.
-    ///
-    /// # Data Sources
+    pub async fn fetch_chain_data(
+        &self,
+        epoch: u64,
+    ) -> Result<HashMap<Pubkey, ValidatorChainData>, Error> {
+        let vote_accounts = self.rpc_client.get_vote_accounts().await?;
+
+        // Fetch all base data in parallel
+        let (inflation_rate, validator_histories, staked_validators) = tokio::try_join!(
+            self.fetch_inflation_rate(),
+            self.fetch_validator_history_accounts(),
+            get_validator_list(&self.rpc_client, &self.validator_list_pubkey)
+        )?;
+
+        // Get all vote account pubkeys from the network
+        let validator_vote_pubkeys: Vec<Pubkey> = vote_accounts
+            .current
+            .iter()
+            .chain(vote_accounts.delinquent.iter())
+            .filter_map(|acc| Pubkey::from_str(&acc.vote_pubkey).ok())
+            .collect();
+
+        // Fetch program-specific data in parallel
+        let (tip_distributions, priority_fee_distributions, validator_info_map) = tokio::try_join!(
+            self.fetch_tip_distribution_accounts(&validator_vote_pubkeys, epoch),
+            self.fetch_priority_fee_distribution_accounts(&validator_vote_pubkeys, epoch),
+            self.fetch_validator_info_map(&vote_accounts)
+        )?;
+
+        let (global_average, vote_credits_map) = self.calculate_vote_credits(&vote_accounts)?;
+        let total_staked_lamports = self.calculate_total_stake(&vote_accounts);
+
+        // Build complete validator data
+        let mut result = HashMap::new();
+        for vote_account in validator_vote_pubkeys {
+            let validator_data = self.build_single_validator_data(
+                &vote_account,
+                epoch,
+                &tip_distributions,
+                &priority_fee_distributions,
+                &validator_histories,
+                &vote_credits_map,
+                global_average,
+                &staked_validators,
+                &vote_accounts,
+                inflation_rate,
+                total_staked_lamports,
+                &validator_info_map,
+            );
+            result.insert(vote_account, validator_data);
+        }
+
+        Ok(result)
+    }
+
+    /// Build data for a single validator
     ///
     /// ## MEV Data
     ///
@@ -319,191 +157,376 @@ impl ValidatorDataFetcher {
     /// 1. **Tip account method**: Checks if validator has tip distribution account
     /// 2. **Validator-History method**: Checks validator history for Jito client type
     /// 3. **Combined detection**: Detect `running_jito` = (`has_tip_account || is_jito_client`)
-    pub async fn fetch_chain_data(
+    #[allow(clippy::too_many_arguments)]
+    fn build_single_validator_data(
         &self,
+        vote_account: &Pubkey,
         epoch: u64,
-    ) -> Result<HashMap<Pubkey, ValidatorChainData>, Error> {
-        // Fetch on-chain data
-        let vote_accounts = self.rpc_client.get_vote_accounts().await?;
+        tip_distributions: &HashMap<Pubkey, TipDistributionAccount>,
+        priority_fee_distributions: &HashMap<Pubkey, PriorityFeeDistributionAccount>,
+        validator_histories: &HashMap<Pubkey, ValidatorHistory>,
+        vote_credits_map: &HashMap<Pubkey, f64>,
+        global_average: f64,
+        staked_validators: &spl_stake_pool::state::ValidatorList,
+        vote_accounts: &RpcVoteAccountStatus,
+        inflation_rate: f64,
+        total_staked_lamports: u64,
+        validator_info_map: &HashMap<Pubkey, (Option<String>, Option<String>)>,
+    ) -> ValidatorChainData {
+        // MEV data
+        let (mev_commission_bps, mev_revenue_lamports) = tip_distributions
+            .get(vote_account)
+            .map(|tda| {
+                let revenue = tda
+                    .merkle_root
+                    .as_ref()
+                    .map(|mr| mr.max_total_claim)
+                    .unwrap_or(0);
+                (Some(tda.validator_commission_bps), revenue)
+            })
+            .unwrap_or((None, 0));
 
-        let mut validators_chain_data = HashMap::new();
+        // Priority fee data
+        let (priority_fee_commission_bps, priority_fee_revenue_lamports) =
+            priority_fee_distributions
+                .get(vote_account)
+                .map(|pfda| {
+                    let revenue = pfda
+                        .merkle_root
+                        .as_ref()
+                        .map(|mr| mr.max_total_claim)
+                        .unwrap_or(0);
+                    (pfda.validator_commission_bps, revenue)
+                })
+                .unwrap_or((10000, 0));
 
-        self.fetch_validator_info(&vote_accounts, &mut validators_chain_data)
-            .await?;
+        // Jito detection
+        let has_tip_account = tip_distributions.contains_key(vote_account);
+        let is_jito_client = validator_histories
+            .get(vote_account)
+            .and_then(|history| {
+                history
+                    .history
+                    .arr
+                    .iter()
+                    .find(|entry| entry.epoch == epoch as u16)
+                    .map(|entry| {
+                        matches!(ClientType::from_u8(entry.client_type), ClientType::JitoLabs)
+                    })
+            })
+            .unwrap_or(false);
+        let running_jito = has_tip_account || is_jito_client;
 
-        let validator_vote_pubkeys: Vec<Pubkey> = validators_chain_data.keys().copied().collect();
-
-        let tip_distributions = self
-            .fetch_tip_distribution_accounts(&validator_vote_pubkeys, epoch)
-            .await?;
-
-        let priority_fee_distributions = self
-            .fetch_priority_fee_distribution_accounts(&validator_vote_pubkeys, epoch)
-            .await?;
-
-        let (global_average, vote_credits_map) = fetch_vote_credits(&vote_accounts)?;
-
-        let total_staked_lamports = fetch_total_staked_lamports(&vote_accounts);
-
-        let staked_validators =
-            get_validator_list(&self.rpc_client, &self.validator_list_pubkey).await?;
-        let inflation_rate = match self.rpc_client.get_inflation_rate().await {
-            Ok(rate) => rate.total,
-            Err(e) => {
-                error!("Failed to fetch inflation rate: {e:#?}");
-                0.
-            }
+        // Performance metrics
+        let vote_credits = vote_credits_map.get(vote_account).copied().unwrap_or(0.0);
+        let vote_credit_proportion = if global_average > 0.0 {
+            vote_credits / global_average
+        } else {
+            0.0
         };
 
-        let validator_histories = self.fetch_validator_history_accounts().await?;
+        // Stake info
+        let stake_info = staked_validators
+            .validators
+            .iter()
+            .find(|info| info.vote_account_address == *vote_account)
+            .cloned();
 
-        for (vote_account, chain_data) in validators_chain_data.iter_mut() {
-            // let vote_account = v.vote_account;
-            let maybe_tip_distribution_account = tip_distributions.get(vote_account);
+        // Inflation rewards
+        let staked_amount = self.get_validator_stake(vote_accounts, vote_account) as f64;
+        let inflation_rewards_lamports =
+            self.calculate_inflation_rewards(inflation_rate, staked_amount, vote_credit_proportion);
 
-            let has_tip_account = maybe_tip_distribution_account.is_some();
-            let is_jito_client = validator_histories
-                .get(vote_account)
-                .map(|validator_history| {
-                    validator_history
-                        .history
-                        .arr
-                        .iter()
-                        .find(|entry| entry.epoch.eq(&(epoch as u16)))
-                        .map(|entry| {
-                            matches!(ClientType::from_u8(entry.client_type), ClientType::JitoLabs)
-                        })
-                        .unwrap_or(false)
-                })
-                .unwrap_or(false);
-            let running_jito = has_tip_account || is_jito_client;
+        // Validator info (name, website)
+        let (name, website) = validator_info_map
+            .get(vote_account)
+            .cloned()
+            .unwrap_or((None, None));
 
-            let (mev_commission_bps, mev_revenue_lamports) =
-                if let Some(tda) = maybe_tip_distribution_account {
-                    let mev_revenue = if let Some(merkle_root) = tda.merkle_root.clone() {
-                        merkle_root.max_total_claim
-                    } else {
-                        0
-                    };
-                    (Some(tda.validator_commission_bps), mev_revenue)
-                } else {
-                    (None, 0)
-                };
-
-            let maybe_priority_fee_distribution_account =
-                priority_fee_distributions.get(vote_account);
-            let (priority_fee_commission_bps, priority_fee_revenue_lamports) =
-                if let Some(pfda) = maybe_priority_fee_distribution_account {
-                    let fee_revenue = if let Some(merkle_root) = pfda.merkle_root.clone() {
-                        merkle_root.max_total_claim
-                    } else {
-                        0
-                    };
-                    (pfda.validator_commission_bps, fee_revenue)
-                } else {
-                    (10000, 0)
-                };
-            let vote_credits = *vote_credits_map.get(vote_account).unwrap_or(&0.);
-            let vote_credit_proportion = vote_credits / global_average;
-            let stake_info = staked_validators
-                .validators
-                .clone()
-                .into_iter()
-                .find(|info| *vote_account == info.vote_account_address);
-
-            // hardcoded from cogentcrypto.io
-            let epochs_per_year = 163.;
-
-            let staked_amount =
-                fetch_staked_lamports_for_validator(&vote_accounts, vote_account) as f64;
-
-            let inflation_rewards_lamports =
-                inflation_rate / epochs_per_year * staked_amount * vote_credit_proportion;
-
-            chain_data.mev_commission_bps = mev_commission_bps;
-            chain_data.mev_revenue_lamports = mev_revenue_lamports;
-            chain_data.running_jito = running_jito;
-            chain_data.vote_credit_proportion = vote_credit_proportion;
-            chain_data.stake_info = stake_info;
-            chain_data.total_staked_lamports = total_staked_lamports;
-            chain_data.inflation_rewards_lamports = inflation_rewards_lamports as u64;
-            chain_data.priority_fee_commission_bps = priority_fee_commission_bps;
-            chain_data.priority_fee_revenue_lamports = priority_fee_revenue_lamports;
+        ValidatorChainData {
+            name,
+            website,
+            mev_commission_bps,
+            mev_revenue_lamports,
+            running_jito,
+            vote_credit_proportion,
+            stake_info,
+            total_staked_lamports,
+            inflation_rewards_lamports,
+            priority_fee_commission_bps,
+            priority_fee_revenue_lamports,
         }
-
-        Ok(validators_chain_data)
     }
 
-    /// Get Tip Distribution Program ID
-    pub fn get_tip_distribution_program_id(&self) -> Pubkey {
-        // These seem to be in flux
+    /// Fetch validator info and return as a map
+    async fn fetch_validator_info_map(
+        &self,
+        vote_accounts: &RpcVoteAccountStatus,
+    ) -> Result<HashMap<Pubkey, (Option<String>, Option<String>)>, Error> {
+        let mut info_map = HashMap::new();
+
+        let all_config = self
+            .rpc_client
+            .get_program_accounts(&solana_config_interface::id())
+            .await?;
+
+        let validator_info: Vec<(Pubkey, Account)> = all_config
+            .into_iter()
+            .filter(|(_, account)| {
+                deserialize::<ConfigKeys>(&account.data)
+                    .map(|keys| keys.keys.contains(&(validator_info::id(), false)))
+                    .unwrap_or(false)
+            })
+            .collect();
+
+        for (pubkey, info) in validator_info {
+            if let Ok(ConfigAccountType::ValidatorInfo(value)) = parse_config(&info.data, &pubkey) {
+                if let Some(key) = value.keys.get(1) {
+                    // Find corresponding vote account
+                    for vote_account in vote_accounts.current.iter() {
+                        if vote_account.node_pubkey.eq(&key.pubkey) {
+                            let vote_pubkey = Pubkey::from_str(&vote_account.vote_pubkey)?;
+                            let name = value.config_data.get("name").map(|n| n.to_string());
+                            let website = value.config_data.get("website").map(|w| w.to_string());
+                            info_map.insert(vote_pubkey, (name, website));
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(info_map)
+    }
+
+    /// Fetch all tip distribution accounts
+    async fn fetch_tip_distribution_accounts(
+        &self,
+        validator_vote_pubkeys: &[Pubkey],
+        epoch: u64,
+    ) -> Result<HashMap<Pubkey, TipDistributionAccount>, Error> {
+        let mut commission_map = HashMap::new();
+        for chunk in validator_vote_pubkeys.chunks(100) {
+            let pubkeys = chunk
+                .iter()
+                .map(|vote_pubkey| {
+                    jito_tip_distribution_sdk::derive_tip_distribution_account_address(
+                        &self.get_tip_distribution_program_id(),
+                        vote_pubkey,
+                        epoch,
+                    )
+                    .0
+                })
+                .collect::<Vec<Pubkey>>();
+
+            if let Ok(accounts) = self.rpc_client.get_multiple_accounts(&pubkeys).await {
+                for (vote_pubkey, account) in chunk.iter().zip(accounts.iter()) {
+                    if let Some(acc) = account {
+                        if self.get_tip_distribution_program_id() != acc.owner {
+                            warn!("Validator {} may be trying to mess with their Tip Distribution Account", vote_pubkey);
+                            continue;
+                        }
+                        if let Ok(tip_distribution) =
+                            TipDistributionAccount::try_deserialize(&mut acc.data.as_slice())
+                        {
+                            commission_map.insert(*vote_pubkey, tip_distribution);
+                        }
+                    }
+                }
+            }
+        }
+        Ok(commission_map)
+    }
+
+    /// Fetch all priority fee distribution accounts
+    async fn fetch_priority_fee_distribution_accounts(
+        &self,
+        validator_vote_pubkeys: &[Pubkey],
+        epoch: u64,
+    ) -> Result<HashMap<Pubkey, PriorityFeeDistributionAccount>, Error> {
+        let mut commission_map = HashMap::new();
+        for chunk in validator_vote_pubkeys.chunks(100) {
+            let pubkeys = chunk
+                .iter()
+                .map(|vote_pubkey| {
+                    let vote_account_pubkey =
+                        solana_pubkey::Pubkey::from_str(&vote_pubkey.to_string()).unwrap();
+                    let pfda_pubkey = derive_priority_fee_distribution_account_address(
+                        &self.get_priority_fee_distribution_program_id(),
+                        &vote_account_pubkey,
+                        epoch,
+                    )
+                    .0;
+                    Pubkey::from_str(&pfda_pubkey.to_string()).unwrap()
+                })
+                .collect::<Vec<Pubkey>>();
+
+            if let Ok(accounts) = self.rpc_client.get_multiple_accounts(&pubkeys).await {
+                for (vote_pubkey, account) in chunk.iter().zip(accounts.iter()) {
+                    if let Some(acc) = account {
+                        let program_pubkey = Pubkey::from_str(
+                            &self.get_priority_fee_distribution_program_id().to_string(),
+                        )
+                        .unwrap();
+                        if program_pubkey != acc.owner {
+                            warn!("Validator {} may be trying to mess with their Priority Fee Distribution Account", vote_pubkey);
+                            continue;
+                        }
+                        if let Ok(fee_distribution) =
+                            PriorityFeeDistributionAccount::try_deserialize(
+                                &mut acc.data.as_slice(),
+                            )
+                        {
+                            commission_map.insert(*vote_pubkey, fee_distribution);
+                        }
+                    }
+                }
+            }
+        }
+        Ok(commission_map)
+    }
+
+    /// Fetch all validator history accounts
+    async fn fetch_validator_history_accounts(
+        &self,
+    ) -> Result<HashMap<Pubkey, ValidatorHistory>, Error> {
+        let validator_history_program_id = self.get_validator_history_program_id();
+        let validator_histories =
+            get_all_validator_history_accounts(&self.rpc_client, validator_history_program_id)
+                .await?;
+
+        Ok(validator_histories
+            .into_iter()
+            .map(|h| (h.vote_account, h))
+            .collect())
+    }
+
+    /// Fetch total MEV rewards for the epoch
+    pub async fn fetch_mev_rewards(&self, epoch: u64) -> Result<u64, Error> {
+        let vote_accounts = self.rpc_client.get_vote_accounts().await?;
+        let validator_vote_pubkeys: Vec<Pubkey> = vote_accounts
+            .current
+            .iter()
+            .chain(vote_accounts.delinquent.iter())
+            .filter_map(|account| Pubkey::from_str(&account.vote_pubkey).ok())
+            .collect();
+
+        let mut total = 0;
+        let tip_distribution_account_rent = self
+            .rpc_client
+            .get_minimum_balance_for_rent_exemption(TipDistributionAccount::SIZE)
+            .await?;
+
+        for chunk in validator_vote_pubkeys.chunks(100) {
+            let pubkeys = chunk
+                .iter()
+                .map(|vote_pubkey| {
+                    jito_tip_distribution_sdk::derive_tip_distribution_account_address(
+                        &self.get_tip_distribution_program_id(),
+                        vote_pubkey,
+                        epoch,
+                    )
+                    .0
+                })
+                .collect::<Vec<Pubkey>>();
+
+            if let Ok(accounts) = self.rpc_client.get_multiple_accounts(&pubkeys).await {
+                for account in accounts.into_iter().flatten() {
+                    if self.get_tip_distribution_program_id() == account.owner {
+                        total += account.lamports - tip_distribution_account_rent;
+                    }
+                }
+            }
+        }
+        Ok(total)
+    }
+
+    async fn fetch_inflation_rate(&self) -> Result<f64, Error> {
+        Ok(self.rpc_client.get_inflation_rate().await?.total)
+    }
+
+    fn calculate_vote_credits(
+        &self,
+        vote_accounts: &RpcVoteAccountStatus,
+    ) -> Result<(f64, HashMap<Pubkey, f64>), Error> {
+        let mut vote_credits_map = HashMap::new();
+
+        for vote_account in vote_accounts
+            .current
+            .iter()
+            .chain(vote_accounts.delinquent.iter())
+        {
+            let pubkey = Pubkey::from_str(&vote_account.vote_pubkey)?;
+            let sum: u64 = vote_account
+                .epoch_credits
+                .iter()
+                .map(|(_, current, prev)| current - prev)
+                .sum();
+            let average = if vote_account.epoch_credits.is_empty() {
+                0.0
+            } else {
+                sum as f64 / vote_account.epoch_credits.len() as f64
+            };
+            vote_credits_map.insert(pubkey, average);
+        }
+
+        let global_average = if vote_credits_map.is_empty() {
+            0.0
+        } else {
+            vote_credits_map.values().sum::<f64>() / vote_credits_map.len() as f64
+        };
+
+        Ok((global_average, vote_credits_map))
+    }
+
+    pub fn calculate_total_stake(&self, vote_accounts: &RpcVoteAccountStatus) -> u64 {
+        vote_accounts
+            .current
+            .iter()
+            .chain(vote_accounts.delinquent.iter())
+            .map(|info| info.activated_stake)
+            .sum()
+    }
+
+    fn get_validator_stake(
+        &self,
+        vote_accounts: &RpcVoteAccountStatus,
+        vote_account: &Pubkey,
+    ) -> u64 {
+        vote_accounts
+            .current
+            .iter()
+            .chain(vote_accounts.delinquent.iter())
+            .find(|info| Pubkey::from_str(&info.vote_pubkey).unwrap() == *vote_account)
+            .map(|info| info.activated_stake)
+            .unwrap_or(0)
+    }
+
+    fn calculate_inflation_rewards(
+        &self,
+        inflation_rate: f64,
+        staked_amount: f64,
+        vote_credit_proportion: f64,
+    ) -> u64 {
+        const EPOCHS_PER_YEAR: f64 = 163.0;
+        (inflation_rate / EPOCHS_PER_YEAR * staked_amount * vote_credit_proportion) as u64
+    }
+
+    // Program ID getters
+    fn get_tip_distribution_program_id(&self) -> Pubkey {
         match self.cluster {
             Cluster::Testnet => Pubkey::from_str(TIP_DISTRIBUTION_PROGRAM_TESTNET).unwrap(),
             Cluster::MainnetBeta => Pubkey::from_str(TIP_DISTRIBUTION_PROGRAM_MAINNET).unwrap(),
         }
     }
 
-    /// Get validator history program ID
-    pub fn get_validator_history_program_id(&self) -> Pubkey {
+    fn get_validator_history_program_id(&self) -> Pubkey {
         match &self.cluster {
             Cluster::Testnet => Pubkey::from_str(VALIDATOR_HISTORY_PROGRAM_TESTNET).unwrap(),
             Cluster::MainnetBeta => Pubkey::from_str(VALIDATOR_HISTORY_PROGRAM_MAINNET).unwrap(),
         }
     }
 
-    pub fn get_priority_fee_distribution_program_id(&self) -> solana_pubkey::Pubkey {
+    fn get_priority_fee_distribution_program_id(&self) -> solana_pubkey::Pubkey {
         solana_pubkey::Pubkey::from_str(PRIORITY_FEE_DISTRIBUTION_PROGRAM).unwrap()
     }
-}
-
-// fetches global average vote credits and average vote credits per validator over last 5 epochs
-pub fn fetch_vote_credits(
-    vote_accounts: &RpcVoteAccountStatus,
-) -> Result<(f64, HashMap<Pubkey, f64>), Error> {
-    // Loop through vote accounts
-    let mut average_vote_credits_map: HashMap<Pubkey, f64> = HashMap::new();
-    for vote_account in vote_accounts
-        .current
-        .iter()
-        .chain(vote_accounts.delinquent.iter())
-    {
-        // Calculate average
-        let pubkey = Pubkey::from_str(&vote_account.vote_pubkey)?;
-        let sum = vote_account
-            .epoch_credits
-            .iter()
-            .map(|(_, current, prev)| current - prev)
-            .sum::<u64>();
-        let average = if vote_account.epoch_credits.is_empty() {
-            0.
-        } else {
-            sum as f64 / vote_account.epoch_credits.len() as f64
-        };
-        average_vote_credits_map.insert(pubkey, average);
-    }
-    let global_average =
-        average_vote_credits_map.values().sum::<f64>() / average_vote_credits_map.len() as f64;
-    Ok((global_average, average_vote_credits_map))
-}
-
-pub fn fetch_total_staked_lamports(vote_accounts: &RpcVoteAccountStatus) -> u64 {
-    vote_accounts
-        .current
-        .iter()
-        .chain(vote_accounts.delinquent.iter())
-        .map(|info| info.activated_stake)
-        .sum()
-}
-
-pub fn fetch_staked_lamports_for_validator(
-    vote_accounts: &RpcVoteAccountStatus,
-    vote_account: &Pubkey,
-) -> u64 {
-    vote_accounts
-        .current
-        .iter()
-        .chain(vote_accounts.delinquent.iter())
-        .find(|info| &Pubkey::from_str(&info.vote_pubkey).unwrap() == vote_account)
-        .map(|info| info.activated_stake)
-        .unwrap_or(0)
 }

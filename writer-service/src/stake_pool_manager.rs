@@ -4,7 +4,7 @@ use chrono::{Duration, DurationRound, Utc};
 use kobe_core::{
     constants::{MAINNET_STAKE_POOL_ADDRESS, TESTNET_STAKE_POOL_ADDRESS},
     db_models::{stake_pool_stats::StakePoolStats, validators::Validator},
-    fetcher::{fetch_total_staked_lamports, ValidatorDataFetcher},
+    fetcher::ValidatorDataFetcher,
     validators_app::{Client, Cluster},
 };
 use log::info;
@@ -102,7 +102,10 @@ impl StakePoolManager {
             fees_collected: rpc_utils::get_stake_pool_fees(rpc_client, &stake_pool)
                 .await
                 .ok(),
-            total_network_staked_lamports: Some(fetch_total_staked_lamports(&vote_accounts)),
+            total_network_staked_lamports: Some(
+                self.validator_data_fetcher
+                    .calculate_total_stake(&vote_accounts),
+            ),
         };
 
         info!("Done writing stats: {stats:#?}");

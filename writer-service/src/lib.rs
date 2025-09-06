@@ -114,15 +114,17 @@ impl KobeWriterService {
     /// - Collect stake pool stats from on-chain, then write into DB
     pub async fn run_live_mode(&self) -> Result<()> {
         let mut next_hourly_update = Instant::now();
+        let epoch = rpc_utils::retry_get_epoch_info(&self.stake_pool_manager.rpc_client).await?;
+
         info!("Starting live mode with 10-minute epoch processing intervals");
 
         loop {
             let next_run_time = Instant::now() + Duration::from_secs(600); // 10 minutes
 
             // Process epoch every 10 minutes
-            info!("Processing epoch...");
-            self.process_epoch().await?;
-            info!("Epoch processing completed");
+            info!("Processing epoch {epoch}... ");
+            self.process_epoch(epoch).await?;
+            info!("Epoch {epoch} processing completed");
 
             // Check if it's time for the hourly update
             if Instant::now() >= next_hourly_update {
@@ -172,9 +174,7 @@ impl KobeWriterService {
     }
 
     /// Process the epoch by writing validator info and MEV claims info to the database
-    async fn process_epoch(&self) -> Result<()> {
-        let epoch = rpc_utils::retry_get_epoch_info(&self.stake_pool_manager.rpc_client).await?;
-
+    async fn process_epoch(&self, epoch: u64) -> Result<()> {
         match write_validator_info(&self.db, &self.stake_pool_manager, epoch).await {
             Ok(_) => {
                 datapoint_info!("validator_stats_written", ("success", 1, i64), "cluster" => self.cluster.to_string());

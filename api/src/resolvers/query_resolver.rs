@@ -473,6 +473,7 @@ impl QueryResolver {
                         priority_fee_commission_bps: v.priority_fee_commission_bps,
                         priority_fee_rewards: v.priority_fee_revenue_lamports,
                         running_jito: v.running_jito,
+                        is_jito_blacklist: v.is_jito_blacklist,
                     }
                 })
                 .collect(),
@@ -540,6 +541,7 @@ impl QueryResolver {
                         priority_fee_commission_bps: v.priority_fee_commission_bps,
                         priority_fee_rewards: v.priority_fee_revenue_lamports,
                         running_jito: v.running_jito,
+                        is_jito_blacklist: v.is_jito_blacklist,
                     }
                 })
                 .collect(),

@@ -210,6 +210,7 @@ impl ValidatorDataFetcher {
         let validator_index = validator_histories
             .get(vote_account)
             .map(|history| history.index);
+
         // MEV data
         let (mev_commission_bps, mev_revenue_lamports) = tip_distributions
             .get(vote_account)
@@ -280,15 +281,12 @@ impl ValidatorDataFetcher {
             .cloned()
             .unwrap_or((None, None));
 
-        let is_jito_blacklist = if let Some(index) = validator_index {
-            let is_jito_blacklist = steward_config
+        let is_jito_blacklist = validator_index.and_then(|index| {
+            steward_config
                 .validator_history_blacklist
                 .get(index as usize)
-                .is_ok();
-            Some(is_jito_blacklist)
-        } else {
-            None
-        };
+                .ok()
+        });
 
         ValidatorChainData {
             name,
@@ -602,8 +600,8 @@ impl ValidatorDataFetcher {
     /// Get steward config public key
     fn get_steward_config_pubkey(&self) -> Pubkey {
         match &self.cluster {
-            Cluster::Testnet => Pubkey::from_str(STEWARD_CONFIG_MAINNET).unwrap(),
-            Cluster::MainnetBeta => Pubkey::from_str(STEWARD_CONFIG_TESTNET).unwrap(),
+            Cluster::Testnet => Pubkey::from_str(STEWARD_CONFIG_TESTNET).unwrap(),
+            Cluster::MainnetBeta => Pubkey::from_str(STEWARD_CONFIG_MAINNET).unwrap(),
         }
     }
 

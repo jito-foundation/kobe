@@ -18,15 +18,28 @@ pub struct ValidatorsResponse {
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct ValidatorEntry {
+    /// Vote account public key
     pub vote_account: String,
+
+    /// MEV commission rate in basis points (100 bps = 1%)
     pub mev_commission_bps: Option<u16>,
+
+    /// MEV rewards earned for this specific epoch in lamports
     pub mev_rewards: Option<u64>,
+
+    /// Priority fee commission rate in basis points (100 bps = 1%)
     pub priority_fee_commission_bps: Option<u16>,
+
+    /// Priority fee rewards earned for this specific epoch in lamports
     pub priority_fee_rewards: Option<u64>,
+
+    /// Whether this validator is running the Jito client
     pub running_jito: bool,
+
+    /// Amount of actively staked SOL in lamports
     pub active_stake: u64,
 
-    /// Is Jito Blacklist
+    /// Whether this is blacklisted by Jito
     pub is_jito_blacklist: Option<bool>,
 }
 

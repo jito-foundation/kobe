@@ -4,6 +4,7 @@ use anchor_lang::AccountDeserialize;
 use bincode::deserialize;
 use jito_priority_fee_distribution::state::PriorityFeeDistributionAccount;
 use jito_priority_fee_distribution_sdk::derive_priority_fee_distribution_account_address;
+use jito_steward::state::Config as StewardConfig;
 use jito_tip_distribution::state::TipDistributionAccount;
 use log::warn;
 use solana_account::Account;
@@ -16,15 +17,17 @@ use solana_config_interface::state::ConfigKeys;
 use solana_pubkey::Pubkey;
 use spl_stake_pool::state::ValidatorStakeInfo;
 use spl_stake_pool_cli::client::get_validator_list;
-use stakenet_sdk::utils::accounts::get_all_validator_history_accounts;
+use stakenet_sdk::utils::accounts::{
+    get_all_validator_history_accounts, get_steward_config_account,
+};
 use validator_history::ValidatorHistory;
 
 use crate::{
     client_type::ClientType,
     constants::{
-        PRIORITY_FEE_DISTRIBUTION_PROGRAM, TIP_DISTRIBUTION_PROGRAM_MAINNET,
-        TIP_DISTRIBUTION_PROGRAM_TESTNET, VALIDATOR_HISTORY_PROGRAM_MAINNET,
-        VALIDATOR_HISTORY_PROGRAM_TESTNET,
+        PRIORITY_FEE_DISTRIBUTION_PROGRAM, STEWARD_CONFIG_MAINNET, STEWARD_CONFIG_TESTNET,
+        TIP_DISTRIBUTION_PROGRAM_MAINNET, TIP_DISTRIBUTION_PROGRAM_TESTNET,
+        VALIDATOR_HISTORY_PROGRAM_MAINNET, VALIDATOR_HISTORY_PROGRAM_TESTNET,
     },
     validators_app::Cluster,
 };
@@ -65,6 +68,9 @@ pub struct ValidatorChainData {
 
     /// Total priority fee rewards earned this epoch in lamports
     pub priority_fee_revenue_lamports: u64,
+
+    /// Is jito blacklist
+    pub is_jito_blacklist: Option<bool>,
 }
 
 /// Unified validator data fetcher that handles all on-chain data collection
@@ -136,6 +142,10 @@ impl ValidatorDataFetcher {
         let (global_average, vote_credits_map) = self.calculate_vote_credits(&vote_accounts)?;
         let total_staked_lamports = self.calculate_total_stake(&vote_accounts);
 
+        let steward_config_pubkey = self.get_steward_config_pubkey();
+        let steward_config =
+            get_steward_config_account(&self.rpc_client, &steward_config_pubkey).await?;
+
         // Build complete validator data
         let mut result = HashMap::new();
         for vote_account in validator_vote_pubkeys {
@@ -152,6 +162,7 @@ impl ValidatorDataFetcher {
                 inflation_rate,
                 total_staked_lamports,
                 &validator_info_map,
+                &steward_config,
             );
             result.insert(vote_account, validator_data);
         }
@@ -194,7 +205,11 @@ impl ValidatorDataFetcher {
         inflation_rate: f64,
         total_staked_lamports: u64,
         validator_info_map: &HashMap<Pubkey, (Option<String>, Option<String>)>,
+        steward_config: &StewardConfig,
     ) -> ValidatorChainData {
+        let validator_index = validator_histories
+            .get(vote_account)
+            .map(|history| history.index);
         // MEV data
         let (mev_commission_bps, mev_revenue_lamports) = tip_distributions
             .get(vote_account)
@@ -265,6 +280,16 @@ impl ValidatorDataFetcher {
             .cloned()
             .unwrap_or((None, None));
 
+        let is_jito_blacklist = if let Some(index) = validator_index {
+            let is_jito_blacklist = steward_config
+                .validator_history_blacklist
+                .get(index as usize)
+                .is_ok();
+            Some(is_jito_blacklist)
+        } else {
+            None
+        };
+
         ValidatorChainData {
             name,
             website,
@@ -277,6 +302,7 @@ impl ValidatorDataFetcher {
             inflation_rewards_lamports,
             priority_fee_commission_bps,
             priority_fee_revenue_lamports,
+            is_jito_blacklist,
         }
     }
 
@@ -570,6 +596,14 @@ impl ValidatorDataFetcher {
         match self.cluster {
             Cluster::Testnet => Pubkey::from_str(TIP_DISTRIBUTION_PROGRAM_TESTNET).unwrap(),
             Cluster::MainnetBeta => Pubkey::from_str(TIP_DISTRIBUTION_PROGRAM_MAINNET).unwrap(),
+        }
+    }
+
+    /// Get steward config public key
+    fn get_steward_config_pubkey(&self) -> Pubkey {
+        match &self.cluster {
+            Cluster::Testnet => Pubkey::from_str(STEWARD_CONFIG_MAINNET).unwrap(),
+            Cluster::MainnetBeta => Pubkey::from_str(STEWARD_CONFIG_TESTNET).unwrap(),
         }
     }
 

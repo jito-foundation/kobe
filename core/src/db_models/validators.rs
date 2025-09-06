@@ -52,6 +52,7 @@ pub struct Validator {
     pub vote_credit_proportion: f64,
     pub www_url: Option<String>,
     pub inflation_rewards_lamports: u64,
+    pub is_jito_blacklist: Option<bool>,
 }
 
 impl Validator {
@@ -102,6 +103,7 @@ impl Validator {
             vote_credit_proportion: on_chain_data.vote_credit_proportion,
             www_url: on_chain_data.website.to_owned(),
             inflation_rewards_lamports: on_chain_data.inflation_rewards_lamports,
+            is_jito_blacklist: on_chain_data.is_jito_blacklist,
         }
     }
 

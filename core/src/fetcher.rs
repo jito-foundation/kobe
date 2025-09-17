@@ -15,8 +15,9 @@ use validator_history::ValidatorHistory;
 use crate::{
     client_type::ClientType,
     constants::{
-        PRIORITY_FEE_DISTRIBUTION_PROGRAM, TIP_DISTRIBUTION_PROGRAM_MAINNET,
-        TIP_DISTRIBUTION_PROGRAM_TESTNET, VALIDATOR_HISTORY_PROGRAM_MAINNET,
+        PRIORITY_FEE_DISTRIBUTION_PROGRAM, TIP_DISTRIBUTION_PROGRAM_DEVNET,
+        TIP_DISTRIBUTION_PROGRAM_MAINNET, TIP_DISTRIBUTION_PROGRAM_TESTNET,
+        VALIDATOR_HISTORY_PROGRAM_DEVNET, VALIDATOR_HISTORY_PROGRAM_MAINNET,
         VALIDATOR_HISTORY_PROGRAM_TESTNET,
     },
     validators_app::{Cluster, ValidatorsAppResponseEntry},
@@ -61,6 +62,7 @@ pub struct ChainData {
 pub fn get_tip_distribution_program_id(cluster: &Cluster) -> Pubkey {
     // These seem to be in flux
     match cluster {
+        Cluster::Devnet => Pubkey::from_str(TIP_DISTRIBUTION_PROGRAM_DEVNET).unwrap(),
         Cluster::Testnet => Pubkey::from_str(TIP_DISTRIBUTION_PROGRAM_TESTNET).unwrap(),
         Cluster::MainnetBeta => Pubkey::from_str(TIP_DISTRIBUTION_PROGRAM_MAINNET).unwrap(),
     }
@@ -69,6 +71,7 @@ pub fn get_tip_distribution_program_id(cluster: &Cluster) -> Pubkey {
 /// Get validator history program ID
 pub fn get_validator_history_program_id(cluster: &Cluster) -> Pubkey {
     match cluster {
+        Cluster::Devnet => Pubkey::from_str(VALIDATOR_HISTORY_PROGRAM_DEVNET).unwrap(),
         Cluster::Testnet => Pubkey::from_str(VALIDATOR_HISTORY_PROGRAM_TESTNET).unwrap(),
         Cluster::MainnetBeta => Pubkey::from_str(VALIDATOR_HISTORY_PROGRAM_MAINNET).unwrap(),
     }

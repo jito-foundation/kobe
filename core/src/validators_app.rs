@@ -15,6 +15,7 @@ use solana_pubkey::Pubkey;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub enum Cluster {
+    Devnet,
     Testnet,
     MainnetBeta,
 }
@@ -36,6 +37,7 @@ impl std::fmt::Display for Cluster {
             f,
             "{}",
             match self {
+                Self::Devnet => "devnet",
                 Self::Testnet => "testnet",
                 Self::MainnetBeta => "mainnet-beta",
             }
@@ -47,11 +49,13 @@ impl std::fmt::Display for Cluster {
 pub enum ClusterJson {
     MainnetBeta,
     Testnet,
+    Devnet,
 }
 
 impl ClusterJson {
     pub fn from_cluster(cluster: Cluster) -> ClusterJson {
         match cluster {
+            Cluster::Devnet => ClusterJson::Devnet,
             Cluster::MainnetBeta => ClusterJson::MainnetBeta,
             Cluster::Testnet => ClusterJson::Testnet,
         }
@@ -69,6 +73,7 @@ impl AsRef<str> for ClusterJson {
         match self {
             Self::MainnetBeta => "mainnet.json",
             Self::Testnet => "testnet.json",
+            Self::Devnet => "devnet.json",
         }
     }
 }

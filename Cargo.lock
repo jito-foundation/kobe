@@ -2768,6 +2768,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "kobe-analysis"
+version = "1.0.0"
+dependencies = [
+ "clap 4.5.40",
+ "env_logger 0.10.2",
+ "futures",
+ "kobe-core",
+ "log",
+ "mongodb",
+ "solana-client",
+ "solana-sdk",
+ "solana-transaction-status",
+ "tokio",
+]
+
+[[package]]
 name = "kobe-api"
 version = "1.0.0"
 dependencies = [

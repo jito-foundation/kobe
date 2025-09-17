@@ -2,7 +2,9 @@ use std::{str::FromStr, thread::sleep, time::Duration as CoreDuration};
 
 use chrono::{Duration, DurationRound, Utc};
 use kobe_core::{
-    constants::{MAINNET_STAKE_POOL_ADDRESS, TESTNET_STAKE_POOL_ADDRESS},
+    constants::{
+        DEVNET_STAKE_POOL_ADDRESS, MAINNET_STAKE_POOL_ADDRESS, TESTNET_STAKE_POOL_ADDRESS,
+    },
     db_models::{stake_pool_stats::StakePoolStats, validators::Validator},
     fetcher::{fetch_chain_data, fetch_mev_rewards, fetch_total_staked_lamports},
     validators_app::{Client, Cluster},
@@ -148,6 +150,7 @@ pub fn wait_for_next_duration(duration: Duration) {
 
 pub fn resolve_stake_pool_address(cluster: &Cluster) -> Result<Pubkey> {
     let address_str = match cluster {
+        Cluster::Devnet => DEVNET_STAKE_POOL_ADDRESS,
         Cluster::Testnet => TESTNET_STAKE_POOL_ADDRESS,
         Cluster::MainnetBeta => MAINNET_STAKE_POOL_ADDRESS,
     };

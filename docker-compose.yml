@@ -4,28 +4,21 @@ services:
     container_name: kobe-cranker
     environment:
       - CONFIG_FILE=$CONFIG_FILE
-      - STAKER=$STAKER
       - POOL_ADDRESS=$POOL_ADDRESS
       - FEE_PAYER=$FEE_PAYER
       - DRY_RUN=$DRY_RUN
       - SIMULATE=$SIMULATE
       - SOLANA_CLUSTER=$SOLANA_CLUSTER
-      - VALIDATORS_APP_TOKEN=$VALIDATORS_APP_TOKEN
-      - MEV_REVENUE=$MEV_REVENUE
-      - DELEGATION_STRATEGY=$DELEGATION_STRATEGY
-      - DELEGATION_FILE=$DELEGATION_FILE
-      - DIRECT_DELEGATION_FILE=$DIRECT_DELEGATION_FILE
       - SENTRY_API_URL=$SENTRY_API_URL
       - RUST_LOG=info
       - SLACK_API_TOKEN=$SLACK_API_TOKEN
       - RPC_URL=$RPC_URL
-      - TX_PROXY_URL=$TX_PROXY_URL
       - SOLANA_METRICS_CONFIG=$SOLANA_METRICS_CONFIG
       - REGION=$REGION
     build:
       context: .
       dockerfile: Dockerfile
-      target: kobe-cranker
+      target: cranker
     volumes:
       - ./credentials:/var/secrets
       - ./files:/files

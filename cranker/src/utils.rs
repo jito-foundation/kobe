@@ -36,7 +36,6 @@ pub enum TransactionRetryError {
 
 pub struct Config {
     pub rpc_client: RpcClient,
-    pub staker: Box<dyn Signer>,
     pub fee_payer: Box<dyn Signer>,
     pub stake_pool_address: Pubkey,
     pub dry_run: bool,
@@ -316,7 +315,7 @@ pub async fn parallel_execute_stake_pool_update(
         let transaction = checked_transaction_with_signers(
             config,
             &final_instructions_prio_fee,
-            &[config.fee_payer.as_ref(), config.staker.as_ref()],
+            &[config.fee_payer.as_ref()],
         )
         .await
         .map_err(|e| anyhow!("{e}"))?;

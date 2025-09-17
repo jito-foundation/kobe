@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1.4.0
-FROM rust:1.85.0-slim-bullseye as builder
+FROM rust:1.85.0-slim-bookworm as builder
 
 RUN apt-get update && apt-get install -y \
     libudev-dev \

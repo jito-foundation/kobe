@@ -106,6 +106,7 @@ impl Args {
             .unwrap_or_else(|| match self.get_cluster() {
                 Cluster::MainnetBeta => "https://api.mainnet-beta.solana.com".into(),
                 Cluster::Testnet => "https://api.testnet.solana.com".into(),
+                Cluster::Devnet => "https://api.devnet.solana.com".into(),
             })
     }
 }

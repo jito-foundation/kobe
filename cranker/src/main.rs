@@ -91,12 +91,10 @@ fn main() {
     let rpc_client =
         RpcClient::new_with_commitment(json_rpc_url.clone(), CommitmentConfig::confirmed());
     let config: Config = {
-        let staker = get_signer(None, &cli_config.keypair_path);
         let fee_payer = get_signer(args.fee_payer.as_deref(), &cli_config.keypair_path);
 
         Config {
             rpc_client,
-            staker,
             fee_payer,
             stake_pool_address,
             dry_run: args.dry_run,

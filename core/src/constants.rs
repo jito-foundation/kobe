@@ -17,6 +17,7 @@ pub const STAKE_POOL_STATS_COLLECTION_NAME: &str = "stake_pool_stats";
 pub const VALIDATOR_REWARDS_COLLECTION_NAME: &str = "validator_rewards";
 pub const STAKER_REWARDS_COLLECTION_NAME: &str = "staker_rewards";
 pub const STEWARD_EVENTS_COLLECTION_NAME: &str = "steward_events";
+pub const DEVNET_STAKE_POOL_ADDRESS: &str = "Jito4APyf642JPZPx3hGc6WWJ8zPKtRbRs4P815Awbb";
 pub const TESTNET_STAKE_POOL_ADDRESS: &str = "Jito4APyf642JPZPx3hGc6WWJ8zPKtRbRs4P815Awbb";
 pub const MAINNET_STAKE_POOL_ADDRESS: &str = "Jito4APyf642JPZPx3hGc6WWJ8zPKtRbRs4P815Awbb";
 pub const MAINNET_SNAPSHOT_BUCKET_URL: &str =

@@ -89,7 +89,11 @@ fn get_rpc_url(cluster: &Cluster) -> String {
     let testnet_url =
         env::var("TESTNET_CLUSTER_URL").unwrap_or("https://api.testnet.solana.com".to_string());
 
+    let devnet_url =
+        env::var("DEVNET_CLUSTER_URL").unwrap_or("https://api.devnet.solana.com".to_string());
+
     let json_rpc_url = match cluster {
+        Cluster::Devnet => devnet_url,
         Cluster::MainnetBeta => mainnet_url,
         Cluster::Testnet => testnet_url,
     };

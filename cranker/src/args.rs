@@ -4,8 +4,8 @@ use solana_pubkey::Pubkey;
 
 fn validate_network(network: &str) -> Result<String, String> {
     match network {
-        "mainnet-beta" | "mainnet" | "m" | "testnet" | "t" => Ok(network.to_string()),
-        _ => Err("Network must be testnet or mainnet-beta".to_string()),
+        "mainnet-beta" | "mainnet" | "m" | "testnet" | "t" | "devnet" => Ok(network.to_string()),
+        _ => Err("Network must be devnet or testnet or mainnet-beta".to_string()),
     }
 }
 

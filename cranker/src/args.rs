@@ -90,6 +90,7 @@ impl Args {
         match self.network.as_str() {
             "testnet" | "t" => Cluster::Testnet,
             "mainnet-beta" | "mainnet" | "m" => Cluster::MainnetBeta,
+            "devnet" | "d" => Cluster::Devnet,
             _ => panic!("invalid cluster specified"), // This shouldn't happen due to validation
         }
     }

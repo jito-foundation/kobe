@@ -21,28 +21,28 @@ COPY . .
 RUN cargo build --release  && cp target/release/kobe-* ./
 
 FROM debian:bookworm-slim as cranker
-RUN apt-get update && apt-get install -y libssl3 ca-certificates && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y libssl3 ca-certificates procps && rm -rf /var/lib/apt/lists/*
 ENV APP="kobe-cranker"
 WORKDIR /app
 COPY --from=builder /home/root/app/${APP} ./
 ENTRYPOINT ./$APP
 
 FROM debian:bookworm-slim as api
-RUN apt-get update && apt-get install -y libssl3 ca-certificates && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y libssl3 ca-certificates procps && rm -rf /var/lib/apt/lists/*
 ENV APP="kobe-api"
 WORKDIR /app
 COPY --from=builder /home/root/app/${APP} ./
 ENTRYPOINT ./$APP
 
 FROM debian:bookworm-slim as writer-service
-RUN apt-get update && apt-get install -y libssl3 ca-certificates && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y libssl3 ca-certificates procps && rm -rf /var/lib/apt/lists/*
 ENV APP="kobe-writer-service"
 WORKDIR /app
 COPY --from=builder /home/root/app/${APP} ./
 ENTRYPOINT ./$APP live
 
 FROM debian:bookworm-slim as steward-writer-service
-RUN apt-get update && apt-get install -y libssl3 ca-certificates && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y libssl3 ca-certificates procps && rm -rf /var/lib/apt/lists/*
 ENV APP="kobe-steward-writer-service"
 WORKDIR /app
 COPY --from=builder /home/root/app/${APP} ./

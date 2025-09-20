@@ -261,7 +261,7 @@ pub async fn parallel_execute_stake_pool_update(
         .map(|chunk| {
             let mut instructions = vec![
                 ComputeBudgetInstruction::set_compute_unit_price(INITIAL_PRIORITY_FEE),
-                ComputeBudgetInstruction::set_compute_unit_limit(200_000),
+                ComputeBudgetInstruction::set_compute_unit_limit(600_000),
             ];
 
             instructions.extend(chunk.to_vec());
@@ -280,7 +280,7 @@ pub async fn parallel_execute_stake_pool_update(
             .map(|chunk| {
                 let mut instructions = vec![
                     ComputeBudgetInstruction::set_compute_unit_price(HIGH_PRIORITY_FEE),
-                    ComputeBudgetInstruction::set_compute_unit_limit(200_000),
+                    ComputeBudgetInstruction::set_compute_unit_limit(600_000),
                 ];
                 instructions.extend(chunk.to_vec());
                 instructions

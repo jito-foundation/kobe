@@ -40,22 +40,22 @@ jobs:
             "api")
               echo "target=api" >> $GITHUB_OUTPUT
               echo "service=api" >> $GITHUB_OUTPUT
-              echo "image_name=${{ github.repository }}/api" >> $GITHUB_OUTPUT
+              echo "image_name=${{ github.repository }}/kobe-api" >> $GITHUB_OUTPUT
               ;;
             "cranker")
               echo "target=cranker" >> $GITHUB_OUTPUT
               echo "service=cranker" >> $GITHUB_OUTPUT
-              echo "image_name=${{ github.repository }}/cranker" >> $GITHUB_OUTPUT
+              echo "image_name=${{ github.repository }}/kobe-cranker" >> $GITHUB_OUTPUT
               ;;
             "writer-service")
               echo "target=writer-service" >> $GITHUB_OUTPUT
               echo "service=writer-service" >> $GITHUB_OUTPUT
-              echo "image_name=${{ github.repository }}/writer-service" >> $GITHUB_OUTPUT
+              echo "image_name=${{ github.repository }}/kobe-writer-service" >> $GITHUB_OUTPUT
               ;;
             "steward-writer-service")
               echo "target=steward-writer-service" >> $GITHUB_OUTPUT
               echo "service=steward-writer-service" >> $GITHUB_OUTPUT
-              echo "image_name=${{ github.repository }}/steward-writer-service" >> $GITHUB_OUTPUT
+              echo "image_name=${{ github.repository }}/kobe-steward-writer-service" >> $GITHUB_OUTPUT
               ;;
           esac
 
@@ -65,8 +65,8 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ steps.config.outputs.image_name }}
           tags: |
-            type=raw,value={{sha}}
-            type=raw,value=latest
+            type=raw,value=${{ github.ref_name }}-${{ github.event.inputs.service_config }}-{{sha}}
+            type=raw,value=${{ github.ref_name }}-${{ github.event.inputs.service_config }}-latest
 
       - name: Build and push container
         uses: docker/build-push-action@v5

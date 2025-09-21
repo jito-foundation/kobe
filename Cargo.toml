@@ -9,8 +9,6 @@ members = [
     "writer-service",
 ]
 
-exclude = ["jito-programs"]
-
 [workspace.package]
 authors = ["Jito Network Maintainers <support@jito.network>"]
 repository = "https://github.com/jito-foundation/kobe"

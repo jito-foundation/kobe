@@ -17,7 +17,7 @@ pub struct GoogleStorageBucketFile {
     pub media_link: String,
 }
 
-pub fn filter_file(
+fn filter_file(
     response: &[GoogleStorageBucketFile],
     name: String,
     epoch: u64,
@@ -96,4 +96,43 @@ pub async fn get_file_uris(
         merkle_tree_entry.media_link.to_owned(),
         stake_meta_entry.media_link.to_owned(),
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::google_storage::{filter_file, get_file_uris, GoogleStorageBucketFile};
+
+    #[test]
+    fn filter_file_success() {
+        let response = vec![GoogleStorageBucketFile {
+            name: "844/tip-router-rpc-1/844-merkle-tree-collection.json".to_string(),
+            media_link: "https://storage.googleapis.com/download/storage/v1/b/jito-mainnet/o/844%2Ftip-router-rpc-1%2F844-merkle-tree-collection.json?generation=1757167743549992&alt=media".to_string()
+        }];
+        let name = "merkle-tree".to_string();
+        let epoch = 844;
+        let server_name = "tip-router-rpc-1".to_string();
+
+        let bucket_file = filter_file(&response, name, epoch, server_name);
+
+        assert!(bucket_file.is_ok());
+    }
+
+    #[tokio::test]
+    async fn get_file_uris_success() {
+        let epoch = 844;
+        let mainnet_gcp_server_names = vec![
+            String::from("tip-router-rpc-1"),
+            String::from("tip-router-rpc-2"),
+            String::from("tip-router-rpc-3"),
+        ];
+
+        let file_uris = get_file_uris(epoch, &mainnet_gcp_server_names).await;
+
+        assert!(file_uris.is_ok());
+
+        let file_uris = file_uris.unwrap();
+
+        assert_eq!(file_uris.0, "https://storage.googleapis.com/download/storage/v1/b/jito-mainnet/o/844%2Ftip-router-rpc-1%2F844-merkle-tree-collection.json?generation=1757167743549992&alt=media");
+        // assert_eq!(file_uris.1, "https://storage.googleapis.com/download/storage/v1/b/jito-mainnet/o/844%2Ftip-router-rpc-1%2F844-merkle-tree-collection.json?generation=1757167743549992&alt=media");
+    }
 }

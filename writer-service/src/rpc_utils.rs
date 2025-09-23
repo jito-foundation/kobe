@@ -1,5 +1,3 @@
-use std::time::Duration as CoreDuration;
-
 use backoff::ExponentialBackoff;
 use log::error;
 use solana_client::nonblocking::rpc_client::RpcClient;
@@ -79,13 +77,4 @@ pub async fn retry_get_epoch_info(rpc_client: &RpcClient) -> Result<u64> {
     backoff::future::retry(backoff, op)
         .await
         .map_err(|e| e.into())
-}
-
-/// Set up and configures and RPC client
-pub fn setup_rpc_client(rpc_url: String) -> Result<RpcClient> {
-    Ok(RpcClient::new_with_timeout_and_commitment(
-        rpc_url,
-        CoreDuration::from_secs(60),
-        CommitmentConfig::confirmed(),
-    ))
 }

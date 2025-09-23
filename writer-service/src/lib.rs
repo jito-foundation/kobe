@@ -61,7 +61,7 @@ impl KobeWriterService {
     pub async fn new(
         mongo_connection_uri: &str,
         cluster: Cluster,
-        rpc_url: Option<String>,
+        rpc_url: String,
         tip_distribution_program_id: String,
         priority_fee_distribution_program_id: String,
         mainnet_gcp_server_names: Vec<String>,
@@ -71,7 +71,7 @@ impl KobeWriterService {
         let stake_pool_address = stake_pool_manager::resolve_stake_pool_address(&cluster)?;
 
         let db = mongodb_client.database(DATABASE_NAME);
-        let rpc_client = rpc_utils::setup_rpc_client(&cluster, rpc_url)?;
+        let rpc_client = rpc_utils::setup_rpc_client(rpc_url)?;
 
         let stake_pool = get_stake_pool(&rpc_client, &stake_pool_address).await?;
 

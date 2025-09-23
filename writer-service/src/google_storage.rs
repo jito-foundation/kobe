@@ -133,6 +133,5 @@ mod tests {
         let file_uris = file_uris.unwrap();
 
         assert_eq!(file_uris.0, "https://storage.googleapis.com/download/storage/v1/b/jito-mainnet/o/844%2Ftip-router-rpc-1%2F844-merkle-tree-collection.json?generation=1757167743549992&alt=media");
-        // assert_eq!(file_uris.1, "https://storage.googleapis.com/download/storage/v1/b/jito-mainnet/o/844%2Ftip-router-rpc-1%2F844-merkle-tree-collection.json?generation=1757167743549992&alt=media");
     }
 }

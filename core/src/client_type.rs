@@ -28,11 +28,13 @@ impl ClientType {
     /// # Examples
     ///
     /// ```
+    /// use kobe_core::client_type::ClientType;
+    ///
     /// let client = ClientType::from_u8(1);
-    /// assert_eq(client, ClientType::JitoLabs);
+    /// assert_eq!(client, ClientType::JitoLabs);
     ///
     /// let client = ClientType::from_u8(99);
-    /// assert_eq(client, ClientType::Other(99));
+    /// assert_eq!(client, ClientType::Other(99));
     /// ```
     pub fn from_u8(value: u8) -> Self {
         match value {
@@ -49,10 +51,12 @@ impl ClientType {
     /// # Examples
     ///
     /// ```
+    /// use kobe_core::client_type::ClientType;
+    ///
     /// assert_eq!(ClientType::JitoLabs.as_str(), "Jito Labs");
     /// assert_eq!(ClientType::Other(99).as_str(), "Other");
     /// ```
-    fn as_str(&self) -> &'static str {
+    pub fn as_str(&self) -> &'static str {
         match self {
             ClientType::SolanaLabs => "Solana Labs",
             ClientType::JitoLabs => "Jito Labs",

@@ -512,7 +512,7 @@ impl QueryResolver {
             Cluster::Testnet => JITOSOL_VALIDATOR_LIST_TESTNET,
             Cluster::Devnet => {
                 return Err(QueryResolverError::InvalidRequest(
-                    "Devnet has not supported yet".to_string(),
+                    "Devnet is not supported yet".to_string(),
                 ));
             }
         };

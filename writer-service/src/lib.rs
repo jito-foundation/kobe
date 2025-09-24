@@ -6,8 +6,9 @@ use kobe_core::{
 };
 use log::{error, info};
 use mongodb::Database;
+use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_metrics::datapoint_info;
-use solana_sdk::pubkey::Pubkey;
+use solana_sdk::{commitment_config::CommitmentConfig, pubkey::Pubkey};
 use spl_stake_pool::state::StakePool;
 use spl_stake_pool_cli::client::get_stake_pool;
 use tokio::time::{sleep_until, Instant};
@@ -61,7 +62,7 @@ impl KobeWriterService {
     pub async fn new(
         mongo_connection_uri: &str,
         cluster: Cluster,
-        rpc_url: Option<String>,
+        rpc_url: String,
         tip_distribution_program_id: String,
         priority_fee_distribution_program_id: String,
         mainnet_gcp_server_names: Vec<String>,
@@ -71,7 +72,11 @@ impl KobeWriterService {
         let stake_pool_address = stake_pool_manager::resolve_stake_pool_address(&cluster)?;
 
         let db = mongodb_client.database(DATABASE_NAME);
-        let rpc_client = rpc_utils::setup_rpc_client(&cluster, rpc_url)?;
+        let rpc_client = RpcClient::new_with_timeout_and_commitment(
+            rpc_url,
+            Duration::from_secs(60),
+            CommitmentConfig::confirmed(),
+        );
 
         let stake_pool = get_stake_pool(&rpc_client, &stake_pool_address).await?;
 

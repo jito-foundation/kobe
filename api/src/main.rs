@@ -31,7 +31,10 @@ use kobe_api::{
         validator::ValidatorsRequest,
     },
 };
-use kobe_core::db_models::mev_rewards::{StakerRewardsStore, ValidatorRewardsStore};
+use kobe_core::{
+    db_models::mev_rewards::{StakerRewardsStore, ValidatorRewardsStore},
+    validators_app::Cluster,
+};
 use log::*;
 use mongodb::Client;
 use serde_json::json;
@@ -245,8 +248,9 @@ async fn run_server(args: &Args) {
         .await
         .expect("Mongo connection failed.");
     let db = c.database(&args.mongo_db_name);
+    let cluster = Cluster::get_cluster(&args.solana_cluster);
 
-    let query_resolver = QueryResolver::new(&db, &args.rpc_url);
+    let query_resolver = QueryResolver::new(&db, &args.rpc_url, cluster);
 
     let cors = CorsLayer::new()
         .allow_headers(Any)

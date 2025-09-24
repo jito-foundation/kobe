@@ -13,3 +13,6 @@ scripts/keys
 .DS_store
 
 .env
+
+# Test coverage
+tarpaulin-report.html

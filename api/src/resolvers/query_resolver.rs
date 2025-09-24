@@ -494,23 +494,18 @@ impl QueryResolver {
         &self,
         req: &Option<ValidatorsRequest>,
     ) -> Result<ValidatorsResponse> {
-        log::info!("Hello");
         let epoch = if let Some(request) = req {
             request.epoch
         } else {
             self.validator_store.get_highest_epoch().await?
         };
 
-        log::info!("Hello 1");
         let mev_rewards = self
             .validator_rewards_store
             .get_mev_rewards_per_validator(epoch)
             .await?;
 
-        log::info!("Hello 2");
         let rpc_client = RpcClient::new(self.rpc_client_url.clone());
-
-        log::info!("Hello 3");
 
         let jito_sol_validator_list_address = match self.cluster {
             Cluster::MainnetBeta => JITOSOL_VALIDATOR_LIST_MAINNET,
@@ -530,12 +525,9 @@ impl QueryResolver {
             .await
             .map_err(|e| QueryResolverError::RpcError(e.to_string()))?;
 
-        log::info!("Validator list account");
-
         let validator_list =
             try_from_slice_unchecked::<ValidatorList>(validator_list_account.as_slice())
                 .map_err(|e| QueryResolverError::CustomError(e.to_string()))?;
-        log::info!("Validator list ");
 
         let jitosol_validator_set = validator_list
             .validators
@@ -573,7 +565,6 @@ impl QueryResolver {
                 })
                 .collect(),
         };
-        log::info!("Response");
 
         Ok(response)
     }

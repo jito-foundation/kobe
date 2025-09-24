@@ -1,8 +1,12 @@
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    str::FromStr,
+};
 
 use axum::{http::StatusCode, Extension, Json};
 use cached::{proc_macro::cached, TimedCache};
 use kobe_core::{
+    constants::{JITOSOL_VALIDATOR_LIST_MAINNET, JITOSOL_VALIDATOR_LIST_TESTNET},
     db_models::{
         error::DataStoreError,
         mev_rewards::{StakerRewardsStore, ValidatorRewardsStore},
@@ -10,6 +14,7 @@ use kobe_core::{
         steward_events::StewardEventsStore,
         validators::ValidatorStore,
     },
+    validators_app::Cluster,
     SortOrder, LAMPORTS_PER_SOL,
 };
 use log::error;
@@ -17,7 +22,7 @@ use mongodb::Database;
 use serde::{Deserialize, Serialize};
 use solana_borsh::v1::try_from_slice_unchecked;
 use solana_client::nonblocking::rpc_client::RpcClient;
-use solana_pubkey::{pubkey, Pubkey};
+use solana_pubkey::Pubkey;
 use spl_stake_pool::state::ValidatorList;
 use thiserror::Error;
 
@@ -41,8 +46,6 @@ use crate::schemas::jitosol_ratio::{JitoSolRatioRequest, JitoSolRatioResponse};
 use log::warn;
 
 type Result<T> = core::result::Result<T, QueryResolverError>;
-
-const JITOSOL_VALIDATOR_LIST: Pubkey = pubkey!("3R3nGZpQs2aZo5FDQvd2MUQ6R7KhAPainds6uT6uE2mn");
 
 #[derive(Error, Debug)]
 pub enum QueryResolverError {
@@ -72,7 +75,12 @@ pub struct QueryResolver {
     validator_rewards_store: ValidatorRewardsStore,
     staker_rewards_store: StakerRewardsStore,
     steward_events_store: StewardEventsStore,
+
+    /// RPC Client URL
     rpc_client_url: String,
+
+    /// Solana Cluster
+    cluster: Cluster,
 }
 
 fn aggregate_mev_rewards(stats_entries: &[StakePoolStats]) -> u64 {
@@ -364,7 +372,7 @@ pub async fn jitosol_ratio_cacheable_wrapper(
 }
 
 impl QueryResolver {
-    pub fn new(database: &Database, rpc_client_url: &str) -> Self {
+    pub fn new(database: &Database, rpc_client_url: &str, cluster: Cluster) -> Self {
         Self {
             stake_pool_store: StakePoolStatsStore::new(
                 database.collection(StakePoolStatsStore::COLLECTION),
@@ -380,6 +388,7 @@ impl QueryResolver {
                 database.collection(StewardEventsStore::COLLECTION),
             ),
             rpc_client_url: rpc_client_url.into(),
+            cluster,
         }
     }
 
@@ -485,28 +494,48 @@ impl QueryResolver {
         &self,
         req: &Option<ValidatorsRequest>,
     ) -> Result<ValidatorsResponse> {
+        log::info!("Hello");
         let epoch = if let Some(request) = req {
             request.epoch
         } else {
             self.validator_store.get_highest_epoch().await?
         };
 
+        log::info!("Hello 1");
         let mev_rewards = self
             .validator_rewards_store
             .get_mev_rewards_per_validator(epoch)
             .await?;
 
+        log::info!("Hello 2");
         let rpc_client = RpcClient::new(self.rpc_client_url.clone());
+
+        log::info!("Hello 3");
+
+        let jito_sol_validator_list_address = match self.cluster {
+            Cluster::MainnetBeta => JITOSOL_VALIDATOR_LIST_MAINNET,
+            Cluster::Testnet => JITOSOL_VALIDATOR_LIST_TESTNET,
+            Cluster::Devnet => {
+                return Err(QueryResolverError::InvalidRequest(
+                    "Devnet has not supported yet".to_string(),
+                ));
+            }
+        };
+        let jitosol_validator_list = Pubkey::from_str(jito_sol_validator_list_address)
+            .map_err(|e| QueryResolverError::CustomError(e.to_string()))?;
 
         // Get stake pool validator list
         let validator_list_account = rpc_client
-            .get_account_data(&JITOSOL_VALIDATOR_LIST)
+            .get_account_data(&jitosol_validator_list)
             .await
             .map_err(|e| QueryResolverError::RpcError(e.to_string()))?;
+
+        log::info!("Validator list account");
 
         let validator_list =
             try_from_slice_unchecked::<ValidatorList>(validator_list_account.as_slice())
                 .map_err(|e| QueryResolverError::CustomError(e.to_string()))?;
+        log::info!("Validator list ");
 
         let jitosol_validator_set = validator_list
             .validators
@@ -544,6 +573,7 @@ impl QueryResolver {
                 })
                 .collect(),
         };
+        log::info!("Response");
 
         Ok(response)
     }

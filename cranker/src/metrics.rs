@@ -8,10 +8,16 @@ use thiserror::Error;
 #[derive(Error, Debug)]
 pub enum MetricsError {
     #[error("Client error: {0:?}")]
-    RpcError(#[from] ClientError),
+    RpcError(#[from] Box<ClientError>),
 
     #[error("Stake Pool Error: {0:?}")]
     StakePoolError(String),
+}
+
+impl From<ClientError> for MetricsError {
+    fn from(value: ClientError) -> Self {
+        Self::RpcError(Box::new(value))
+    }
 }
 
 pub struct StakePoolMetrics {

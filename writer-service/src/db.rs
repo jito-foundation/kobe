@@ -43,7 +43,7 @@ where
 
 pub async fn upsert_to_db(
     collection: &Collection<Validator>,
-    items: &Vec<Validator>,
+    items: &[Validator],
     epoch: u64,
 ) -> Result<()> {
     let start = Instant::now();
@@ -56,7 +56,7 @@ pub async fn upsert_to_db(
         info!(
             "Processing batch {} of {}",
             i + 1,
-            (items.len() + batch_size - 1) / batch_size
+            items.len().div_ceil(batch_size)
         );
 
         for item in chunk {

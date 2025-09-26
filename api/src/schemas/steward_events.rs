@@ -18,10 +18,14 @@ impl From<StewardEventModel> for StewardEvent {
             signature: event.signature,
             epoch: event.epoch,
             event_type: event.event_type,
-            timestamp: event
-                .timestamp
-                .unwrap_or(mongodb::bson::DateTime::from_millis(0))
-                .to_chrono(),
+            timestamp: {
+                let bson_dt = event
+                    .timestamp
+                    .unwrap_or(mongodb::bson::DateTime::from_millis(0));
+
+                chrono::DateTime::from_timestamp_millis(bson_dt.timestamp_millis())
+                    .unwrap_or_default()
+            },
             data: event
                 .metadata
                 .map(|m| serde_json::to_value(&m).unwrap_or_default())

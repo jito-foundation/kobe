@@ -460,17 +460,20 @@ impl StewardEventsStore {
     }
 
     pub async fn insert(&self, event: StewardEvent) -> Result<(), mongodb::error::Error> {
-        self.collection.insert_one(event, None).await?;
+        self.collection.insert_one(event).await?;
         Ok(())
     }
 
     pub async fn upsert(&self, event: StewardEvent) -> Result<(), mongodb::error::Error> {
-        let update = doc! { "$set": bson::to_document(&event)? };
+        let update = doc! { "$set": bson::serialize_to_document(&event)? };
         let filter = doc! { "signature": &event.signature, "event_type": &event.event_type, "vote_account": &event.vote_account };
         let options = mongodb::options::UpdateOptions::builder()
             .upsert(true)
             .build();
-        self.collection.update_one(filter, update, options).await?;
+        self.collection
+            .update_one(filter, update)
+            .with_options(options)
+            .await?;
         Ok(())
     }
 
@@ -490,7 +493,11 @@ impl StewardEventsStore {
     ) -> Result<Option<(Signature, u64)>, mongodb::error::Error> {
         let options = FindOneOptions::builder().sort(doc! { "slot": -1 }).build();
 
-        let result = self.collection.find_one(None, options).await?;
+        let result = self
+            .collection
+            .find_one(doc! {})
+            .with_options(options)
+            .await?;
 
         match result {
             Some(event) => {
@@ -518,7 +525,7 @@ impl StewardEventsStore {
             .limit(limit)
             .skip(skip)
             .build();
-        let mut cursor = self.collection.find(filter, options).await?;
+        let mut cursor = self.collection.find(filter).with_options(options).await?;
 
         let mut events = Vec::new();
         while let Some(event) = cursor.try_next().await? {
@@ -540,7 +547,7 @@ impl StewardEventsStore {
             .limit(limit)
             .skip(skip)
             .build();
-        let mut cursor = self.collection.find(filter, options).await?;
+        let mut cursor = self.collection.find(filter).with_options(options).await?;
 
         let mut events = Vec::new();
         while let Some(event) = cursor.try_next().await? {
@@ -558,7 +565,7 @@ impl StewardEventsStore {
         let options = mongodb::options::FindOptions::builder()
             .sort(doc! { "slot": -1 })
             .build();
-        let mut cursor = self.collection.find(filter, options).await?;
+        let mut cursor = self.collection.find(filter).with_options(options).await?;
 
         let mut events = Vec::new();
         while let Some(event) = cursor.try_next().await? {
@@ -610,7 +617,7 @@ impl StewardEventsStore {
             .skip(skip)
             .build();
 
-        let mut cursor = self.collection.find(filter, options).await?;
+        let mut cursor = self.collection.find(filter).with_options(options).await?;
 
         let mut events = Vec::new();
         while let Some(event) = cursor.try_next().await? {

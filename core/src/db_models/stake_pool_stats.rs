@@ -81,11 +81,11 @@ impl StakePoolStatsStore {
             doc! { "$sort": { "_id": 1 }},
         ];
 
-        let mut cursor = self.collection.aggregate(pipeline, None).await?;
+        let mut cursor = self.collection.aggregate(pipeline).await?;
         let mut docs = vec![];
 
         while let Some(maybe_doc) = cursor.next().await {
-            let doc: StakePoolStats = bson::from_document(maybe_doc?)?;
+            let doc: StakePoolStats = bson::deserialize_from_document(maybe_doc?)?;
             docs.push(doc);
         }
 

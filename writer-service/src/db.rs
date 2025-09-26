@@ -28,10 +28,10 @@ use crate::{
 
 pub async fn write_to_db<T>(collection: &Collection<T>, items: &Vec<T>) -> Result<()>
 where
-    T: Serialize,
+    T: Serialize + Send + Sync,
 {
     let start = Instant::now();
-    collection.insert_many(items, None).await?;
+    collection.insert_many(items).await?;
 
     info!(
         "done writing {:#?} items to db, took {}ms",
@@ -67,8 +67,8 @@ pub async fn upsert_to_db(
                         "vote_account": &item.vote_account
                     },
                     item,
-                    replace_options.clone(),
                 )
+                .with_options(replace_options.clone())
                 .await?;
         }
 
@@ -95,7 +95,7 @@ pub async fn write_mev_claims_info(
     // Check if it's time to run else exit early
     let collection = db.collection::<StakerRewards>(STAKER_REWARDS_COLLECTION_NAME);
     let result = collection
-        .find_one(doc! {"epoch": (target_epoch) as u32}, None)
+        .find_one(doc! {"epoch": (target_epoch) as u32})
         .await?;
     if result.is_some() {
         warn!("MEV claims for epoch {target_epoch} already exist in DB");

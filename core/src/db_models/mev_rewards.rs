@@ -62,10 +62,10 @@ impl ValidatorRewardsStore {
             },
         ];
 
-        let mut cursor = self.collection.aggregate(pipeline, None).await?;
+        let mut cursor = self.collection.aggregate(pipeline).await?;
 
         if let Some(res) = cursor.try_next().await? {
-            let doc: MevRewardsDbResult = bson::from_document(res)?;
+            let doc: MevRewardsDbResult = bson::deserialize_from_document(res)?;
             return Ok(doc.total_mev_revenue);
         }
 
@@ -80,9 +80,8 @@ impl ValidatorRewardsStore {
         let filter = doc! {
             "epoch": epoch as u32,
         };
-        let find_options = FindOptions::builder().build();
 
-        let mut cursor = self.collection.find(filter, find_options).await?;
+        let mut cursor = self.collection.find(filter).await?;
         let mut results = HashMap::new();
 
         while let Some(res) = cursor.try_next().await? {
@@ -112,10 +111,7 @@ impl ValidatorRewardsStore {
             filter.insert("epoch", e as u32);
         }
 
-        let total_count = self
-            .collection
-            .count_documents(filter.clone(), None)
-            .await?;
+        let total_count = self.collection.count_documents(filter.clone()).await?;
 
         let sort_direction = match sort_order {
             Some(SortOrder::Asc) => 1,
@@ -124,14 +120,18 @@ impl ValidatorRewardsStore {
 
         let find_options = FindOptions::builder()
             .sort(doc! {
-                "epoch": sort_direction,
-                "mev_revenue": sort_direction
+                    "epoch": sort_direction,
+                    "mev_revenue": sort_direction
             })
             .skip(skip)
             .limit(limit)
             .build();
 
-        let mut cursor = self.collection.find(filter, find_options).await?;
+        let mut cursor = self
+            .collection
+            .find(filter)
+            .with_options(find_options)
+            .await?;
         let mut results = Vec::new();
         while let Some(res) = cursor.try_next().await? {
             results.push(res);
@@ -143,7 +143,8 @@ impl ValidatorRewardsStore {
         let find_options = FindOneOptions::builder().sort(doc! {"epoch": -1}).build();
         let validator_rewards = self
             .collection
-            .find_one(doc! {}, find_options)
+            .find_one(doc! {})
+            .with_options(find_options)
             .await?
             .expect("No entries found in validator rewards table");
         Ok(validator_rewards.epoch)
@@ -217,9 +218,7 @@ impl StakerRewardsStore {
         };
 
         let total_count = if num_filters > 2 {
-            self.collection
-                .count_documents(filter.clone(), None)
-                .await?
+            self.collection.count_documents(filter.clone()).await?
         } else {
             0
         };
@@ -237,7 +236,11 @@ impl StakerRewardsStore {
 
         let find_options = find_options_builder.build();
 
-        let mut cursor = self.collection.find(filter, find_options).await?;
+        let mut cursor = self
+            .collection
+            .find(filter)
+            .with_options(find_options)
+            .await?;
         let mut results = Vec::new();
         while let Some(res) = cursor.try_next().await? {
             results.push(res);

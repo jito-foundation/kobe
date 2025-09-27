@@ -80,8 +80,13 @@ impl ValidatorRewardsStore {
         let filter = doc! {
             "epoch": epoch as u32,
         };
+        let find_options = FindOptions::builder().build();
 
-        let mut cursor = self.collection.find(filter).await?;
+        let mut cursor = self
+            .collection
+            .find(filter)
+            .with_options(find_options)
+            .await?;
         let mut results = HashMap::new();
 
         while let Some(res) = cursor.try_next().await? {
@@ -120,8 +125,8 @@ impl ValidatorRewardsStore {
 
         let find_options = FindOptions::builder()
             .sort(doc! {
-                    "epoch": sort_direction,
-                    "mev_revenue": sort_direction
+                "epoch": sort_direction,
+                "mev_revenue": sort_direction
             })
             .skip(skip)
             .limit(limit)

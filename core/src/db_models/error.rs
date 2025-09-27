@@ -6,7 +6,7 @@ use thiserror::Error;
 #[derive(Error, Debug)]
 pub enum DataStoreError {
     #[error("deserialization error")]
-    DeserializationError(#[from] bson::de::Error),
+    DeserializationError(#[from] bson::error::Error),
 
     #[error("mongo client error")]
     MongoClientError(#[from] mongodb::error::Error),

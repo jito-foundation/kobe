@@ -5,7 +5,7 @@ use kobe_core::{
     validators_app::{Client as ValidatorsAppClient, Cluster},
 };
 use log::{error, info};
-use mongodb::Database;
+use mongodb::{Client, Database};
 use solana_metrics::datapoint_info;
 use solana_sdk::pubkey::Pubkey;
 use spl_stake_pool::state::StakePool;
@@ -28,6 +28,9 @@ pub mod tip_distributor_sdk;
 
 /// Kobe writer service main instance
 pub struct KobeWriterService {
+    /// MongoDB Client
+    mongodb_client: Client,
+
     /// Monogo DB instance
     db: Database,
 
@@ -86,6 +89,7 @@ impl KobeWriterService {
         let stake_pool_manager = StakePoolManager::new(rpc_client, validators_app_client, cluster);
 
         Ok(Self {
+            mongodb_client,
             db,
             stake_pool_manager,
             stake_pool,
@@ -172,6 +176,7 @@ impl KobeWriterService {
         let epoch = rpc_utils::retry_get_epoch_info(&self.stake_pool_manager.rpc_client).await?;
 
         match write_validator_info(
+            &self.mongodb_client,
             &self.db,
             &self.stake_pool_manager,
             epoch,

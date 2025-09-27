@@ -45,7 +45,7 @@ jito-tip-distribution = { features = ["no-entrypoint"], git = "https://github.co
 jito-tip-distribution-sdk = { git = "https://github.com/jito-foundation/jito-programs", branch = "master" }
 kobe-core = { path = "core", version = "1.0.0" }
 log = "0.4.18"
-mongodb = { version = "2.2.2", features = ["bson-chrono-0_4"] }
+mongodb = { version = "3.3.0", features = ["bson-3"] }
 reqwest = { version = "0.11.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }
 semver = "1.0.17"
 sentry = "0.29.1"

@@ -8,7 +8,11 @@ use std::{collections::HashMap, str::FromStr};
 
 use chrono::{serde::ts_seconds, DateTime, Utc};
 use futures::TryStreamExt;
-use mongodb::{bson, bson::doc, options::FindOneOptions, Collection};
+use mongodb::{
+    bson::{self, doc},
+    options::FindOneOptions,
+    Collection,
+};
 use serde::{Deserialize, Serialize};
 use solana_pubkey::Pubkey;
 
@@ -151,7 +155,7 @@ impl ValidatorStore {
             }
         };
         // Jito filter fetch requires extra epoch lookback due to delay in publishing tip distr acc
-        let cursor = self.collection.find(filter, None).await?;
+        let cursor = self.collection.find(filter).await?;
         let validators: Vec<Validator> = cursor.try_collect().await?;
         let mut validators_map: HashMap<String, Validator> = HashMap::new();
 
@@ -174,7 +178,8 @@ impl ValidatorStore {
         let find_options = FindOneOptions::builder().sort(doc! {"epoch": -1}).build();
         let validator = self
             .collection
-            .find_one(doc! {}, find_options)
+            .find_one(doc! {})
+            .with_options(find_options)
             .await?
             .expect("No entries found in validators table");
         Ok(validator.epoch)
@@ -197,9 +202,9 @@ impl ValidatorStore {
                 }
             },
         ];
-        let mut cursor = self.collection.aggregate(pipeline, None).await?;
+        let mut cursor = self.collection.aggregate(pipeline).await?;
         if let Some(res) = cursor.try_next().await? {
-            let doc: TotalStakeDbResult = bson::from_document(res)?;
+            let doc: TotalStakeDbResult = bson::deserialize_from_document(res)?;
             return Ok(doc.total_stake_lamports);
         }
 
@@ -242,7 +247,7 @@ impl ValidatorStore {
                 }
             },
         ];
-        let mut cursor = self.collection.aggregate(pipeline, None).await?;
+        let mut cursor = self.collection.aggregate(pipeline).await?;
         let mut results = HashMap::new();
         while let Ok(Some(result)) = cursor.try_next().await {
             let epoch = match result.get_i64("epoch") {
@@ -282,7 +287,7 @@ impl ValidatorStore {
             },
         ];
 
-        let mut cursor = self.collection.aggregate(pipeline, None).await?;
+        let mut cursor = self.collection.aggregate(pipeline).await?;
         let mut results = HashMap::new();
         while let Ok(Some(result)) = cursor.try_next().await {
             let epoch = result.get_i64("_id").unwrap_or_default() as u64;

@@ -9,10 +9,7 @@ type Error = Box<dyn std::error::Error>;
 
 pub async fn read_validator_info(db: &Database, epoch: u64) -> Result<Vec<Validator>, Error> {
     let collection = db.collection::<Validator>(VALIDATOR_COLLECTION_NAME);
-    let cursor = collection
-        .find(doc! {"epoch": epoch as u32}, None)
-        .await
-        .unwrap();
+    let cursor = collection.find(doc! {"epoch": epoch as u32}).await.unwrap();
     // Fetches all validators even if there are multiple entries for this epoch
     let validators: Vec<Validator> = cursor.try_collect().await?;
     // Select the latest entry

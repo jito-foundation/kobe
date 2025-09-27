@@ -20,7 +20,7 @@ pub async fn add_index(collection: &Collection<Validator>, key: &str) {
         .build();
     // need to check if index does not exist (on load)
     collection
-        .create_index(model, None)
+        .create_index(model)
         .await
         .expect("add index failed");
 }

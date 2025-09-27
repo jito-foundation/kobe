@@ -11,8 +11,8 @@ use kobe_core::{
 };
 use log::{error, info, warn};
 use mongodb::{
-    bson::doc,
-    options::{ClientOptions, ReplaceOptions},
+    bson::{doc, serialize_to_document},
+    options::{ClientOptions, ReplaceOneModel},
     Client as MongodbClient, Collection, Database,
 };
 use reqwest::Client as ReqwestClient;
@@ -42,43 +42,40 @@ where
 }
 
 pub async fn upsert_to_db(
+    client: &MongodbClient,
     collection: &Collection<Validator>,
     items: &[Validator],
     epoch: u64,
 ) -> Result<()> {
     let start = Instant::now();
-    let batch_size = 100;
 
-    let mut replace_options = ReplaceOptions::default();
-    replace_options.upsert = Some(true);
+    let mut operations = Vec::with_capacity(items.len());
 
-    for (i, chunk) in items.chunks(batch_size).enumerate() {
-        info!(
-            "Processing batch {} of {}",
-            i + 1,
-            items.len().div_ceil(batch_size)
-        );
+    for item in items {
+        let filter = doc! {
+            "epoch": epoch as u32,
+            "vote_account": &item.vote_account
+        };
 
-        for item in chunk {
-            collection
-                .replace_one(
-                    doc! {
-                        "epoch": epoch as u32,
-                        "vote_account": &item.vote_account
-                    },
-                    item,
-                )
-                .with_options(replace_options.clone())
-                .await?;
-        }
+        let replacement_doc = serialize_to_document(item).unwrap();
 
-        // Small delay between batches to avoid overwhelming the server
-        tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
+        let model = ReplaceOneModel::builder()
+            .namespace(collection.namespace())
+            .filter(filter)
+            .replacement(replacement_doc)
+            .upsert(true)
+            .build();
+
+        operations.push(model);
     }
 
+    let result = client.bulk_write(operations).await?;
+
     info!(
-        "done upserting {} items to db, took {}ms",
+        "done upserting {} items to db (inserted: {}, modified: {}), tool {}ms",
         items.len(),
+        result.inserted_count,
+        result.modified_count,
         start.elapsed().as_millis()
     );
 
@@ -162,6 +159,7 @@ pub async fn write_stake_pool_info(
 }
 
 pub async fn write_validator_info(
+    client: &MongodbClient,
     db: &Database,
     stake_pool_manager: &StakePoolManager,
     epoch: u64,
@@ -175,7 +173,8 @@ pub async fn write_validator_info(
             error!("Cannot write validators to DB: {e:?}");
             e
         })?;
-    upsert_to_db(&collection, &validators, epoch).await
+
+    upsert_to_db(client, &collection, &validators, epoch).await
 }
 
 pub async fn setup_mongo_client(uri: &str) -> Result<MongodbClient> {

@@ -8,7 +8,11 @@ use std::{collections::HashMap, str::FromStr};
 
 use chrono::{serde::ts_seconds, DateTime, Utc};
 use futures::TryStreamExt;
-use mongodb::{bson, bson::doc, options::FindOneOptions, Collection};
+use mongodb::{
+    bson::{self, doc},
+    options::FindOneOptions,
+    Collection,
+};
 use serde::{Deserialize, Serialize};
 use solana_pubkey::Pubkey;
 

@@ -2,7 +2,7 @@ use std::io::Error as IoError;
 
 use backoff::Error as BackoffError;
 use log::SetLoggerError;
-use mongodb::error::Error as MongoError;
+use mongodb::{bson, error::Error as MongoError};
 use reqwest::Error as ReqwestError;
 use serde_json::Error as JsonError;
 use solana_client::client_error::ClientError;
@@ -61,6 +61,9 @@ pub enum AppError {
 
     #[error("Join errorr")]
     JoinError(#[from] tokio::task::JoinError),
+
+    #[error("Deserialization Error")]
+    DeserializationError(#[from] bson::error::Error),
 }
 
 impl From<BackoffError<ClientError>> for AppError {

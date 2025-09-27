@@ -57,7 +57,7 @@ pub async fn upsert_to_db(
             "vote_account": &item.vote_account
         };
 
-        let replacement_doc = serialize_to_document(item).unwrap();
+        let replacement_doc = serialize_to_document(item)?;
 
         let model = ReplaceOneModel::builder()
             .namespace(collection.namespace())
@@ -72,7 +72,7 @@ pub async fn upsert_to_db(
     let result = client.bulk_write(operations).await?;
 
     info!(
-        "done upserting {} items to db (inserted: {}, modified: {}), tool {}ms",
+        "done upserting {} items to db (inserted: {}, modified: {}), took {}ms",
         items.len(),
         result.inserted_count,
         result.modified_count,

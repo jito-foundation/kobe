@@ -33,9 +33,9 @@ pub async fn get_reserve_balance(rpc_client: &RpcClient, stake_pool: &StakePool)
 
 pub async fn get_stake_pool_fees(rpc_client: &RpcClient, stake_pool: &StakePool) -> Result<f64> {
     let fee_account = stake_pool.manager_fee_account;
-    let fee_account_balance = rpc_client.get_token_account_balance(&fee_account).await;
+    let fee_account_balance = rpc_client.get_token_account_balance(&fee_account).await?;
 
-    fee_account_balance?
+    fee_account_balance
         .ui_amount
         .ok_or(AppError::EmptyFeeAccountBalance(fee_account.to_string()))
 }

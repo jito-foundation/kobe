@@ -51,7 +51,7 @@ pub enum AppError {
     SlotNotFound,
 
     #[error("ClientError")]
-    ClientError(#[from] ClientError),
+    ClientError(#[from] Box<ClientError>),
 
     #[error("Backoff Error")]
     BackoffError(String),
@@ -75,6 +75,12 @@ impl From<BackoffError<ClientError>> for AppError {
 impl From<Box<dyn std::error::Error>> for AppError {
     fn from(error: Box<dyn std::error::Error>) -> Self {
         AppError::Internal(InternalError::Miscellaneous(error.to_string()))
+    }
+}
+
+impl From<ClientError> for AppError {
+    fn from(value: ClientError) -> Self {
+        AppError::ClientError(Box::new(value))
     }
 }
 

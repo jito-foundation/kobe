@@ -806,7 +806,7 @@ pub async fn get_daily_mev_rewards(dune_api_key: &str) -> Result<Vec<Row>> {
     let client = reqwest::Client::new();
 
     let body = client
-        .get("https://api.dune.com/api/v1/query/3715528/results?limit=1000")
+        .get("https://api.dune.com/api/v1/query/3715528/results?limit=2000")
         .header("X-Dune-API-Key", dune_api_key)
         .send()
         .await?;

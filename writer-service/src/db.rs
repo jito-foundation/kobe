@@ -43,27 +43,45 @@ where
 
 pub async fn upsert_to_db(
     collection: &Collection<Validator>,
-    items: &Vec<Validator>,
+    items: &[Validator],
     epoch: u64,
 ) -> Result<()> {
     let start = Instant::now();
-    let mut options = ReplaceOptions::default();
-    options.upsert = Some(true);
-    for item in items {
-        collection
-            .replace_one(
-                doc! {"epoch": (epoch) as u32, "vote_account": item.vote_account.clone()},
-                item,
-                options.clone(),
-            )
-            .await?;
+    let batch_size = 100;
+
+    let mut replace_options = ReplaceOptions::default();
+    replace_options.upsert = Some(true);
+
+    for (i, chunk) in items.chunks(batch_size).enumerate() {
+        info!(
+            "Processing batch {} of {}",
+            i + 1,
+            items.len().div_ceil(batch_size)
+        );
+
+        for item in chunk {
+            collection
+                .replace_one(
+                    doc! {
+                        "epoch": epoch as u32,
+                        "vote_account": &item.vote_account
+                    },
+                    item,
+                    replace_options.clone(),
+                )
+                .await?;
+        }
+
+        // Small delay between batches to avoid overwhelming the server
+        tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
     }
 
     info!(
-        "done upserting {:#?} items to db, took {}ms",
+        "done upserting {} items to db, took {}ms",
         items.len(),
         start.elapsed().as_millis()
     );
+
     Ok(())
 }
 

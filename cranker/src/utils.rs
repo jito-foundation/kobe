@@ -2,7 +2,7 @@ use std::{collections::HashMap, thread::sleep, time::Duration};
 
 use anyhow::anyhow;
 use backon::{ExponentialBuilder, Retryable};
-use kobe_core::constants::CRANKER_UPDATE_CHANNEL;
+use kobe_core::{constants::CRANKER_UPDATE_CHANNEL, validators_app::Cluster};
 use log::*;
 use solana_cli_output::display::new_spinner_progress_bar;
 use solana_client::{
@@ -34,12 +34,27 @@ pub enum TransactionRetryError {
     RetryError,
 }
 
+/// Kobe Cranker Config
 pub struct Config {
+    /// RPC Client
     pub rpc_client: RpcClient,
+
+    /// Cluster (Mainnet-beta, Testnet, Devnet)
+    pub cluster: Cluster,
+
+    /// Fee payer
     pub fee_payer: Box<dyn Signer>,
+
+    /// Stake pool address
     pub stake_pool_address: Pubkey,
+
+    /// Dry run mode
     pub dry_run: bool,
+
+    /// Simulate
     pub simulate: bool,
+
+    /// Slack API Token
     pub slack_api_token: Option<String>,
 }
 
@@ -234,7 +249,10 @@ pub async fn parallel_execute_stake_pool_update(
     let validator_list = get_validator_list(&config.rpc_client, &stake_pool.validator_list)
         .await
         .map_err(|e| anyhow!("{e}"))?;
-    let program_id = spl_stake_pool::id();
+    let program_id = match config.cluster {
+        Cluster::MainnetBeta | Cluster::Testnet => spl_stake_pool::id(),
+        Cluster::Devnet => spl_stake_pool::devnet::id(),
+    };
 
     let (update_list_instructions, final_instructions) = update_stake_pool(
         &program_id,

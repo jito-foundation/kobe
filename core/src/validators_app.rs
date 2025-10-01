@@ -26,7 +26,8 @@ impl Cluster {
         match value.to_lowercase().as_ref() {
             "testnet" | "t" => Cluster::Testnet,
             "mainnet-beta" | "mainnet" | "m" => Cluster::MainnetBeta,
-            _ => Cluster::Testnet,
+            "devnet" | "d" => Cluster::Devnet,
+            _ => unreachable!(),
         }
     }
 }

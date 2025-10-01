@@ -2,7 +2,7 @@ use std::{collections::HashMap, thread::sleep, time::Duration};
 
 use anyhow::anyhow;
 use backon::{ExponentialBuilder, Retryable};
-use kobe_core::constants::CRANKER_UPDATE_CHANNEL;
+use kobe_core::{constants::CRANKER_UPDATE_CHANNEL, validators_app::Cluster};
 use log::*;
 use solana_cli_output::display::new_spinner_progress_bar;
 use solana_client::{
@@ -35,11 +35,25 @@ pub enum TransactionRetryError {
 }
 
 pub struct Config {
+    /// RPC Client
     pub rpc_client: RpcClient,
+
+    /// Cluster (Mainnet-beta, Testnet, Devnet)
+    pub cluster: Cluster,
+
+    /// Fee payer
     pub fee_payer: Box<dyn Signer>,
+
+    /// Stake pool address
     pub stake_pool_address: Pubkey,
+
+    /// Dry run mode
     pub dry_run: bool,
+
+    /// Simulate
     pub simulate: bool,
+
+    /// Slack API Token
     pub slack_api_token: Option<String>,
 }
 

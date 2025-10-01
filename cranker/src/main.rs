@@ -5,6 +5,7 @@ use std::time::Duration;
 use backon::{ExponentialBuilder, Retryable};
 use clap::Parser;
 use env_logger::{Builder, Target};
+use kobe_core::validators_app::Cluster;
 use log::*;
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_metrics::set_host_id;
@@ -27,11 +28,11 @@ mod utils;
 /// Performs all the actions needed per epoch to manage the stake pool
 ///
 /// - Update stake pool to current epoch (even on dry run)
-async fn update_stake_pool(config: &Config, epoch: Epoch, network: &str) {
+async fn update_stake_pool(config: &Config, epoch: Epoch) {
     let slack_message = match parallel_execute_stake_pool_update(config, epoch, true, false).await {
         Ok(()) => format!(
             "Cranker has successfully run Stake Pool on {} Update",
-            network
+            config.cluster
         ),
         Err(e) => {
             error!("Cranker failed to update, {e:?}");
@@ -98,6 +99,7 @@ fn main() {
 
         Config {
             rpc_client,
+            cluster: Cluster::get_cluster(&args.network),
             fee_payer,
             stake_pool_address,
             dry_run: args.dry_run,
@@ -116,7 +118,7 @@ fn main() {
             .epoch;
         if config.dry_run {
             // Don't need to loop if just dry running
-            update_stake_pool(&config, epoch, &args.network).await;
+            update_stake_pool(&config, epoch).await;
         } else {
             // Periodically report metrics every minute
             runtime.spawn(async move {
@@ -138,7 +140,7 @@ fn main() {
                 }
             });
             loop {
-                update_stake_pool(&config, epoch, &args.network).await;
+                update_stake_pool(&config, epoch).await;
                 epoch = wait_for_next_epoch(&config.rpc_client)
                     .await
                     .expect("Function panicked fetching epoch info while waiting for next epoch");

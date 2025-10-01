@@ -31,8 +31,8 @@ mod utils;
 async fn update_stake_pool(config: &Config, epoch: Epoch) {
     let slack_message = match parallel_execute_stake_pool_update(config, epoch, true, false).await {
         Ok(()) => format!(
-            "Cranker has successfully run Stake Pool Update on {}",
-            config.cluster
+            "Cranker has successfully run Stake Pool Update on {}, Epoch: {epoch}",
+            config.cluster,
         ),
         Err(e) => {
             error!("Cranker failed to update, {e:?}");

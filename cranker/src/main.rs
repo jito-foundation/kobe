@@ -27,15 +27,18 @@ mod utils;
 /// Performs all the actions needed per epoch to manage the stake pool
 ///
 /// - Update stake pool to current epoch (even on dry run)
-async fn update_stake_pool(config: &Config, epoch: Epoch) {
+async fn update_stake_pool(config: &Config, epoch: Epoch, network: &str) {
     let slack_message = match parallel_execute_stake_pool_update(config, epoch, true, false).await {
-        Ok(()) => "Cranker has successfully run Stake Pool Update",
+        Ok(()) => format!(
+            "Cranker has successfully run Stake Pool on {} Update",
+            network
+        ),
         Err(e) => {
             error!("Cranker failed to update, {e:?}");
-            "Cranker failed to update. Please manually run stake pool update"
+            "Cranker failed to update. Please manually run stake pool update".to_string()
         }
     };
-    if let Err(e) = post_slack_message(config.slack_api_token.clone(), slack_message) {
+    if let Err(e) = post_slack_message(config.slack_api_token.clone(), &slack_message) {
         error!("Slack message failed to post, {e:?}");
     }
 }
@@ -113,7 +116,7 @@ fn main() {
             .epoch;
         if config.dry_run {
             // Don't need to loop if just dry running
-            update_stake_pool(&config, epoch).await;
+            update_stake_pool(&config, epoch, &args.network).await;
         } else {
             // Periodically report metrics every minute
             runtime.spawn(async move {
@@ -135,7 +138,7 @@ fn main() {
                 }
             });
             loop {
-                update_stake_pool(&config, epoch).await;
+                update_stake_pool(&config, epoch, &args.network).await;
                 epoch = wait_for_next_epoch(&config.rpc_client)
                     .await
                     .expect("Function panicked fetching epoch info while waiting for next epoch");

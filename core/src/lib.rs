@@ -7,6 +7,7 @@ use crate::db_models::validators::Validator;
 pub mod client_type;
 pub mod constants;
 pub mod db_models;
+pub mod error;
 pub mod fetcher;
 pub mod mongo;
 pub mod rpc_utils;

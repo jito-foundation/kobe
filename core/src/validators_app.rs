@@ -29,7 +29,7 @@ impl Cluster {
             "mainnet-beta" | "mainnet" | "m" => Ok(Cluster::MainnetBeta),
             "testnet" | "t" => Ok(Cluster::Testnet),
             "devnet" | "d" => Ok(Cluster::Devnet),
-            _ => return Err(KobeCoreError::InvalidCluster(value.to_string())),
+            _ => Err(KobeCoreError::InvalidCluster(value.to_string())),
         }
     }
 }

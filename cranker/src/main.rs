@@ -96,7 +96,7 @@ fn main() {
 
         Config {
             rpc_client,
-            cluster: Cluster::get_cluster(&args.network),
+            cluster: Cluster::get_cluster(&args.network).expect("Failed to get cluster"),
             fee_payer,
             stake_pool_address,
             dry_run: args.dry_run,

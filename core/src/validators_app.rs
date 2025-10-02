@@ -13,6 +13,8 @@ use log::*;
 use serde::{Deserialize, Serialize};
 use solana_pubkey::Pubkey;
 
+use crate::error::KobeCoreError;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub enum Cluster {
     Devnet,
@@ -22,12 +24,12 @@ pub enum Cluster {
 
 impl Cluster {
     /// Get cluster value
-    pub fn get_cluster(value: &str) -> Cluster {
+    pub fn get_cluster(value: &str) -> Result<Cluster, KobeCoreError> {
         match value.to_lowercase().as_ref() {
-            "testnet" | "t" => Cluster::Testnet,
-            "mainnet-beta" | "mainnet" | "m" => Cluster::MainnetBeta,
-            "devnet" | "d" => Cluster::Devnet,
-            _ => unreachable!(),
+            "mainnet-beta" | "mainnet" | "m" => Ok(Cluster::MainnetBeta),
+            "testnet" | "t" => Ok(Cluster::Testnet),
+            "devnet" | "d" => Ok(Cluster::Devnet),
+            _ => return Err(KobeCoreError::InvalidCluster(value.to_string())),
         }
     }
 }

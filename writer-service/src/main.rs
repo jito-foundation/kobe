@@ -12,7 +12,7 @@ use tokio::runtime::Runtime;
 struct Args {
     /// RPC url
     #[arg(long, env)]
-    rpc_url: Option<String>,
+    rpc_url: String,
 
     /// Mongo connection URI.
     #[arg(long, env)]

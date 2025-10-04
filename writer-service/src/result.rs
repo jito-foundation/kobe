@@ -1,6 +1,7 @@
 use std::io::Error as IoError;
 
 use backoff::Error as BackoffError;
+use kobe_core::error::KobeCoreError;
 use log::SetLoggerError;
 use mongodb::error::Error as MongoError;
 use reqwest::Error as ReqwestError;
@@ -61,6 +62,9 @@ pub enum AppError {
 
     #[error("Join errorr")]
     JoinError(#[from] tokio::task::JoinError),
+
+    #[error(transparent)]
+    KobeCore(#[from] KobeCoreError),
 }
 
 impl From<BackoffError<ClientError>> for AppError {

@@ -5,6 +5,7 @@ use std::time::Duration;
 use backon::{ExponentialBuilder, Retryable};
 use clap::Parser;
 use env_logger::{Builder, Target};
+use kobe_core::validators_app::Cluster;
 use log::*;
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_metrics::set_host_id;
@@ -95,6 +96,7 @@ fn main() {
 
         Config {
             rpc_client,
+            cluster: Cluster::get_cluster(&args.network).expect("Failed to get cluster"),
             fee_payer,
             stake_pool_address,
             dry_run: args.dry_run,

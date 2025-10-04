@@ -248,7 +248,7 @@ async fn run_server(args: &Args) {
         .await
         .expect("Mongo connection failed.");
     let db = c.database(&args.mongo_db_name);
-    let cluster = Cluster::get_cluster(&args.solana_cluster);
+    let cluster = Cluster::get_cluster(&args.solana_cluster).expect("Failed to get cluster");
 
     let query_resolver = QueryResolver::new(&db, &args.rpc_url, cluster);
 

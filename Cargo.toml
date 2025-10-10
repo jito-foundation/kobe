@@ -38,7 +38,7 @@ http = { version = "0.2.1" }
 itertools = "0.5.9"
 jito-priority-fee-distribution = { features = ["no-entrypoint"], git = "https://github.com/jito-foundation/jito-programs", branch = "master" }
 jito-priority-fee-distribution-sdk = { git = "https://github.com/jito-foundation/jito-programs", branch = "master" }
-jito-steward = { features = ["no-entrypoint"], git = "https://github.com/jito-foundation/stakenet", rev = "658caf2ce0f58c181bf5723412bfeb8472d152f5" }
+jito-steward = { features = ["no-entrypoint"], git = "https://github.com/jito-foundation/stakenet", rev = "d724a42b49c0cd32791afbd2a362dd63364a7a9a" }
 jito-tip-distribution = { features = ["no-entrypoint"], git = "https://github.com/jito-foundation/jito-programs", branch = "master" }
 jito-tip-distribution-sdk = { git = "https://github.com/jito-foundation/jito-programs", branch = "master" }
 kobe-core = { path = "core", version = "1.0.0" }
@@ -51,37 +51,37 @@ sentry-log = "0.29.1"
 serde = "1.0.183"
 serde_derive = "1.0.183"
 serde_json = "1.0.102"
-solana-account-decoder = "=2.2.1"
+solana-account-decoder = "=2.3.3"
 solana-bincode = "=2.2.1"
 solana-borsh = "=2.2.1"
-solana-clap-utils = "=2.2.1"
-solana-cli-config = "=2.2.1"
-solana-cli-output = "=2.2.1"
-solana-client = "=2.2.1"
-solana-clock = "=2.2.1"
+solana-clap-utils = "=2.3.3"
+solana-cli-config = "=2.3.3"
+solana-cli-output = "=2.3.3"
+solana-client = "=2.3.3"
+solana-clock = "=2.2.2"
 solana-commitment-config = "=2.2.1"
-solana-gossip = { git = "https://github.com/gzalz/agave", branch = "gzalz/v2.2.1" }
-solana-metrics = "=2.2.1"
-solana-native-token = "=2.2.1"
-solana-net-utils = "=2.2.1"
+solana-gossip = { git = "https://github.com/gzalz/agave", branch = "gzalz/v2.3.3" }
+solana-metrics = "=2.3.3"
+solana-native-token = "=2.2.2"
+solana-net-utils = "=2.3.3"
 solana-packet = "=2.2.1"
-solana-program = "=2.2.1"
-solana-program-test = "=2.2.1"
-solana-pubkey = "=2.2.1"
+solana-program = "=2.3.0"
+solana-program-test = "=2.3.3"
+solana-pubkey = "=2.4.0"
 solana-remote-wallet = "=2.2.1"
-solana-rpc-client = "=2.2.1"
-solana-rpc-client-api = "=2.2.1"
-solana-sdk = "=2.2.1"
-solana-signature = "=2.2.1"
-solana-streamer = { git = "https://github.com/gzalz/agave", branch = "gzalz/v2.2.1" }
-solana-transaction-status = "=2.2.1"
-solana-version = { git = "https://github.com/gzalz/agave", branch = "gzalz/v2.2.1" }
+solana-rpc-client = "=2.3.3"
+solana-rpc-client-api = "=2.3.3"
+solana-sdk = "=2.3.1"
+solana-signature = "=2.3.0"
+solana-streamer = { git = "https://github.com/gzalz/agave", branch = "gzalz/v2.3.3" }
+solana-transaction-status = "=2.3.3"
+solana-version = { git = "https://github.com/gzalz/agave", branch = "gzalz/v2.3.3" }
 spl-associated-token-account = { version = "7.0.0", features = ["no-entrypoint"] }
 spl-pod = "0.5.1"
 spl-stake-pool = { features = ["no-entrypoint"], version = "2.0.2" }
 spl-stake-pool-cli = { path = "cranker/cli", version = "1.0.0" }
 spl-token = { version = "4.0", features = ["no-entrypoint"] }
-stakenet-sdk = { package = "stakenet-sdk", git = "https://github.com/jito-foundation/stakenet", rev = "658caf2ce0f58c181bf5723412bfeb8472d152f5" }
+stakenet-sdk = { package = "stakenet-sdk", git = "https://github.com/jito-foundation/stakenet", rev = "d724a42b49c0cd32791afbd2a362dd63364a7a9a" }
 thiserror = "1.0.37"
 tokio = { version = "1.36.0", features = ["full"] }
 tokio-retry = "0.3.0"
@@ -90,4 +90,4 @@ tower-http = { version = "0.4.0", features = ["cors", "trace"] }
 tracing = { version = "0.1.37" }
 tracing-core = "0.1.32"
 tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
-validator-history = { package = "validator-history", git = "https://github.com/jito-foundation/stakenet", rev = "658caf2ce0f58c181bf5723412bfeb8472d152f5", features = ["no-entrypoint"] }
+validator-history = { package = "validator-history", git = "https://github.com/jito-foundation/stakenet", rev = "d724a42b49c0cd32791afbd2a362dd63364a7a9a", features = ["no-entrypoint"] }

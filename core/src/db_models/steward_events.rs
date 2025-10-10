@@ -7,7 +7,7 @@ use jito_steward::{
         InstantUnstakeComponents, RebalanceEvent, RebalanceTypeTag, ScoreComponents,
         StateTransition,
     },
-    score::{InstantUnstakeComponentsV3, ScoreComponentsV3},
+    score::{InstantUnstakeComponentsV3, ScoreComponentsV4},
 };
 use log::info;
 use mongodb::{
@@ -182,8 +182,8 @@ impl StewardEvent {
     }
 
     #[allow(clippy::too_many_arguments)]
-    pub fn from_score_components_v3(
-        event: ScoreComponentsV3,
+    pub fn from_score_components_v4(
+        event: ScoreComponentsV4,
         signature: &Signature,
         instruction_idx: u32,
         tx_error: Option<String>,
@@ -193,19 +193,22 @@ impl StewardEvent {
         slot: u64,
     ) -> Self {
         let metadata = doc! {
-            "score": event.score,
-            "yield_score": event.yield_score,
-            "mev_commission_score": event.mev_commission_score,
-            "blacklisted_score": event.blacklisted_score,
-            "superminority_score": event.superminority_score,
-            "delinquency_score": event.delinquency_score,
-            "running_jito_score": event.running_jito_score,
-            "commission_score": event.commission_score,
-            "historical_commission_score": event.historical_commission_score,
-            "merkle_root_upload_authority_score": event.merkle_root_upload_authority_score,
-            "vote_credits_ratio": event.vote_credits_ratio,
-            "priority_fee_commission_score": event.priority_fee_commission_score,
-            "priority_fee_merkle_root_upload_authority_score": event.priority_fee_merkle_root_upload_authority_score,
+            "score": event.score as i64,
+            "raw_score": event.raw_score as i64,
+            "commission_max": event.commission_max as i32,
+            "mev_commission_avg": event.mev_commission_avg as i32,
+            "validator_age": event.validator_age as i32,
+            "vote_credits_avg": event.vote_credits_avg as i32,
+            "mev_commission_score": event.mev_commission_score as i32,
+            "blacklisted_score": event.blacklisted_score as i32,
+            "superminority_score": event.superminority_score as i32,
+            "delinquency_score": event.delinquency_score as i32,
+            "running_jito_score": event.running_jito_score as i32,
+            "commission_score": event.commission_score as i32,
+            "historical_commission_score": event.historical_commission_score as i32,
+            "merkle_root_upload_authority_score": event.merkle_root_upload_authority_score as i32,
+            "priority_fee_commission_score": event.priority_fee_commission_score as i32,
+            "priority_fee_merkle_root_upload_authority_score": event.priority_fee_merkle_root_upload_authority_score as i32,
             "details": doc! {
                 "max_mev_commission": event.details.max_mev_commission as i32,
                 "max_mev_commission_epoch": event.details.max_mev_commission_epoch as i32,
@@ -224,7 +227,7 @@ impl StewardEvent {
         Self::new(
             signature,
             instruction_idx,
-            &"ScoreComponentsV3".to_string(),
+            &"ScoreComponentsV4".to_string(),
             Some(event.vote_account),
             Some(metadata),
             tx_error,
@@ -583,7 +586,7 @@ impl StewardEventsStore {
                 "ScoreComponents" => {
                     filter.insert(
                         "event_type",
-                        doc! { "$in": ["ScoreComponents", "ScoreComponentsV2", "ScoreComponentsV3"] },
+                        doc! { "$in": ["ScoreComponents", "ScoreComponentsV2", "ScoreComponentsV3", "ScoreComponentsV4"] },
                     );
                 }
                 "InstantUnstakeComponents" => {

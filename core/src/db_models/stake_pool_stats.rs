@@ -89,7 +89,7 @@ impl StakePoolStatsStore {
             docs.push(doc);
         }
 
-        let new_stake_pool_stats = Self::calculate_moving_avg_apy(&docs, 10).unwrap();
+        let new_stake_pool_stats = Self::calculate_moving_avg_apy(&docs, 10)?;
         Ok(new_stake_pool_stats)
     }
 

@@ -2930,6 +2930,7 @@ dependencies = [
 name = "kobe-api"
 version = "1.0.0"
 dependencies = [
+ "anchor-lang",
  "axum",
  "cached",
  "chrono",
@@ -2947,11 +2948,13 @@ dependencies = [
  "solana-client",
  "solana-pubkey",
  "spl-stake-pool",
+ "stakenet-sdk",
  "thiserror 1.0.69",
  "tokio",
  "tower 0.4.13",
  "tower-http 0.4.4",
  "tracing-core",
+ "validator-history",
 ]
 
 [[package]]

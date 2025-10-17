@@ -10,7 +10,7 @@ pub struct EpochQuery {
 
 #[derive(Default, Clone, Serialize, Deserialize)]
 pub struct ValidatorHistoryResponse {
-    /// Cannot be enum due to Pod and Zeroable trait limitations
+    /// [`ValidatorHistory`] struct version
     pub struct_version: u32,
 
     /// Vote account address
@@ -31,6 +31,7 @@ pub struct ValidatorHistoryResponse {
     /// Last epoch when age was updated
     pub validator_age_last_updated_epoch: u16,
 
+    /// The array of [`ValidatorHistoryEntry`]
     pub history: Vec<ValidatorHistoryEntryResponse>,
 }
 
@@ -70,13 +71,13 @@ pub struct ValidatorHistoryEntryResponse {
     pub commission: u8,
 
     /// 0 if Solana Labs client, 1 if Jito client, >1 if other
-    pub client_type: u8,
+    pub client_type: ClientTypeResponse,
 
     /// Client versin
-    pub version: ClientVersionResponse,
+    pub version: String,
 
     /// IP address
-    pub ip: [u8; 4],
+    pub ip: String,
 
     /// The enum mapping of the Validator's Tip Distribution Account's merkle root upload authority
     pub merkle_root_upload_authority: MerkleRootUploadAuthorityResponse,
@@ -115,31 +116,6 @@ pub struct ValidatorHistoryEntryResponse {
     pub priority_fee_merkle_root_upload_authority: MerkleRootUploadAuthorityResponse,
 }
 
-#[derive(Default, Clone, Serialize, Deserialize)]
-#[repr(u8)]
-pub enum MerkleRootUploadAuthorityResponse {
-    #[default]
-    Unset = u8::MAX,
-    Other = 1,
-    OldJitoLabs = 2,
-    TipRouter = 3,
-    DNE = 4,
-}
-
-impl From<MerkleRootUploadAuthority> for MerkleRootUploadAuthorityResponse {
-    fn from(value: MerkleRootUploadAuthority) -> Self {
-        match value {
-            MerkleRootUploadAuthority::Unset => MerkleRootUploadAuthorityResponse::Unset,
-            MerkleRootUploadAuthority::Other => MerkleRootUploadAuthorityResponse::Other,
-            MerkleRootUploadAuthority::OldJitoLabs => {
-                MerkleRootUploadAuthorityResponse::OldJitoLabs
-            }
-            MerkleRootUploadAuthority::TipRouter => MerkleRootUploadAuthorityResponse::TipRouter,
-            MerkleRootUploadAuthority::DNE => MerkleRootUploadAuthorityResponse::DNE,
-        }
-    }
-}
-
 impl ValidatorHistoryEntryResponse {
     pub fn from_validator_history_entry(entry: &ValidatorHistoryEntry) -> Self {
         let version = ClientVersionResponse::from_client_version(entry.version);
@@ -149,9 +125,9 @@ impl ValidatorHistoryEntryResponse {
             mev_commission: entry.mev_commission,
             epoch_credits: entry.epoch_credits,
             commission: entry.commission,
-            client_type: entry.client_type,
-            version,
-            ip: entry.ip,
+            client_type: entry.client_type.into(),
+            version: format!("{}.{}.{}", version.major, version.minor, version.patch),
+            ip: entry.ip.map(|n| n.to_string()).join("."),
             merkle_root_upload_authority: entry.merkle_root_upload_authority.into(),
             is_superminority: entry.is_superminority,
             rank: entry.rank,
@@ -171,9 +147,71 @@ impl ValidatorHistoryEntryResponse {
 }
 
 #[derive(Default, Clone, Serialize, Deserialize)]
+pub enum ClientTypeResponse {
+    SolanaLabs,
+    JitoLabs,
+    Firedancer,
+    Agave,
+    BAM,
+    #[default]
+    Other,
+}
+
+impl From<u8> for ClientTypeResponse {
+    fn from(value: u8) -> Self {
+        match value {
+            0 => Self::SolanaLabs,
+            1 => Self::JitoLabs,
+            2 => Self::Firedancer,
+            3 => Self::Agave,
+            6 => Self::BAM,
+            _ => Self::Other,
+        }
+    }
+}
+
+#[derive(Default, Clone, Serialize, Deserialize)]
+#[repr(u8)]
+pub enum MerkleRootUploadAuthorityResponse {
+    #[default]
+    Unset = u8::MAX,
+
+    /// Other
+    Other = 1,
+
+    /// Old Jito labs
+    OldJitoLabs = 2,
+
+    /// Jito Tip Router
+    TipRouter = 3,
+
+    /// Does not exist
+    DNE = 4,
+}
+
+impl From<MerkleRootUploadAuthority> for MerkleRootUploadAuthorityResponse {
+    fn from(value: MerkleRootUploadAuthority) -> Self {
+        match value {
+            MerkleRootUploadAuthority::Unset => MerkleRootUploadAuthorityResponse::Unset,
+            MerkleRootUploadAuthority::Other => MerkleRootUploadAuthorityResponse::Other,
+            MerkleRootUploadAuthority::OldJitoLabs => {
+                MerkleRootUploadAuthorityResponse::OldJitoLabs
+            }
+            MerkleRootUploadAuthority::TipRouter => MerkleRootUploadAuthorityResponse::TipRouter,
+            MerkleRootUploadAuthority::DNE => MerkleRootUploadAuthorityResponse::DNE,
+        }
+    }
+}
+
+#[derive(Default, Clone, Serialize, Deserialize)]
 pub struct ClientVersionResponse {
+    /// Major release number
     pub major: u8,
+
+    /// Minor release number
     pub minor: u8,
+
+    /// Patch release number
     pub patch: u16,
 }
 

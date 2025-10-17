@@ -73,7 +73,7 @@ pub struct ValidatorHistoryEntryResponse {
     /// 0 if Solana Labs client, 1 if Jito client, >1 if other
     pub client_type: ClientTypeResponse,
 
-    /// Client versin
+    /// Client version
     pub version: String,
 
     /// IP address

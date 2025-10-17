@@ -357,7 +357,7 @@ pub async fn jitosol_ratio_cacheable_wrapper(
     type = "TimedCache<String, (StatusCode, Json<ValidatorHistoryResponse>)>",
     create = "{ TimedCache::with_lifespan_and_capacity(60, 1000) }",
     key = "String",
-    convert = r#"{ format!("validator-history-{}", vote_account) }"#
+    convert = r#"{ format!("validator-history-{}-{}", vote_account, epoch.epoch.as_ref().map(|e| e.to_string()).unwrap_or(0.to_string())) }"#
 )]
 pub async fn get_validator_histories_wrapper(
     resolver: Extension<QueryResolver>,

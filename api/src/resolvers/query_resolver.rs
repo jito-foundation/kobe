@@ -842,6 +842,7 @@ impl QueryResolver {
                 .arr
                 .iter()
                 .map(ValidatorHistoryEntryResponse::from_validator_history_entry)
+                .filter(|history| history.epoch.ne(&u16::MAX))
                 .collect(),
         };
 

@@ -287,7 +287,7 @@ cargo build --release
 cargo r --bin kobe-api -- \
     --ip 127.0.0.1 \
     --port 8080 \
-    --mongo-connection-uri "" \
+    --mongo-connection-uri "mongodb://admin:password@localhost:27017" \
     --mongo-db-name validators \
     --sentry-api-url "" \
     --rpc-url "https://api.testnet.solana.com"

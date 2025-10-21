@@ -1,69 +1,54 @@
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    str::FromStr,
+    sync::Arc,
+};
 
+use anchor_lang::AccountDeserialize;
 use axum::{http::StatusCode, Extension, Json};
 use cached::{proc_macro::cached, TimedCache};
 use kobe_core::{
+    constants::{JITOSOL_VALIDATOR_LIST_MAINNET, JITOSOL_VALIDATOR_LIST_TESTNET},
     db_models::{
-        error::DataStoreError,
         mev_rewards::{StakerRewardsStore, ValidatorRewardsStore},
         stake_pool_stats::{StakePoolStats, StakePoolStatsStore},
         steward_events::StewardEventsStore,
         validators::ValidatorStore,
     },
+    validators_app::Cluster,
     SortOrder, LAMPORTS_PER_SOL,
 };
-use log::error;
+use log::{error, warn};
 use mongodb::Database;
 use serde::{Deserialize, Serialize};
 use solana_borsh::v1::try_from_slice_unchecked;
 use solana_client::nonblocking::rpc_client::RpcClient;
-use solana_pubkey::{pubkey, Pubkey};
+use solana_pubkey::Pubkey;
 use spl_stake_pool::state::ValidatorList;
-use thiserror::Error;
+use stakenet_sdk::utils::accounts::get_validator_history_address;
+use validator_history::ValidatorHistory;
 
-use crate::schemas::{
-    mev_rewards::{
-        MevRewards, MevRewardsRequest, StakerRewards, StakerRewardsRequest, StakerRewardsResponse,
-        ValidatorRewards, ValidatorRewardsRequest, ValidatorRewardsResponse,
-    },
-    stake_pool_stats::{
-        round_to_hour, F64DataPoint, GetStakePoolStatsRequest, GetStakePoolStatsResponse,
-        I64DataPoint,
-    },
-    steward_events::{StewardEvent, StewardEventsRequest, StewardEventsResponse},
-    validator::{
-        AverageMevCommissionOverTimeResponse, JitoStakeOverTimeResponse,
-        ValidatorByVoteAccountResponse, ValidatorEntry, ValidatorsRequest, ValidatorsResponse,
+use crate::{
+    resolvers::error::{QueryResolverError, Result},
+    schemas::{
+        jitosol_ratio::{JitoSolRatioRequest, JitoSolRatioResponse},
+        mev_rewards::{
+            MevRewards, MevRewardsRequest, StakerRewards, StakerRewardsRequest,
+            StakerRewardsResponse, ValidatorRewards, ValidatorRewardsRequest,
+            ValidatorRewardsResponse,
+        },
+        stake_pool_stats::{
+            round_to_hour, F64DataPoint, GetStakePoolStatsRequest, GetStakePoolStatsResponse,
+            I64DataPoint,
+        },
+        steward_events::{StewardEvent, StewardEventsRequest, StewardEventsResponse},
+        validator::{
+            AverageMevCommissionOverTimeResponse, JitoStakeOverTimeResponse,
+            ValidatorByVoteAccountResponse, ValidatorEntry, ValidatorsRequest, ValidatorsResponse,
+        },
+        validator_history::{EpochQuery, ValidatorHistoryEntryResponse, ValidatorHistoryResponse},
     },
 };
-
-use crate::schemas::jitosol_ratio::{JitoSolRatioRequest, JitoSolRatioResponse};
-use log::warn;
-
-type Result<T> = core::result::Result<T, QueryResolverError>;
-
-const JITOSOL_VALIDATOR_LIST: Pubkey = pubkey!("3R3nGZpQs2aZo5FDQvd2MUQ6R7KhAPainds6uT6uE2mn");
-
-#[derive(Error, Debug)]
-pub enum QueryResolverError {
-    #[error("querying data store error")]
-    DataStoreError(#[from] DataStoreError),
-
-    #[error("invalid request: {0}")]
-    InvalidRequest(String),
-
-    #[error("reqwest error: {0}")]
-    ReqwestError(#[from] reqwest::Error),
-
-    #[error("RPC Error: {0}")]
-    RpcError(String),
-
-    #[error("Custom error: {0}")]
-    CustomError(String),
-
-    #[error("MongoDB error: {0}")]
-    MongoDBError(#[from] mongodb::error::Error),
-}
 
 #[derive(Clone)]
 pub struct QueryResolver {
@@ -72,7 +57,12 @@ pub struct QueryResolver {
     validator_rewards_store: ValidatorRewardsStore,
     staker_rewards_store: StakerRewardsStore,
     steward_events_store: StewardEventsStore,
-    rpc_client_url: String,
+
+    /// RPC Client URL
+    rpc_client: Arc<RpcClient>,
+
+    /// Solana Cluster
+    cluster: Cluster,
 }
 
 fn aggregate_mev_rewards(stats_entries: &[StakePoolStats]) -> u64 {
@@ -363,8 +353,31 @@ pub async fn jitosol_ratio_cacheable_wrapper(
     }
 }
 
+#[cached(
+    type = "TimedCache<String, (StatusCode, Json<ValidatorHistoryResponse>)>",
+    create = "{ TimedCache::with_lifespan_and_capacity(60, 1000) }",
+    key = "String",
+    convert = r#"{ format!("validator-history-{}-{}", vote_account, epoch.epoch.as_ref().map(|e| e.to_string()).unwrap_or(0.to_string())) }"#
+)]
+pub async fn get_validator_histories_wrapper(
+    resolver: Extension<QueryResolver>,
+    vote_account: String,
+    epoch: EpochQuery,
+) -> (StatusCode, Json<ValidatorHistoryResponse>) {
+    if let Ok(res) = resolver.get_validator_histories(vote_account, epoch).await {
+        (StatusCode::OK, Json(res))
+    } else {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ValidatorHistoryResponse::default()),
+        )
+    }
+}
+
 impl QueryResolver {
-    pub fn new(database: &Database, rpc_client_url: &str) -> Self {
+    pub fn new(database: &Database, rpc_client_url: String, cluster: Cluster) -> Self {
+        let client = RpcClient::new(rpc_client_url);
+
         Self {
             stake_pool_store: StakePoolStatsStore::new(
                 database.collection(StakePoolStatsStore::COLLECTION),
@@ -379,7 +392,8 @@ impl QueryResolver {
             steward_events_store: StewardEventsStore::new(
                 database.collection(StewardEventsStore::COLLECTION),
             ),
-            rpc_client_url: rpc_client_url.into(),
+            rpc_client: Arc::new(client),
+            cluster,
         }
     }
 
@@ -496,11 +510,22 @@ impl QueryResolver {
             .get_mev_rewards_per_validator(epoch)
             .await?;
 
-        let rpc_client = RpcClient::new(self.rpc_client_url.clone());
+        let jito_sol_validator_list_address = match self.cluster {
+            Cluster::MainnetBeta => JITOSOL_VALIDATOR_LIST_MAINNET,
+            Cluster::Testnet => JITOSOL_VALIDATOR_LIST_TESTNET,
+            Cluster::Devnet => {
+                return Err(QueryResolverError::InvalidRequest(
+                    "Devnet is not supported yet".to_string(),
+                ));
+            }
+        };
+        let jitosol_validator_list = Pubkey::from_str(jito_sol_validator_list_address)
+            .map_err(|e| QueryResolverError::CustomError(e.to_string()))?;
 
         // Get stake pool validator list
-        let validator_list_account = rpc_client
-            .get_account_data(&JITOSOL_VALIDATOR_LIST)
+        let validator_list_account = self
+            .rpc_client
+            .get_account_data(&jitosol_validator_list)
             .await
             .map_err(|e| QueryResolverError::RpcError(e.to_string()))?;
 
@@ -760,6 +785,71 @@ impl QueryResolver {
 
         Ok(JitoSolRatioResponse { ratios })
     }
+
+    /// Retrieves the history of a specific validator, based on the provided vote account and optional epoch filter.
+    ///
+    /// # Returns
+    ///
+    /// - `Ok(Json(history))`: A JSON response containing the validator history information. If the epoch filter is provided, it only returns the history for the specified epoch.
+    ///
+    /// # Example
+    ///
+    /// This endpoint can be used to fetch the history of a validator's performance over time, either for a specific epoch or for all recorded epochs:
+    ///
+    /// ```
+    /// GET /validator_history/{vote_account}?epoch=800
+    /// ```
+    /// This request retrieves the history for the specified vote account, filtered by epoch 800.
+    pub async fn get_validator_histories(
+        &self,
+        vote_account: String,
+        epoch_query: EpochQuery,
+    ) -> Result<ValidatorHistoryResponse> {
+        let vote_account = Pubkey::from_str(&vote_account)
+            .map_err(|e| QueryResolverError::CustomError(e.to_string()))?;
+        let history_account =
+            get_validator_history_address(&vote_account, &validator_history::id());
+        let account = self
+            .rpc_client
+            .get_account(&history_account)
+            .await
+            .map_err(|e| QueryResolverError::RpcError(e.to_string()))?;
+        let validator_history = ValidatorHistory::try_deserialize(&mut account.data.as_slice())
+            .map_err(|e| {
+                error!("error deserializing ValidatorHistory: {:?}", e);
+                QueryResolverError::ValidatorHistoryError(
+                    "Error parsing ValidatorHistory".to_string(),
+                )
+            })?;
+
+        let history_entries: Vec<ValidatorHistoryEntryResponse> = match epoch_query.epoch {
+            Some(epoch) => validator_history
+                .history
+                .arr
+                .iter()
+                .filter_map(|entry| {
+                    if epoch == entry.epoch {
+                        Some(ValidatorHistoryEntryResponse::from_validator_history_entry(
+                            entry,
+                        ))
+                    } else {
+                        None
+                    }
+                })
+                .collect(),
+            None => validator_history
+                .history
+                .arr
+                .iter()
+                .map(ValidatorHistoryEntryResponse::from_validator_history_entry)
+                .collect(),
+        };
+
+        let history =
+            ValidatorHistoryResponse::from_validator_history(validator_history, history_entries);
+
+        Ok(history)
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Default)]
@@ -785,7 +875,7 @@ pub async fn get_daily_mev_rewards(dune_api_key: &str) -> Result<Vec<Row>> {
     let client = reqwest::Client::new();
 
     let body = client
-        .get("https://api.dune.com/api/v1/query/3715528/results?limit=1000")
+        .get("https://api.dune.com/api/v1/query/3715528/results?limit=2000")
         .header("X-Dune-API-Key", dune_api_key)
         .send()
         .await?;

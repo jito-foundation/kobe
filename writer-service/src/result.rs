@@ -1,6 +1,7 @@
 use std::io::Error as IoError;
 
 use backoff::Error as BackoffError;
+use kobe_core::error::KobeCoreError;
 use log::SetLoggerError;
 use mongodb::error::Error as MongoError;
 use reqwest::Error as ReqwestError;
@@ -51,7 +52,7 @@ pub enum AppError {
     SlotNotFound,
 
     #[error("ClientError")]
-    ClientError(#[from] ClientError),
+    ClientError(#[from] Box<ClientError>),
 
     #[error("Backoff Error")]
     BackoffError(String),
@@ -61,6 +62,9 @@ pub enum AppError {
 
     #[error("Join errorr")]
     JoinError(#[from] tokio::task::JoinError),
+
+    #[error(transparent)]
+    KobeCore(#[from] KobeCoreError),
 }
 
 impl From<BackoffError<ClientError>> for AppError {
@@ -75,6 +79,12 @@ impl From<BackoffError<ClientError>> for AppError {
 impl From<Box<dyn std::error::Error>> for AppError {
     fn from(error: Box<dyn std::error::Error>) -> Self {
         AppError::Internal(InternalError::Miscellaneous(error.to_string()))
+    }
+}
+
+impl From<ClientError> for AppError {
+    fn from(value: ClientError) -> Self {
+        AppError::ClientError(Box::new(value))
     }
 }
 

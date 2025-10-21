@@ -12,7 +12,7 @@ use tokio::runtime::Runtime;
 struct Args {
     /// RPC url
     #[arg(long, env)]
-    rpc_url: Option<String>,
+    rpc_url: String,
 
     /// Mongo connection URI.
     #[arg(long, env)]
@@ -82,7 +82,7 @@ fn init_logger(cluster: &Cluster) -> Result<()> {
 fn main() -> Result<()> {
     dotenvy::dotenv().ok();
     let args: Args = Args::parse();
-    let cluster = Cluster::get_cluster(&args.solana_cluster);
+    let cluster = Cluster::get_cluster(&args.solana_cluster)?;
     init_logger(&cluster)?;
 
     // Set up panic alerting via Sentry

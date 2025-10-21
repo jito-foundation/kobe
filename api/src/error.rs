@@ -5,7 +5,7 @@ use http::StatusCode;
 use serde_json::json;
 use thiserror::Error;
 
-use crate::resolvers::query_resolver::QueryResolverError;
+use crate::resolvers::error::QueryResolverError;
 
 #[derive(Error, Debug)]
 pub enum ApiError {
@@ -78,6 +78,7 @@ impl From<QueryResolverError> for ApiError {
             QueryResolverError::RpcError(_) => ApiError::ExternalService {
                 service: "Solana RPC".to_string(),
             },
+            QueryResolverError::ValidatorHistoryError(msg) => ApiError::Internal(msg),
             QueryResolverError::CustomError(msg) => ApiError::Internal(msg),
         }
     }

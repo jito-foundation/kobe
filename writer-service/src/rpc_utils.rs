@@ -1,7 +1,4 @@
-use std::{env, time::Duration as CoreDuration};
-
 use backoff::ExponentialBackoff;
-use kobe_core::validators_app::Cluster;
 use log::error;
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_program::{clock::DEFAULT_SLOTS_PER_EPOCH, pubkey::Pubkey};
@@ -33,9 +30,9 @@ pub async fn get_reserve_balance(rpc_client: &RpcClient, stake_pool: &StakePool)
 
 pub async fn get_stake_pool_fees(rpc_client: &RpcClient, stake_pool: &StakePool) -> Result<f64> {
     let fee_account = stake_pool.manager_fee_account;
-    let fee_account_balance = rpc_client.get_token_account_balance(&fee_account).await;
+    let fee_account_balance = rpc_client.get_token_account_balance(&fee_account).await?;
 
-    fee_account_balance?
+    fee_account_balance
         .ui_amount
         .ok_or(AppError::EmptyFeeAccountBalance(fee_account.to_string()))
 }
@@ -80,37 +77,4 @@ pub async fn retry_get_epoch_info(rpc_client: &RpcClient) -> Result<u64> {
     backoff::future::retry(backoff, op)
         .await
         .map_err(|e| e.into())
-}
-
-fn get_rpc_url(cluster: &Cluster) -> String {
-    let mainnet_url = env::var("MAINNET_CLUSTER_URL")
-        .unwrap_or("https://api.mainnet-beta.solana.com".to_string());
-
-    let testnet_url =
-        env::var("TESTNET_CLUSTER_URL").unwrap_or("https://api.testnet.solana.com".to_string());
-
-    let devnet_url =
-        env::var("DEVNET_CLUSTER_URL").unwrap_or("https://api.devnet.solana.com".to_string());
-
-    let json_rpc_url = match cluster {
-        Cluster::Devnet => devnet_url,
-        Cluster::MainnetBeta => mainnet_url,
-        Cluster::Testnet => testnet_url,
-    };
-
-    json_rpc_url.to_string()
-}
-
-/// Set up and configures and RPC client
-pub fn setup_rpc_client(cluster: &Cluster, rpc_url: Option<String>) -> Result<RpcClient> {
-    let json_rpc_url = match rpc_url {
-        Some(url) => url,
-        None => get_rpc_url(cluster),
-    };
-
-    Ok(RpcClient::new_with_timeout_and_commitment(
-        json_rpc_url,
-        CoreDuration::from_secs(60),
-        CommitmentConfig::confirmed(),
-    ))
 }

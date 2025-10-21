@@ -92,4 +92,3 @@ tracing = { version = "0.1.37" }
 tracing-core = "0.1.32"
 tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
 validator-history = { package = "validator-history", git = "https://github.com/jito-foundation/stakenet", rev = "d724a42b49c0cd32791afbd2a362dd63364a7a9a", features = ["no-entrypoint"] }
-wincode = "0.1.2"

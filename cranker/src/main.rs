@@ -30,34 +30,73 @@ mod utils;
 
 /// Performs all the actions needed per epoch to manage the stake pool
 ///
-/// - Update stake pool to current epoch (even on dry run)
+/// The spl-stake-pool `UpdateValidatorListBalance` updates the state and balance of the stake
+/// accounts managed by the pool and performs housekeeping operations such as reclaiming
+/// deactivated stake accounts, merging active transient stake accounts and other similar
+/// operations.
+///
+/// ## NOTE
+///
+/// These operations fail in the stake program while the EpochRewards active flag is true.
 async fn update_stake_pool(config: &Config, epoch: Epoch) -> anyhow::Result<()> {
-    loop {
-        let epoch_rewards_data = config
-            .rpc_client
-            .get_account_data(&EpochRewards::id())
-            .await?;
-        let epoch_rewards: EpochRewards = deserialize(&epoch_rewards_data)?;
+    // Wait for epoch rewards to complete before proceeding
+    wait_for_epoch_rewards_completion(config).await?;
 
-        if epoch_rewards.active {
-            tokio::time::sleep(Duration::from_secs(60)).await;
-            continue;
+    // Execute stake pool update and send notification
+    let result = parallel_execute_stake_pool_update(config, epoch, true, false).await;
+
+    let slack_message = match &result {
+        Ok(()) => "Cranker has successfully run Stake Pool Update",
+        Err(e) => {
+            error!("Cranker failed to update, {e:?}");
+            "Cranker failed to update. Please manually run stake pool update"
         }
+    };
 
-        let slack_message =
-            match parallel_execute_stake_pool_update(config, epoch, true, false).await {
-                Ok(()) => "Cranker has successfully run Stake Pool Update",
-                Err(e) => {
-                    error!("Cranker failed to update, {e:?}");
-                    "Cranker failed to update. Please manually run stake pool update"
-                }
-            };
-
-        post_slack_message(config.slack_api_token.clone(), slack_message)
-            .map_err(|e| anyhow!("Slack message failed to post, {e:?}"))?;
-
-        return Ok(());
+    // Fire-and-forget Slack notification (don't fail the function if Slack fails)
+    if let Err(e) = post_slack_message(config.slack_api_token.clone(), slack_message) {
+        warn!("Slack message failed to post, {e:?}");
     }
+
+    result
+}
+
+/// Waits for epoch rewards distribution to complete
+async fn wait_for_epoch_rewards_completion(config: &Config) -> anyhow::Result<()> {
+    const POLL_INTERVAL: Duration = Duration::from_secs(30);
+    const MAX_RETRIES: u32 = 120; // 1 hour max wait
+
+    for attempt in 1..=MAX_RETRIES {
+        match check_epoch_rewards_active(config).await {
+            Ok(false) => {
+                info!("Epoch rewards distribution completed");
+                return Ok(());
+            }
+            Ok(true) => {
+                info!(
+                    "Epoch reward distribution active, waiting... (attempt {}/{})",
+                    attempt, MAX_RETRIES
+                );
+                tokio::time::sleep(POLL_INTERVAL).await;
+            }
+            Err(e) => {
+                warn!("Failed to check epoch rewards status: {e:?}, retrying...");
+                tokio::time::sleep(POLL_INTERVAL).await;
+            }
+        }
+    }
+
+    Err(anyhow!("Timeout waiting for epoch rewards to complete"))
+}
+
+/// Checks if epoch rewards distribution is currently active
+async fn check_epoch_rewards_active(config: &Config) -> anyhow::Result<bool> {
+    let epoch_rewards_data = config
+        .rpc_client
+        .get_account_data(&EpochRewards::id())
+        .await?;
+    let epoch_rewards: EpochRewards = deserialize(&epoch_rewards_data)?;
+    Ok(epoch_rewards.active)
 }
 
 fn main() -> anyhow::Result<()> {
@@ -104,7 +143,7 @@ fn main() -> anyhow::Result<()> {
 
     // if a valid pool address is provided via CLI, then use it. Otherwise, use defaults.
     let stake_pool_address = args.get_stake_pool_address();
-    info!("pool address at {stake_pool_address:#?}");
+    info!("Pool address at: {stake_pool_address}");
 
     let json_rpc_url = args.get_json_rpc_url();
 
@@ -123,6 +162,7 @@ fn main() -> anyhow::Result<()> {
             slack_api_token: args.slack_api_token,
         }
     };
+    info!("Fee payer: {}", config.fee_payer.pubkey());
 
     let runtime = Runtime::new().expect("Tokio runtime failed to create");
 

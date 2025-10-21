@@ -64,7 +64,7 @@ async fn update_stake_pool(config: &Config, epoch: Epoch) -> anyhow::Result<()> 
 /// Waits for epoch rewards distribution to complete
 async fn wait_for_epoch_rewards_completion(config: &Config) -> anyhow::Result<()> {
     const POLL_INTERVAL: Duration = Duration::from_secs(30);
-    const MAX_RETRIES: u32 = 120; // 1 hour max wait
+    const MAX_RETRIES: u32 = 120;
 
     for attempt in 1..=MAX_RETRIES {
         match check_epoch_rewards_active(config).await {
@@ -74,7 +74,7 @@ async fn wait_for_epoch_rewards_completion(config: &Config) -> anyhow::Result<()
             }
             Ok(true) => {
                 info!(
-                    "Epoch reward distribution active, waiting... (attempt {}/{})",
+                    "Epoch rewards distribution active, waiting... (attempt {}/{})",
                     attempt, MAX_RETRIES
                 );
                 tokio::time::sleep(POLL_INTERVAL).await;

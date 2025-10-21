@@ -89,8 +89,7 @@ impl StakePoolStatsStore {
             docs.push(doc);
         }
 
-        let new_stake_pool_stats = Self::calculate_moving_avg_apy(&docs, 10).unwrap();
-        Ok(new_stake_pool_stats)
+        Self::calculate_moving_avg_apy(&docs, 10).map_err(DataStoreError::StakePoolStatsError)
     }
 
     /// Calculates moving average apy based on past num_epochs epochs

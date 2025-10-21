@@ -16,12 +16,13 @@ use env_logger::{Builder, Target};
 use kobe_api::{
     error::{handle_error, ApiError},
     resolvers::query_resolver::{
-        daily_mev_rewards_cacheable_wrapper, jito_stake_over_time_ratio_cacheable_wrapper,
-        jitosol_ratio_cacheable_wrapper, jitosol_validators_cacheable_wrapper,
-        mev_commission_average_over_time_cacheable_wrapper, mev_rewards_cacheable_wrapper,
-        stake_pool_stats_cacheable_wrapper, staker_rewards_cacheable_wrapper,
-        steward_events_cacheable_wrapper, validator_by_vote_account_cacheable_wrapper,
-        validator_rewards_cacheable_wrapper, validators_cacheable_wrapper, QueryResolver,
+        daily_mev_rewards_cacheable_wrapper, get_validator_histories_wrapper,
+        jito_stake_over_time_ratio_cacheable_wrapper, jitosol_ratio_cacheable_wrapper,
+        jitosol_validators_cacheable_wrapper, mev_commission_average_over_time_cacheable_wrapper,
+        mev_rewards_cacheable_wrapper, stake_pool_stats_cacheable_wrapper,
+        staker_rewards_cacheable_wrapper, steward_events_cacheable_wrapper,
+        validator_by_vote_account_cacheable_wrapper, validator_rewards_cacheable_wrapper,
+        validators_cacheable_wrapper, QueryResolver,
     },
     schemas::{
         jitosol_ratio::JitoSolRatioRequest,
@@ -29,6 +30,7 @@ use kobe_api::{
         stake_pool_stats::GetStakePoolStatsRequest,
         steward_events::StewardEventsRequest,
         validator::ValidatorsRequest,
+        validator_history::EpochQuery,
     },
 };
 use kobe_core::{
@@ -184,6 +186,14 @@ async fn jitosol_sol_ratio_handler(
     jitosol_ratio_cacheable_wrapper(resolver, req).await
 }
 
+async fn get_validator_histories(
+    resolver: Extension<QueryResolver>,
+    Path(vote_account): Path<String>,
+    Query(epoch_query): Query<EpochQuery>,
+) -> impl IntoResponse {
+    get_validator_histories_wrapper(resolver, vote_account, epoch_query).await
+}
+
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
 struct Args {
@@ -250,7 +260,7 @@ async fn run_server(args: &Args) {
     let db = c.database(&args.mongo_db_name);
     let cluster = Cluster::get_cluster(&args.solana_cluster).expect("Failed to get cluster");
 
-    let query_resolver = QueryResolver::new(&db, &args.rpc_url, cluster);
+    let query_resolver = QueryResolver::new(&db, args.rpc_url.to_owned(), cluster);
 
     let cors = CorsLayer::new()
         .allow_headers(Any)
@@ -319,6 +329,10 @@ async fn run_server(args: &Args) {
         .route(
             "/api/v1/jitosol_sol_ratio",
             get(jitosol_sol_ratio_handler).post(jitosol_sol_ratio_handler),
+        )
+        .route(
+            "/api/v1/validator_history/:vote_account",
+            get(get_validator_histories),
         )
         .layer(Extension(query_resolver))
         .layer(middleware)

@@ -12,6 +12,7 @@ readme = "./README.md"
 [dependencies]
 anyhow = { workspace = true }
 backon = { workspace = true }
+bincode = { workspace = true }
 clap = { workspace = true }
 env_logger = { workspace = true }
 futures = { workspace = true }
@@ -23,6 +24,7 @@ sentry-log = { workspace = true }
 solana-cli-config = { workspace = true }
 solana-cli-output = { workspace = true }
 solana-client = { workspace = true }
+solana-epoch-rewards = { workspace = true }
 solana-metrics = { workspace = true }
 solana-program = { workspace = true }
 solana-pubkey = { workspace = true }

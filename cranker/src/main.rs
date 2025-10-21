@@ -2,14 +2,17 @@
 
 use std::time::Duration;
 
+use anyhow::anyhow;
 use backon::{ExponentialBuilder, Retryable};
+use bincode::deserialize;
 use clap::Parser;
 use env_logger::{Builder, Target};
 use kobe_core::validators_app::Cluster;
 use log::*;
 use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_epoch_rewards::EpochRewards;
 use solana_metrics::set_host_id;
-use solana_sdk::{clock::Epoch, commitment_config::CommitmentConfig};
+use solana_sdk::{clock::Epoch, commitment_config::CommitmentConfig, sysvar::SysvarId};
 use tokio::{runtime::Runtime, time::sleep as tokio_sleep};
 
 use crate::{
@@ -28,20 +31,36 @@ mod utils;
 /// Performs all the actions needed per epoch to manage the stake pool
 ///
 /// - Update stake pool to current epoch (even on dry run)
-async fn update_stake_pool(config: &Config, epoch: Epoch) {
-    let slack_message = match parallel_execute_stake_pool_update(config, epoch, true, false).await {
-        Ok(()) => "Cranker has successfully run Stake Pool Update",
-        Err(e) => {
-            error!("Cranker failed to update, {e:?}");
-            "Cranker failed to update. Please manually run stake pool update"
+async fn update_stake_pool(config: &Config, epoch: Epoch) -> anyhow::Result<()> {
+    loop {
+        let epoch_rewards_data = config
+            .rpc_client
+            .get_account_data(&EpochRewards::id())
+            .await?;
+        let epoch_rewards: EpochRewards = deserialize(&epoch_rewards_data)?;
+
+        if epoch_rewards.active {
+            tokio::time::sleep(Duration::from_secs(60)).await;
+            continue;
         }
-    };
-    if let Err(e) = post_slack_message(config.slack_api_token.clone(), slack_message) {
-        error!("Slack message failed to post, {e:?}");
+
+        let slack_message =
+            match parallel_execute_stake_pool_update(config, epoch, true, false).await {
+                Ok(()) => "Cranker has successfully run Stake Pool Update",
+                Err(e) => {
+                    error!("Cranker failed to update, {e:?}");
+                    "Cranker failed to update. Please manually run stake pool update"
+                }
+            };
+
+        post_slack_message(config.slack_api_token.clone(), slack_message)
+            .map_err(|e| anyhow!("Slack message failed to post, {e:?}"))?;
+
+        return Ok(());
     }
 }
 
-fn main() {
+fn main() -> anyhow::Result<()> {
     let mut builder = Builder::new();
     builder.target(Target::Stdout).parse_default_env();
     let logger = sentry_log::SentryLogger::with_dest(builder.build());
@@ -115,7 +134,9 @@ fn main() {
             .epoch;
         if config.dry_run {
             // Don't need to loop if just dry running
-            update_stake_pool(&config, epoch).await;
+            if let Err(e) = update_stake_pool(&config, epoch).await {
+                error!("{e}");
+            }
         } else {
             // Periodically report metrics every minute
             runtime.spawn(async move {
@@ -137,11 +158,15 @@ fn main() {
                 }
             });
             loop {
-                update_stake_pool(&config, epoch).await;
+                if let Err(e) = update_stake_pool(&config, epoch).await {
+                    error!("{e}");
+                }
                 epoch = wait_for_next_epoch(&config.rpc_client)
                     .await
                     .expect("Function panicked fetching epoch info while waiting for next epoch");
             }
         }
-    })
+    });
+
+    Ok(())
 }

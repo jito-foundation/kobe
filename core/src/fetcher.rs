@@ -9,38 +9,20 @@ use solana_client::{nonblocking::rpc_client::RpcClient, rpc_response::RpcVoteAcc
 use solana_pubkey::Pubkey;
 use spl_stake_pool::state::ValidatorStakeInfo;
 use spl_stake_pool_cli::client::get_validator_list;
-use stakenet_sdk::utils::accounts::get_all_validator_history_accounts;
+use stakenet_sdk::utils::accounts::{
+    get_all_validator_history_accounts, get_steward_config_account,
+};
 use validator_history::ValidatorHistory;
 
 use crate::{
     client_type::ClientType,
     constants::{
-        PRIORITY_FEE_DISTRIBUTION_PROGRAM, TIP_DISTRIBUTION_PROGRAM_MAINNET,
-        TIP_DISTRIBUTION_PROGRAM_TESTNET, VALIDATOR_HISTORY_PROGRAM_MAINNET,
-        VALIDATOR_HISTORY_PROGRAM_TESTNET,
+        PRIORITY_FEE_DISTRIBUTION_PROGRAM, STEWARD_CONFIG_MAINNET, STEWARD_CONFIG_TESTNET,
+        TIP_DISTRIBUTION_PROGRAM_MAINNET, TIP_DISTRIBUTION_PROGRAM_TESTNET,
+        VALIDATOR_HISTORY_PROGRAM_MAINNET, VALIDATOR_HISTORY_PROGRAM_TESTNET,
     },
     validators_app::{Cluster, ValidatorsAppResponseEntry},
 };
-
-mod jito_tip_distribution_sdk {
-    use anchor_lang::{prelude::Pubkey, solana_program::clock::Epoch};
-    use jito_tip_distribution::state::TipDistributionAccount;
-
-    pub fn derive_tip_distribution_account_address(
-        tip_distribution_program_id: &Pubkey,
-        vote_pubkey: &Pubkey,
-        epoch: Epoch,
-    ) -> (Pubkey, u8) {
-        Pubkey::find_program_address(
-            &[
-                TipDistributionAccount::SEED,
-                vote_pubkey.to_bytes().as_ref(),
-                epoch.to_le_bytes().as_ref(),
-            ],
-            tip_distribution_program_id,
-        )
-    }
-}
 
 type Error = Box<dyn std::error::Error>;
 
@@ -56,6 +38,7 @@ pub struct ChainData {
     pub inflation_rewards_lamports: u64,
     pub priority_fee_commission_bps: u16,
     pub priority_fee_revenue_lamports: u64,
+    pub is_jito_blacklist: Option<bool>,
 }
 
 pub fn get_tip_distribution_program_id(cluster: &Cluster) -> Pubkey {
@@ -78,6 +61,15 @@ pub fn get_validator_history_program_id(cluster: &Cluster) -> Pubkey {
 
 pub fn get_priority_fee_distribution_program_id() -> solana_pubkey::Pubkey {
     solana_pubkey::Pubkey::from_str(PRIORITY_FEE_DISTRIBUTION_PROGRAM).unwrap()
+}
+
+/// Get steward config public key
+fn get_steward_config_pubkey(cluster: &Cluster) -> Pubkey {
+    match cluster {
+        Cluster::Devnet => unimplemented!(),
+        Cluster::Testnet => Pubkey::from_str(STEWARD_CONFIG_TESTNET).unwrap(),
+        Cluster::MainnetBeta => Pubkey::from_str(STEWARD_CONFIG_MAINNET).unwrap(),
+    }
 }
 
 /// Fetches on-chain data for a set of validators
@@ -137,6 +129,8 @@ pub async fn fetch_chain_data(
     let validator_history_program_id = get_validator_history_program_id(cluster);
     let validator_histories =
         fetch_validator_history_accounts(rpc_client, validator_history_program_id).await?;
+    let steward_config_pubkey = get_steward_config_pubkey(cluster);
+    let steward_config = get_steward_config_account(rpc_client, &steward_config_pubkey).await?;
 
     Ok(HashMap::from_iter(validators.iter().map(|v| {
         let vote_account = v.vote_account;
@@ -200,6 +194,17 @@ pub async fn fetch_chain_data(
         let inflation_rewards_lamports =
             inflation_rate / epochs_per_year * staked_amount * vote_credit_proportion;
 
+        let validator_index = validator_histories
+            .get(&vote_account)
+            .map(|history| history.index);
+
+        let is_jito_blacklist = validator_index.and_then(|index| {
+            steward_config
+                .validator_history_blacklist
+                .get(index as usize)
+                .ok()
+        });
+
         let data = ChainData {
             mev_commission_bps,
             mev_revenue_lamports,
@@ -210,6 +215,7 @@ pub async fn fetch_chain_data(
             inflation_rewards_lamports: inflation_rewards_lamports as u64,
             priority_fee_commission_bps,
             priority_fee_revenue_lamports,
+            is_jito_blacklist,
         };
 
         (vote_account, data)

@@ -2851,6 +2851,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "jito-tip-distribution-sdk"
+version = "0.1.6"
+source = "git+https://github.com/jito-foundation/jito-programs?branch=master#8f55af0a9b31ac2192415b59ce2c47329ee255a2"
+dependencies = [
+ "anchor-lang",
+ "jito-tip-distribution",
+]
+
+[[package]]
 name = "jni"
 version = "0.21.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2971,6 +2980,7 @@ dependencies = [
  "jito-priority-fee-distribution-sdk",
  "jito-steward",
  "jito-tip-distribution",
+ "jito-tip-distribution-sdk",
  "log",
  "mongodb",
  "reqwest 0.11.27",

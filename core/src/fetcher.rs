@@ -130,7 +130,7 @@ pub async fn fetch_chain_data(
     let validator_histories =
         fetch_validator_history_accounts(rpc_client, validator_history_program_id).await?;
     let steward_config_pubkey = get_steward_config_pubkey(cluster);
-    let steward_config = get_steward_config_account(&rpc_client, &steward_config_pubkey).await?;
+    let steward_config = get_steward_config_account(rpc_client, &steward_config_pubkey).await?;
 
     Ok(HashMap::from_iter(validators.iter().map(|v| {
         let vote_account = v.vote_account;

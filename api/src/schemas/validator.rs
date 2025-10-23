@@ -25,6 +25,9 @@ pub struct ValidatorEntry {
     pub priority_fee_rewards: Option<u64>,
     pub running_jito: bool,
     pub active_stake: u64,
+
+    /// Whether this validator is blacklisted by Jito
+    pub is_jito_blacklist: Option<bool>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Default)]

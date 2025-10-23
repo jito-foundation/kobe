@@ -19,6 +19,7 @@ jito-priority-fee-distribution = { workspace = true }
 jito-priority-fee-distribution-sdk = { workspace = true }
 jito-steward = { workspace = true }
 jito-tip-distribution = { workspace = true }
+jito-tip-distribution-sdk = { workspace = true }
 log = { workspace = true }
 mongodb = { workspace = true }
 reqwest = { workspace = true }

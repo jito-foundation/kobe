@@ -50,10 +50,10 @@ pub struct ChainData {
     pub mev_commission_bps: Option<u16>,
     pub mev_revenue_lamports: u64,
 
-    /// Whether or not running Jito client,
+    /// Whether or not running Jito client
     pub running_jito: bool,
 
-    /// Whether or not running BAM client,
+    /// Whether or not running BAM client
     pub running_bam: bool,
 
     pub vote_credit_proportion: f64,

@@ -8,6 +8,7 @@ pub enum ClientType {
     JitoLabs,
     Firedancer,
     Agave,
+    Bam,
     Other(u8), // Store the unknown value for debugging
 }
 
@@ -40,6 +41,7 @@ impl ClientType {
             1 => ClientType::JitoLabs,
             2 => ClientType::Firedancer,
             3 => ClientType::Agave,
+            6 => ClientType::Bam,
             other => ClientType::Other(other),
         }
     }
@@ -58,6 +60,7 @@ impl ClientType {
             ClientType::JitoLabs => "Jito Labs",
             ClientType::Firedancer => "Firedancer",
             ClientType::Agave => "Agave",
+            ClientType::Bam => "BAM",
             ClientType::Other(_) => "Other",
         }
     }

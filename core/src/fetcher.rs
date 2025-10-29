@@ -49,7 +49,13 @@ pub struct ChainData {
     /// MEV commission BPS
     pub mev_commission_bps: Option<u16>,
     pub mev_revenue_lamports: u64,
+
+    /// Whether or not running Jito client
     pub running_jito: bool,
+
+    /// Whether or not running BAM client
+    pub running_bam: bool,
+
     pub vote_credit_proportion: f64,
     pub stake_info: Option<ValidatorStakeInfo>,
     pub total_staked_lamports: u64,
@@ -143,20 +149,18 @@ pub async fn fetch_chain_data(
         let maybe_tip_distribution_account = tip_distributions.get(&vote_account);
 
         let has_tip_account = maybe_tip_distribution_account.is_some();
-        let is_jito_client = validator_histories
+        let client_type = validator_histories
             .get(&vote_account)
-            .map(|validator_history| {
+            .and_then(|validator_history| {
                 validator_history
                     .history
                     .arr
                     .iter()
-                    .find(|entry| entry.epoch.eq(&(epoch as u16)))
-                    .map(|entry| {
-                        matches!(ClientType::from_u8(entry.client_type), ClientType::JitoLabs)
-                    })
-                    .unwrap_or(false)
+                    .find(|entry| entry.epoch == epoch as u16)
             })
-            .unwrap_or(false);
+            .map(|entry| ClientType::from_u8(entry.client_type));
+        let is_jito_client = matches!(client_type, Some(ClientType::JitoLabs));
+        let is_bam_client = matches!(client_type, Some(ClientType::Bam));
         let running_jito = has_tip_account || is_jito_client;
 
         let (mev_commission_bps, mev_revenue_lamports) =
@@ -204,6 +208,7 @@ pub async fn fetch_chain_data(
             mev_commission_bps,
             mev_revenue_lamports,
             running_jito,
+            running_bam: is_bam_client,
             vote_credit_proportion,
             stake_info,
             total_staked_lamports,

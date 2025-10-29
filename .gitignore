@@ -7,7 +7,6 @@
 
 credentials/
 scripts/keys
-*.env**
 
 # Mac specific
 .DS_store

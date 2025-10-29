@@ -34,7 +34,11 @@ pub struct Validator {
     pub name: Option<String>,
     pub published_information_score: Option<i64>,
     pub root_distance_score: Option<i64>,
-    pub running_jito: bool, // whether or not running Jito client,
+    /// Whether or not running Jito client
+    pub running_jito: bool,
+
+    /// Whether or not running BAM client
+    pub running_bam: bool,
     pub software_version: Option<String>,
     pub software_version_score: Option<i64>,
     pub skipped_slot_percent: Option<String>,
@@ -86,6 +90,7 @@ impl Validator {
             published_information_score: validators_app_entry.published_information_score,
             root_distance_score: validators_app_entry.root_distance_score,
             running_jito: on_chain_data.running_jito,
+            running_bam: on_chain_data.running_bam,
             software_version: validators_app_entry.software_version.clone(),
             software_version_score: validators_app_entry.software_version_score,
             skipped_slot_percent: validators_app_entry.skipped_slot_percent.clone(),

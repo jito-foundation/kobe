@@ -23,7 +23,12 @@ pub struct ValidatorEntry {
     pub mev_rewards: Option<u64>,
     pub priority_fee_commission_bps: Option<u16>,
     pub priority_fee_rewards: Option<u64>,
+    /// Whether or not running Jito client
     pub running_jito: bool,
+
+    /// Whether or not running BAM client
+    pub running_bam: bool,
+
     pub active_stake: u64,
 }
 

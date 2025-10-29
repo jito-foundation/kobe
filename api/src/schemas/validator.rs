@@ -27,7 +27,7 @@ pub struct ValidatorEntry {
     pub running_jito: bool,
 
     /// Whether or not running BAM client
-    pub running_bam: bool,
+    pub running_bam: Option<bool>,
 
     pub active_stake: u64,
 }

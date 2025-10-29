@@ -160,6 +160,7 @@ pub async fn fetch_chain_data(
             })
             .map(|entry| ClientType::from_u8(entry.client_type));
         let is_jito_client = matches!(client_type, Some(ClientType::JitoLabs));
+        let is_bam_client = matches!(client_type, Some(ClientType::Bam));
         let running_jito = has_tip_account || is_jito_client;
 
         let (mev_commission_bps, mev_revenue_lamports) =
@@ -207,7 +208,7 @@ pub async fn fetch_chain_data(
             mev_commission_bps,
             mev_revenue_lamports,
             running_jito,
-            running_bam: matches!(client_type, Some(ClientType::Bam)),
+            running_bam: is_bam_client,
             vote_credit_proportion,
             stake_info,
             total_staked_lamports,

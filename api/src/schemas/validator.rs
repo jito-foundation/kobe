@@ -29,7 +29,12 @@ pub struct ValidatorEntry {
     /// Whether or not running BAM client
     pub running_bam: Option<bool>,
 
+    /// Total active stake delegated to this validator on the Solana network
     pub active_stake: u64,
+
+    /// Active stake lamports delegated to this validator from the JitoSOL stake-pool
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub jito_sol_active_lamports: Option<u64>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Default)]

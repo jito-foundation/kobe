@@ -1,17 +1,18 @@
 use kobe_core::db_models::error::DataStoreError;
+use stakenet_sdk::models::errors::JitoTransactionError;
 use thiserror::Error;
 
 pub type Result<T> = core::result::Result<T, QueryResolverError>;
 
 #[derive(Error, Debug)]
 pub enum QueryResolverError {
-    #[error("querying data store error")]
+    #[error("Querying data store error")]
     DataStoreError(#[from] DataStoreError),
 
-    #[error("invalid request: {0}")]
+    #[error("Invalid request: {0}")]
     InvalidRequest(String),
 
-    #[error("reqwest error: {0}")]
+    #[error("Reqwest error: {0}")]
     ReqwestError(#[from] reqwest::Error),
 
     #[error("RPC Error: {0}")]
@@ -25,4 +26,7 @@ pub enum QueryResolverError {
 
     #[error("Validator History Error")]
     ValidatorHistoryError(String),
+
+    #[error("Jito Transaction Error: {0}")]
+    JitoTransactionError(#[from] JitoTransactionError),
 }

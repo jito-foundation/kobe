@@ -17,6 +17,7 @@ chrono = { workspace = true }
 clap = { workspace = true }
 env_logger = { workspace = true }
 http = { workspace = true }
+jito-steward = { workspace = true }
 kobe-core = { workspace = true }
 log = { workspace = true }
 mongodb = { workspace = true }

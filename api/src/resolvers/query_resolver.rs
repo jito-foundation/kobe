@@ -19,7 +19,7 @@ use kobe_core::{
     validators_app::Cluster,
     SortOrder, LAMPORTS_PER_SOL,
 };
-use log::{error, info, warn};
+use log::{error, warn};
 use mongodb::Database;
 use serde::{Deserialize, Serialize};
 use solana_borsh::v1::try_from_slice_unchecked;
@@ -375,6 +375,23 @@ pub async fn get_validator_histories_wrapper(
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(ValidatorHistoryResponse::default()),
         )
+    }
+}
+
+// Cache with 10 second lifespan for fresher withdraw data
+#[cached(
+    type = "TimedCache<String, (StatusCode, Json<Vec<PreferredWithdraw>>)>",
+    create = "{ TimedCache::with_lifespan_and_capacity(10, 1) }",
+    key = "String",
+    convert = r#"{ "preferred-withdraw-validator-list".to_string() }"#
+)]
+pub async fn preferred_withdraw_validator_list_cacheable_wrapper(
+    resolver: Extension<QueryResolver>,
+) -> (StatusCode, Json<Vec<PreferredWithdraw>>) {
+    if let Ok(res) = resolver.get_preferred_withdraw_validator_list().await {
+        (StatusCode::OK, Json(res))
+    } else {
+        (StatusCode::INTERNAL_SERVER_ERROR, Json(vec![]))
     }
 }
 

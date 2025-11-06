@@ -19,10 +19,10 @@ use kobe_api::{
         daily_mev_rewards_cacheable_wrapper, get_validator_histories_wrapper,
         jito_stake_over_time_ratio_cacheable_wrapper, jitosol_ratio_cacheable_wrapper,
         jitosol_validators_cacheable_wrapper, mev_commission_average_over_time_cacheable_wrapper,
-        mev_rewards_cacheable_wrapper, stake_pool_stats_cacheable_wrapper,
-        staker_rewards_cacheable_wrapper, steward_events_cacheable_wrapper,
-        validator_by_vote_account_cacheable_wrapper, validator_rewards_cacheable_wrapper,
-        validators_cacheable_wrapper, QueryResolver,
+        mev_rewards_cacheable_wrapper, preferred_withdraw_validator_list_cacheable_wrapper,
+        stake_pool_stats_cacheable_wrapper, staker_rewards_cacheable_wrapper,
+        steward_events_cacheable_wrapper, validator_by_vote_account_cacheable_wrapper,
+        validator_rewards_cacheable_wrapper, validators_cacheable_wrapper, QueryResolver,
     },
     schemas::{
         jitosol_ratio::JitoSolRatioRequest,
@@ -194,6 +194,12 @@ async fn get_validator_histories(
     get_validator_histories_wrapper(resolver, vote_account, epoch_query).await
 }
 
+async fn preferred_withdraw_validator_list_handler(
+    resolver: Extension<QueryResolver>,
+) -> impl IntoResponse {
+    preferred_withdraw_validator_list_cacheable_wrapper(resolver).await
+}
+
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
 struct Args {
@@ -333,6 +339,10 @@ async fn run_server(args: &Args) {
         .route(
             "/api/v1/validator_history/:vote_account",
             get(get_validator_histories),
+        )
+        .route(
+            "/api/v1/preferred_withdraw_validator_list",
+            get(preferred_withdraw_validator_list_handler),
         )
         .layer(Extension(query_resolver))
         .layer(middleware)

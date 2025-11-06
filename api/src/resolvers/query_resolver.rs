@@ -509,6 +509,7 @@ impl QueryResolver {
                         priority_fee_rewards: v.priority_fee_revenue_lamports,
                         running_jito: v.running_jito,
                         running_bam: v.running_bam,
+                        jito_sol_active_lamports: None,
                     }
                 })
                 .collect(),
@@ -588,6 +589,7 @@ impl QueryResolver {
                         priority_fee_rewards: v.priority_fee_revenue_lamports,
                         running_jito: v.running_jito,
                         running_bam: v.running_bam,
+                        jito_sol_active_lamports: Some(v.target_pool_active_lamports),
                     }
                 })
                 .collect(),

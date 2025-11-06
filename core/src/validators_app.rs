@@ -48,8 +48,9 @@ impl std::fmt::Display for Cluster {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub enum ClusterJson {
+    #[default]
     MainnetBeta,
     Testnet,
     Devnet,
@@ -62,12 +63,6 @@ impl ClusterJson {
             Cluster::MainnetBeta => ClusterJson::MainnetBeta,
             Cluster::Testnet => ClusterJson::Testnet,
         }
-    }
-}
-
-impl Default for ClusterJson {
-    fn default() -> Self {
-        Self::MainnetBeta
     }
 }
 

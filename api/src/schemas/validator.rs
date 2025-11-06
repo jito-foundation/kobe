@@ -30,6 +30,7 @@ pub struct ValidatorEntry {
     pub running_bam: Option<bool>,
 
     pub active_stake: u64,
+    pub target_pool_active_lamports: u64,
 }
 
 #[derive(Serialize, Deserialize, Clone, Default)]

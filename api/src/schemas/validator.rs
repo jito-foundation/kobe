@@ -29,7 +29,10 @@ pub struct ValidatorEntry {
     /// Whether or not running BAM client
     pub running_bam: Option<bool>,
 
+    /// Total active stake delegated to this validator on the Solana network
     pub active_stake: u64,
+
+    /// Active stake delegated to this validator from the JitoSOL stake-pool
     pub target_pool_active_lamports: u64,
 }
 

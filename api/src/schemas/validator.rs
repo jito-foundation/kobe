@@ -32,8 +32,8 @@ pub struct ValidatorEntry {
     /// Total active stake delegated to this validator on the Solana network
     pub active_stake: u64,
 
-    /// Active stake delegated to this validator from the JitoSOL stake-pool
-    pub target_pool_active_lamports: u64,
+    /// Active stake lamports delegated to this validator from the JitoSOL stake-pool
+    pub jito_sol_active_lamports: Option<u64>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Default)]

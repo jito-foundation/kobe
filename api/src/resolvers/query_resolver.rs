@@ -915,7 +915,6 @@ impl QueryResolver {
             if active_stake <= MIN_STAKE_THRESHOLD {
                 continue;
             }
-            let withdrawable = active_stake;
 
             // Get the validator's canonical stake account
             let validator_seed_suffix: Option<std::num::NonZeroU32> = {
@@ -931,10 +930,9 @@ impl QueryResolver {
 
             // Push validator to list
             preferred_withdraw_list.push(PreferredWithdraw {
-                index: validator_index as u16,
+                rank: i as u16,
                 vote_account: vote_account.to_string(),
-                withdrawable_lamports: withdrawable,
-                score: steward_state.scores[validator_index],
+                withdrawable_lamports: active_stake,
                 stake_account: stake_account.to_string(),
             });
 

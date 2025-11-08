@@ -880,6 +880,7 @@ impl QueryResolver {
     pub async fn get_preferred_withdraw_validator_list(&self) -> Result<Vec<PreferredWithdraw>> {
         // Constants
         const MIN_STAKE_THRESHOLD: u64 = 10_000 * LAMPORTS_PER_SOL;
+        const MIN_RETAINED_BALANCE: u64 = 1_000 * LAMPORTS_PER_SOL; // Minimum balance to retain in validator stake account
         const LIST_SIZE: usize = 50;
 
         // Get all steward accounts
@@ -911,10 +912,14 @@ impl QueryResolver {
                 continue;
             }
 
-            // Check if validator has enough stake above the threshold
-            if active_stake <= MIN_STAKE_THRESHOLD {
+            // Check if validator has enough stake above the threshold + minimum retained balance
+            // We need at least MIN_STAKE_THRESHOLD total, and must be able to withdraw while leaving MIN_RETAINED_BALANCE
+            if active_stake <= (MIN_STAKE_THRESHOLD + MIN_RETAINED_BALANCE) {
                 continue;
             }
+
+            // Calculate withdrawable amount (active stake minus minimum retained balance)
+            let withdrawable_amount = active_stake.saturating_sub(MIN_RETAINED_BALANCE);
 
             // Get the validator's canonical stake account
             let validator_seed_suffix: Option<std::num::NonZeroU32> = {
@@ -932,7 +937,7 @@ impl QueryResolver {
             preferred_withdraw_list.push(PreferredWithdraw {
                 rank: i as u16,
                 vote_account: vote_account.to_string(),
-                withdrawable_lamports: active_stake,
+                withdrawable_lamports: withdrawable_amount,
                 stake_account: stake_account.to_string(),
             });
 

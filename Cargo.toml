@@ -2,6 +2,8 @@
 resolver = "2"
 members = [
     "api",
+    "bam-api-client",
+    "bam-writer-service",
     "core",
     "cranker",
     "cranker/cli",
@@ -24,6 +26,7 @@ anyhow = "1.0.99"
 axum = "0.6.2"
 backoff = { version = "0.4.0", features = ["tokio"] }
 backon = "1.5.2"
+bam-api-client = { path = "bam-api-client" }
 bincode = "1.3.3"
 borsh = "1.5.7"
 bs58 = "0.3.1"

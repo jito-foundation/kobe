@@ -323,6 +323,17 @@ RUST_LOG=info cargo r -p kobe-steward-writer-service -- \
     listen
 ```
 
+#### Run BAM writer service
+
+```bash
+RUST_LOG=info cargo r -p kobe-bam-writer-service -- \
+    --mongo-connection-uri "mongodb://localhost:27017/kobe" \
+    --mongo-db-name "validators" \
+    --rpc-url "https://api.mainnet-beta.solana.com/" \
+    --bam-api-base-url "" \
+    run
+```
+
 ## Contributing
 
 1. Fork the repository

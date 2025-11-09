@@ -18,17 +18,31 @@ use spl_stake_pool_cli::client::get_stake_pool;
 use crate::{result::Result, rpc_utils};
 
 pub struct StakePoolManager {
+    /// RPC Client
     pub rpc_client: RpcClient,
+
+    /// Validators app client
     pub validators_app_client: Client,
+
+    /// Cluster name
     pub cluster: Cluster,
+
+    /// Steward config pubkey
+    pub steward_config: Pubkey,
 }
 
 impl StakePoolManager {
-    pub fn new(rpc_client: RpcClient, validators_app_client: Client, cluster: Cluster) -> Self {
+    pub fn new(
+        rpc_client: RpcClient,
+        validators_app_client: Client,
+        cluster: Cluster,
+        steward_config: Pubkey,
+    ) -> Self {
         Self {
             rpc_client,
             validators_app_client,
             cluster,
+            steward_config,
         }
     }
 
@@ -49,6 +63,7 @@ impl StakePoolManager {
             &self.cluster,
             epoch,
             validator_list_address,
+            &self.steward_config,
         )
         .await?;
 

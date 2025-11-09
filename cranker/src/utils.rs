@@ -385,7 +385,7 @@ pub async fn send_transaction(
         }
     }
 
-    Err(solana_rpc_client_api::client_error::ErrorKind::Custom(
+    Err(solana_client::client_error::ClientErrorKind::Custom(
         "Transaction not confirmed".to_string(),
     )
     .into())

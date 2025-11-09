@@ -3,14 +3,12 @@ use std::time::Duration;
 use bam_api_client::client::BamApiClient;
 use clap::{Parser, Subcommand};
 use kobe_bam_writer_service::BamWriterService;
-use kobe_core::db_models::{
-    bam_epoch_metric::{BamEpochMetric, BamEpochMetricStore},
-    bam_validator::{BamValidator, BamValidatorStore},
-};
-use log::info;
+use kobe_core::db_models::bam_epoch_metric::{BamEpochMetric, BamEpochMetricStore};
+use log::{error, info};
 use mongodb::{Client, Collection};
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_commitment_config::CommitmentConfig;
+use solana_pubkey::Pubkey;
 
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
@@ -33,6 +31,30 @@ struct Args {
     /// BAM api base url
     #[clap(long, env)]
     bam_api_base_url: String,
+
+    /// Validator History program id
+    #[clap(
+        long,
+        env,
+        default_value = "HistoryJTGbKQD2mRgLZ3XhqHnN811Qpez8X9kCcGHoa"
+    )]
+    validator_history_program_id: Pubkey,
+
+    /// Steward config address
+    #[clap(
+        long,
+        env,
+        default_value = "jitoVjT9jRUyeXHzvCwzPgHj7yWNRhLcUoXtes4wtjv"
+    )]
+    steward_config: Pubkey,
+
+    /// Stake pool address
+    #[clap(
+        long,
+        env,
+        default_value = "Jito4APyf642JPZPx3hGc6WWJ8zPKtRbRs4P815Awbb"
+    )]
+    stake_pool: Pubkey,
 
     /// Whether to dry run before writing to db
     #[clap(long, env, action)]
@@ -63,10 +85,6 @@ async fn main() -> anyhow::Result<()> {
         db.collection(BamEpochMetricStore::COLLECTION);
     let bam_epoch_metric_store = BamEpochMetricStore::new(bam_epoch_metric_collection);
 
-    let bam_validator_collection: Collection<BamValidator> =
-        db.collection(BamValidatorStore::COLLECTION);
-    let bam_validator_store = BamValidatorStore::new(bam_validator_collection);
-
     // Connect to RPC node
     let rpc_client = RpcClient::new_with_timeout_and_commitment(
         args.rpc_url,
@@ -78,10 +96,12 @@ async fn main() -> anyhow::Result<()> {
     let bam_api_client = BamApiClient::new(bam_api_config);
 
     let bam_writer_service = BamWriterService::new(
+        args.validator_history_program_id,
+        args.steward_config,
+        args.stake_pool,
         rpc_client,
         bam_api_client,
         bam_epoch_metric_store,
-        bam_validator_store,
     );
 
     match args.command {
@@ -89,7 +109,9 @@ async fn main() -> anyhow::Result<()> {
             info!("Running BAM writer service");
 
             // loop { // FIXME
-            bam_writer_service.run().await?
+            if let Err(e) = bam_writer_service.run().await {
+                error!("Error: {e}");
+            }
             // }
         }
     }

@@ -476,6 +476,7 @@ impl QueryResolver {
                     let mev_rewards = mev_rewards.get(&v.vote_account).unwrap_or(&0);
 
                     ValidatorEntry {
+                        identity_account: v.identity_account,
                         active_stake: v.active_stake.unwrap_or(0),
                         vote_account: v.vote_account,
                         mev_commission_bps: if v.running_jito {
@@ -489,6 +490,8 @@ impl QueryResolver {
                         running_jito: v.running_jito,
                         running_bam: v.running_bam,
                         jito_sol_active_lamports: None,
+                        jito_pool_eligible: v.jito_pool_eligible,
+                        jito_pool_directed_stake_target: v.jito_directed_stake_target,
                     }
                 })
                 .collect(),
@@ -556,6 +559,7 @@ impl QueryResolver {
                     let mev_rewards = mev_rewards.get(&v.vote_account).unwrap_or(&0);
 
                     ValidatorEntry {
+                        identity_account: v.identity_account,
                         active_stake: v.active_stake.unwrap_or(0),
                         vote_account: v.vote_account,
                         mev_commission_bps: if v.running_jito {
@@ -569,6 +573,8 @@ impl QueryResolver {
                         running_jito: v.running_jito,
                         running_bam: v.running_bam,
                         jito_sol_active_lamports: Some(v.target_pool_active_lamports),
+                        jito_pool_eligible: v.jito_pool_eligible,
+                        jito_pool_directed_stake_target: v.jito_directed_stake_target,
                     }
                 })
                 .collect(),

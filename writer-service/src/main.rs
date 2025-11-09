@@ -5,6 +5,7 @@ use kobe_writer_service::{result::Result, KobeWriterService};
 use log::{error, info, set_boxed_logger, set_max_level, LevelFilter};
 use solana_clap_utils::input_validators::is_url_or_moniker;
 use solana_metrics::set_host_id;
+use solana_pubkey::Pubkey;
 use tokio::runtime::Runtime;
 
 #[derive(Parser)]
@@ -57,6 +58,14 @@ struct Args {
     /// Mainnet gcp server names
     #[arg(long, env, value_delimiter = ',')]
     mainnet_gcp_server_names: Vec<String>,
+
+    /// Steward config pubkey
+    #[arg(
+        long,
+        env,
+        default_value = "jitoVjT9jRUyeXHzvCwzPgHj7yWNRhLcUoXtes4wtjv"
+    )]
+    steward_config_pubkey: Pubkey,
 }
 
 #[derive(Subcommand)]
@@ -107,6 +116,7 @@ fn main() -> Result<()> {
             args.tip_distribution_program_id,
             args.priority_fee_distribution_program_id,
             args.mainnet_gcp_server_names,
+            args.steward_config_pubkey,
         )
         .await
         .expect("Failed to initialize KobeWriterService");

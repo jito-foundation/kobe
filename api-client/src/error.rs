@@ -1,8 +1,8 @@
 use thiserror::Error;
 
-/// Error types for BAM API client
+/// Error types for Jito API client
 #[derive(Error, Debug)]
-pub enum BamApiError {
+pub enum KobeApiError {
     /// HTTP request error
     #[error("HTTP request failed: {0}")]
     HttpError(#[from] reqwest::Error),
@@ -40,10 +40,10 @@ pub enum BamApiError {
     Other(String),
 }
 
-impl BamApiError {
+impl KobeApiError {
     /// Create an API error from status code and message
     pub fn api_error(status_code: u16, message: impl Into<String>) -> Self {
-        BamApiError::ApiError {
+        KobeApiError::ApiError {
             status_code,
             message: message.into(),
         }
@@ -51,16 +51,16 @@ impl BamApiError {
 
     /// Create an invalid parameter error
     pub fn invalid_parameter(message: impl Into<String>) -> Self {
-        BamApiError::InvalidParameter(message.into())
+        KobeApiError::InvalidParameter(message.into())
     }
 
     /// Check if error is a rate limit error
     pub fn is_rate_limit(&self) -> bool {
-        matches!(self, BamApiError::RateLimitExceeded)
+        matches!(self, KobeApiError::RateLimitExceeded)
     }
 
     /// Check if error is a not found error
     pub fn is_not_found(&self) -> bool {
-        matches!(self, BamApiError::NotFound(_))
+        matches!(self, KobeApiError::NotFound(_))
     }
 }

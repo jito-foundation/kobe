@@ -2,7 +2,7 @@
 resolver = "2"
 members = [
     "api",
-    "bam-api-client",
+    "api-client",
     "bam-writer-service",
     "core",
     "cranker",
@@ -26,7 +26,7 @@ anyhow = "1.0.99"
 axum = "0.6.2"
 backoff = { version = "0.4.0", features = ["tokio"] }
 backon = "1.5.2"
-bam-api-client = { path = "bam-api-client" }
+bam-api-client = { git = "https://github.com/jito-foundation/bam-api-client", branch = "master" }
 bincode = "1.3.3"
 borsh = "1.5.7"
 bs58 = "0.3.1"
@@ -44,10 +44,12 @@ jito-priority-fee-distribution-sdk = { git = "https://github.com/jito-foundation
 jito-steward = { features = ["no-entrypoint"], git = "https://github.com/jito-foundation/stakenet", rev = "d724a42b49c0cd32791afbd2a362dd63364a7a9a" }
 jito-tip-distribution = { features = ["no-entrypoint"], git = "https://github.com/jito-foundation/jito-programs", branch = "master" }
 jito-tip-distribution-sdk = { git = "https://github.com/jito-foundation/jito-programs", branch = "master" }
+kobe-api = { path = "api", version = "1.0.0" }
+kobe-api-client = { path = "api-client", version = "1.0.0" }
 kobe-core = { path = "core", version = "1.0.0" }
 log = "0.4.18"
 mongodb = { version = "2.2.2", features = ["bson-chrono-0_4"] }
-reqwest = { version = "0.11.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }
+reqwest = { version = "0.12.24", default-features = false, features = ["blocking", "json", "rustls-tls"] }
 semver = "1.0.17"
 sentry = "0.29.1"
 sentry-log = "0.29.1"
@@ -74,7 +76,7 @@ solana-program-test = "=2.3.3"
 solana-pubkey = "=2.4.0"
 solana-remote-wallet = "=2.2.1"
 solana-rpc-client = "=2.3.3"
-solana-rpc-client-api = "=2.3.3"
+solana-rpc-client-api = "3.0.0"
 solana-sdk = "=2.3.1"
 solana-signature = "=2.3.0"
 solana-streamer = { git = "https://github.com/gzalz/agave", branch = "gzalz/v2.3.3" }

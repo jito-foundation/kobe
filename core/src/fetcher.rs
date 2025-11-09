@@ -9,8 +9,10 @@ use solana_client::{nonblocking::rpc_client::RpcClient, rpc_response::RpcVoteAcc
 use solana_pubkey::Pubkey;
 use spl_stake_pool::state::ValidatorStakeInfo;
 use spl_stake_pool_cli::client::get_validator_list;
-use stakenet_sdk::utils::accounts::get_all_validator_history_accounts;
-use validator_history::ValidatorHistory;
+use stakenet_sdk::utils::accounts::{
+    get_all_validator_history_accounts, get_steward_config_account,
+};
+use validator_history::{ValidatorHistory, ValidatorHistoryEntry};
 
 use crate::{
     client_type::ClientType,
@@ -62,6 +64,12 @@ pub struct ChainData {
     pub inflation_rewards_lamports: u64,
     pub priority_fee_commission_bps: u16,
     pub priority_fee_revenue_lamports: u64,
+
+    /// Jito Pool eligible
+    pub jito_pool_eligible: bool,
+
+    /// Jito Directed Stake Target
+    pub jito_directed_stake_target: bool,
 }
 
 pub fn get_tip_distribution_program_id(cluster: &Cluster) -> Pubkey {
@@ -120,6 +128,7 @@ pub async fn fetch_chain_data(
     cluster: &Cluster,
     epoch: u64,
     validator_list_pubkey: &Pubkey,
+    steward_config_pubkey: &Pubkey,
 ) -> Result<HashMap<Pubkey, ChainData>, Error> {
     // Fetch on-chain data
     let tip_distributions =
@@ -130,6 +139,8 @@ pub async fn fetch_chain_data(
     let (global_average, vote_credits_map) = fetch_vote_credits(&vote_accounts)?;
 
     let total_staked_lamports = fetch_total_staked_lamports(&vote_accounts);
+
+    let steward_config = get_steward_config_account(rpc_client, steward_config_pubkey).await?;
 
     let staked_validators = get_validator_list(rpc_client, validator_list_pubkey).await?;
     let inflation_rate = match rpc_client.get_inflation_rate().await {
@@ -204,6 +215,42 @@ pub async fn fetch_chain_data(
         let inflation_rewards_lamports =
             inflation_rate / epochs_per_year * staked_amount * vote_credit_proportion;
 
+        let start_epoch = epoch.saturating_sub(
+            steward_config
+                .parameters
+                .minimum_voting_epochs
+                .saturating_sub(1),
+        );
+
+        let mut jito_pool_eligible = true;
+        if let Some(validator_history) = validator_histories.get(&vote_account) {
+            if validator_history
+                .history
+                .epoch_credits_range(start_epoch as u16, epoch as u16)
+                .iter()
+                .any(|entry| entry.is_none())
+            {
+                jito_pool_eligible = false;
+            }
+
+            if let Some(entry) = validator_history.history.last() {
+                if entry
+                    .activated_stake_lamports
+                    .eq(&ValidatorHistoryEntry::default().activated_stake_lamports)
+                {
+                    jito_pool_eligible = false;
+                }
+
+                if entry.activated_stake_lamports < steward_config.parameters.minimum_stake_lamports
+                {
+                    jito_pool_eligible = false;
+                }
+            }
+        }
+
+        // FIXME
+        let jito_directed_stake_target = false;
+
         let data = ChainData {
             mev_commission_bps,
             mev_revenue_lamports,
@@ -215,6 +262,8 @@ pub async fn fetch_chain_data(
             inflation_rewards_lamports: inflation_rewards_lamports as u64,
             priority_fee_commission_bps,
             priority_fee_revenue_lamports,
+            jito_pool_eligible,
+            jito_directed_stake_target,
         };
 
         (vote_account, data)

@@ -95,7 +95,7 @@ impl BamWriterService {
             .collect();
 
         let vote_accounts = self.rpc_client.get_vote_accounts().await?;
-        let total_sol_stake = vote_accounts
+        let total_stake = vote_accounts
             .current
             .iter()
             .map(|v| v.activated_stake)
@@ -104,11 +104,11 @@ impl BamWriterService {
         let validators = self.kobe_api_client.get_validators(Some(epoch)).await?;
 
         let mut eligible_bam_validator_count = 0_u64;
-        let mut bam_sol_stake = 0_u64;
+        let mut bam_stake = 0_u64;
         for validator in validators.validators.iter() {
             if let Some(ref identity_account) = validator.identity_account {
                 if bam_validator_map.contains_key(identity_account.as_str()) {
-                    bam_sol_stake += validator.active_stake;
+                    bam_stake += validator.active_stake;
 
                     if let Some(true) = validator.jito_pool_eligible {
                         eligible_bam_validator_count += 1;
@@ -119,14 +119,14 @@ impl BamWriterService {
 
         let criteria = BamDelegationCriteria::new();
         let available_bam_delegation_stake = criteria.calculate_available_delegation(
-            bam_sol_stake,
-            total_sol_stake,
+            bam_stake,
+            total_stake,
             jitosol_stake.total_lamports,
         );
 
         let bam_epoch_metric = BamEpochMetric::new(
             epoch,
-            bam_sol_stake,
+            bam_stake,
             available_bam_delegation_stake,
             eligible_bam_validator_count,
         );

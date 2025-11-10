@@ -811,7 +811,7 @@ impl QueryResolver {
     ///
     /// This endpoint can be used to fetch the history of a validator's performance over time, either for a specific epoch or for all recorded epochs:
     ///
-    /// ```
+    /// ```ignore
     /// GET /validator_history/{vote_account}?epoch=800
     /// ```
     /// This request retrieves the history for the specified vote account, filtered by epoch 800.

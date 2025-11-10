@@ -43,19 +43,19 @@ impl BamDelegationCriteria {
     /// Calculate total available BAM delegation stake
     ///
     /// # Arguments
-    /// * `bam_sol_stake` - Total stake of all BAM validators
-    /// * `total_sol_stake` - Total stake across entire Solana network
+    /// * `bam_stake` - Total stake of all BAM validators
+    /// * `total_stake` - Total stake across entire Solana network
     /// * `total_jitosol_tvl` - Total value locked in JitoSOL stake pool
     ///
     /// # Returns
     /// Total JitoSOL amount available for delegation to all BAM validators
     pub fn calculate_available_delegation(
         &self,
-        bam_sol_stake: u64,
-        total_sol_stake: u64,
+        bam_stake: u64,
+        total_stake: u64,
         total_jitosol_tvl: u64,
     ) -> u64 {
-        let stakeweight = match self.calculate_bam_stakeweight(bam_sol_stake, total_sol_stake) {
+        let stakeweight = match self.calculate_bam_stakeweight(bam_stake, total_stake) {
             Some(sw) => sw,
             None => return 0,
         };
@@ -63,19 +63,71 @@ impl BamDelegationCriteria {
         let allocation_pct = self.get_allocation_percentage(stakeweight);
         (total_jitosol_tvl as f64 * allocation_pct) as u64
     }
+}
 
-    // Calculate pro-rata delegation for a specific BAM validator
-    // pub fn calculate_validator_delegation(
-    //     &self,
-    //     validator_stake: u64,
-    //     total_bam_stake: u64,
-    //     total_available_delegation: u64,
-    // ) -> u64 {
-    //     if total_bam_stake == 0 {
-    //         return 0;
-    //     }
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-    //     let validator_share = validator_stake as f64 / total_bam_stake as f64;
-    //     (total_available_delegation as f64 * validator_share) as u64
-    // }
+    #[test]
+    fn test_stakeweight_calculation() {
+        let criteria = BamDelegationCriteria::new();
+
+        assert_eq!(
+            criteria.calculate_bam_stakeweight(100_000_000, 400_000_000),
+            Some(0.25)
+        );
+        assert_eq!(
+            criteria.calculate_bam_stakeweight(0, 400_000_000),
+            Some(0.0)
+        );
+        assert_eq!(criteria.calculate_bam_stakeweight(100_000_000, 0), None);
+    }
+
+    #[test]
+    fn test_allocation_tiers() {
+        let criteria = BamDelegationCriteria::new();
+
+        // Test each tier boundary
+        assert_eq!(criteria.get_allocation_percentage(0.00), 0.20);
+        assert_eq!(criteria.get_allocation_percentage(0.19), 0.20);
+        assert_eq!(criteria.get_allocation_percentage(0.20), 0.30);
+        assert_eq!(criteria.get_allocation_percentage(0.24), 0.30);
+        assert_eq!(criteria.get_allocation_percentage(0.25), 0.40);
+        assert_eq!(criteria.get_allocation_percentage(0.30), 0.50);
+        assert_eq!(criteria.get_allocation_percentage(0.35), 0.70);
+        assert_eq!(criteria.get_allocation_percentage(0.40), 1.00);
+        assert_eq!(criteria.get_allocation_percentage(0.50), 1.00);
+    }
+
+    #[test]
+    fn test_available_delegation() {
+        let criteria = BamDelegationCriteria::new();
+
+        // 25% BAM stakeweight -> 40% JitoSOL allocation
+        let result = criteria.calculate_available_delegation(
+            100_000_000, // 100M SOL in BAM
+            400_000_000, // 400M SOL total (25%)
+            10_000_000,  // 10M JitoSOL TVL
+        );
+        assert_eq!(result, 4_000_000); // 40% of 10M = 4M
+
+        // Edge case: 0 total stake
+        let result = criteria.calculate_available_delegation(100_000_000, 0, 10_000_000);
+        assert_eq!(result, 0);
+    }
+
+    #[test]
+    fn test_jip28_spec_example() {
+        let criteria = BamDelegationCriteria::new();
+
+        // Scenario from JIP-28:
+        // If BAM has 35% of network stake, they get 70% of JitoSOL TVL
+        let result = criteria.calculate_available_delegation(
+            140_000_000, // 140M SOL in BAM (35%)
+            400_000_000, // 400M total network stake
+            10_000_000,  // 10M JitoSOL TVL
+        );
+        assert_eq!(result, 7_000_000); // 70% of 10M = 7M
+    }
 }

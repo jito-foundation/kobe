@@ -64,18 +64,18 @@ impl BamDelegationCriteria {
         (total_jitosol_tvl as f64 * allocation_pct) as u64
     }
 
-    /// Calculate pro-rata delegation for a specific BAM validator
-    pub fn calculate_validator_delegation(
-        &self,
-        validator_stake: u64,
-        total_bam_stake: u64,
-        total_available_delegation: u64,
-    ) -> u64 {
-        if total_bam_stake == 0 {
-            return 0;
-        }
+    // Calculate pro-rata delegation for a specific BAM validator
+    // pub fn calculate_validator_delegation(
+    //     &self,
+    //     validator_stake: u64,
+    //     total_bam_stake: u64,
+    //     total_available_delegation: u64,
+    // ) -> u64 {
+    //     if total_bam_stake == 0 {
+    //         return 0;
+    //     }
 
-        let validator_share = validator_stake as f64 / total_bam_stake as f64;
-        (total_available_delegation as f64 * validator_share) as u64
-    }
+    //     let validator_share = validator_stake as f64 / total_bam_stake as f64;
+    //     (total_available_delegation as f64 * validator_share) as u64
+    // }
 }

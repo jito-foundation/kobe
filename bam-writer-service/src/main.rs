@@ -3,7 +3,10 @@ use std::time::Duration;
 use bam_api_client::client::BamApiClient;
 use clap::{Parser, Subcommand};
 use kobe_bam_writer_service::BamWriterService;
-use kobe_core::db_models::bam_epoch_metric::{BamEpochMetric, BamEpochMetricStore};
+use kobe_core::{
+    db_models::bam_epoch_metric::{BamEpochMetric, BamEpochMetricStore},
+    validators_app::Cluster,
+};
 use log::{error, info};
 use mongodb::{Client, Collection};
 use solana_client::nonblocking::rpc_client::RpcClient;
@@ -31,22 +34,6 @@ struct Args {
     /// BAM api base url
     #[clap(long, env)]
     bam_api_base_url: String,
-
-    /// Validator History program id
-    #[clap(
-        long,
-        env,
-        default_value = "HistoryJTGbKQD2mRgLZ3XhqHnN811Qpez8X9kCcGHoa"
-    )]
-    validator_history_program_id: Pubkey,
-
-    /// Steward config address
-    #[clap(
-        long,
-        env,
-        default_value = "jitoVjT9jRUyeXHzvCwzPgHj7yWNRhLcUoXtes4wtjv"
-    )]
-    steward_config: Pubkey,
 
     /// Stake pool address
     #[clap(
@@ -95,13 +82,14 @@ async fn main() -> anyhow::Result<()> {
     let bam_api_config = bam_api_client::config::Config::custom(args.bam_api_base_url);
     let bam_api_client = BamApiClient::new(bam_api_config);
 
+    let cluster = Cluster::get_cluster(&args.cluster_name)?;
+
     let bam_writer_service = BamWriterService::new(
-        args.validator_history_program_id,
-        args.steward_config,
         args.stake_pool,
         rpc_client,
         bam_api_client,
         bam_epoch_metric_store,
+        cluster,
     );
 
     match args.command {

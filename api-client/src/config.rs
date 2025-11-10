@@ -37,6 +37,17 @@ impl Config {
         }
     }
 
+    /// Create a new configuration with mainnet defaults
+    pub fn testnet() -> Self {
+        Self {
+            base_url: crate::TESTNET_BASE_URL.to_string(),
+            timeout: Duration::from_secs(30),
+            user_agent: format!("jito-api-client/{}", env!("CARGO_PKG_VERSION")),
+            retry_enabled: true,
+            max_retries: 3,
+        }
+    }
+
     /// Create a custom configuration
     pub fn custom(base_url: impl Into<String>) -> Self {
         Self {

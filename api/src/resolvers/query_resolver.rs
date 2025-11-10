@@ -31,6 +31,7 @@ use validator_history::ValidatorHistory;
 use crate::{
     resolvers::error::{QueryResolverError, Result},
     schemas::{
+        bam_epoch_metric::BamEpochMetricResponse,
         jitosol_ratio::{JitoSolRatioRequest, JitoSolRatioResponse},
         mev_rewards::{
             MevRewards, MevRewardsRequest, StakerRewards, StakerRewardsRequest,
@@ -824,6 +825,67 @@ impl QueryResolver {
             .map_err(|e| QueryResolverError::CustomError(e.to_string()))?;
         let history_account =
             get_validator_history_address(&vote_account, &validator_history::id());
+        let account = self
+            .rpc_client
+            .get_account(&history_account)
+            .await
+            .map_err(|e| QueryResolverError::RpcError(e.to_string()))?;
+        let validator_history = ValidatorHistory::try_deserialize(&mut account.data.as_slice())
+            .map_err(|e| {
+                error!("error deserializing ValidatorHistory: {:?}", e);
+                QueryResolverError::ValidatorHistoryError(
+                    "Error parsing ValidatorHistory".to_string(),
+                )
+            })?;
+
+        let history_entries: Vec<ValidatorHistoryEntryResponse> = match epoch_query.epoch {
+            Some(epoch) => validator_history
+                .history
+                .arr
+                .iter()
+                .filter_map(|entry| {
+                    if epoch == entry.epoch {
+                        Some(ValidatorHistoryEntryResponse::from_validator_history_entry(
+                            entry,
+                        ))
+                    } else {
+                        None
+                    }
+                })
+                .collect(),
+            None => validator_history
+                .history
+                .arr
+                .iter()
+                .map(ValidatorHistoryEntryResponse::from_validator_history_entry)
+                .filter(|history| history.epoch.ne(&u16::MAX))
+                .collect(),
+        };
+
+        let history =
+            ValidatorHistoryResponse::from_validator_history(validator_history, history_entries);
+
+        Ok(history)
+    }
+
+    /// Retrieves the history of a specific validator, based on the provided vote account and optional epoch filter.
+    ///
+    /// # Returns
+    ///
+    /// - `Ok(Json(history))`: A JSON response containing the validator history information. If the epoch filter is provided, it only returns the history for the specified epoch.
+    ///
+    /// # Example
+    ///
+    /// This endpoint can be used to fetch the history of a validator's performance over time, either for a specific epoch or for all recorded epochs:
+    ///
+    /// ```ignore
+    /// GET /validator_history/{vote_account}?epoch=800
+    /// ```
+    /// This request retrieves the history for the specified vote account, filtered by epoch 800.
+    pub async fn get_bam_epoch_metrics(
+        &self,
+        epoch_query: EpochQuery,
+    ) -> Result<BamEpochMetricResponse> {
         let account = self
             .rpc_client
             .get_account(&history_account)

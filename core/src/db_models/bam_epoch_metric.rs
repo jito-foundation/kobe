@@ -1,10 +1,11 @@
 use mongodb::{
-    bson::{self, doc, DateTime},
+    bson::{self, doc},
+    options::FindOneOptions,
     Collection,
 };
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BamEpochMetric {
     /// Epoch number
     epoch: u64,
@@ -17,9 +18,6 @@ pub struct BamEpochMetric {
 
     /// Eligible BAM validator count
     eligible_bam_validator_count: u64,
-
-    /// Timestamp
-    timestamp: Option<DateTime>,
 }
 
 impl BamEpochMetric {
@@ -34,7 +32,6 @@ impl BamEpochMetric {
             bam_total_network_stake_weight,
             available_bam_delegation_stake,
             eligible_bam_validator_count,
-            timestamp: Some(DateTime::now()),
         }
     }
 }
@@ -74,5 +71,27 @@ impl BamEpochMetricStore {
             .build();
         self.collection.update_one(filter, update, options).await?;
         Ok(())
+    }
+
+    /// Find a [`BamEpochMetric`] record by epoch
+    pub async fn find_by_epoch(
+        &self,
+        epoch: Option<u16>,
+    ) -> Result<Option<BamEpochMetric>, mongodb::error::Error> {
+        match epoch {
+            Some(epoch) => {
+                self.collection
+                    .find_one(doc! {"epoch": epoch as u32}, None)
+                    .await
+            }
+            None => {
+                self.collection
+                    .find_one(
+                        doc! {},
+                        FindOneOptions::builder().sort(doc! {"epoch": -1}).build(),
+                    )
+                    .await
+            }
+        }
     }
 }

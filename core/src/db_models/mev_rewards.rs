@@ -202,19 +202,7 @@ impl StakerRewardsStore {
             filter.insert("epoch", e as u32);
         }
 
-        let num_filters = {
-            let mut count = 0;
-            if staker_authority.is_some() {
-                count += 1;
-            }
-            if validator_vote_account.is_some() {
-                count += 1;
-            }
-            if epoch.is_some() {
-                count += 1;
-            }
-            count
-        };
+        let num_filters = filter.len();
 
         let total_count = if num_filters > 2 {
             self.collection

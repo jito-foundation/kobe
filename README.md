@@ -290,7 +290,7 @@ cargo r --bin kobe-api -- \
     --mongo-connection-uri "mongodb://localhost:27017/kobe" \
     --mongo-db-name validators \
     --sentry-api-url "" \
-    --rpc-url "https://api.testnet.solana.com"
+    --rpc-url "https://api.mainnet.solana.com"
 ```
 
 #### Start Cranker
@@ -302,7 +302,7 @@ RUST_LOG=info cargo r -p kobe-cranker -- \
     --network "testnet" \
     --pool-address "Jito4APyf642JPZPx3hGc6WWJ8zPKtRbRs4P815Awbb" \
     --sentry-api-url "" \
-    --region "testnet"
+    --region "mainnet"
 ```
 
 #### Start Data Collection

@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use bam_api_client::{client::BamApiClient, types::ValidatorsResponse};
 use kobe_api_client::{client::KobeApiClient, config::Config};
@@ -6,7 +6,9 @@ use kobe_core::{
     db_models::bam_epoch_metric::{BamEpochMetric, BamEpochMetricStore},
     validators_app::Cluster,
 };
+use mongodb::Collection;
 use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_commitment_config::CommitmentConfig;
 use solana_pubkey::Pubkey;
 use stakenet_sdk::utils::accounts::get_stake_pool_account;
 
@@ -24,29 +26,58 @@ pub struct BamWriterService {
     /// BAM API client
     bam_api_client: BamApiClient,
 
+    /// Kobe API Client
+    kobe_api_client: KobeApiClient,
+
     /// Bam epoch metric store
     bam_epoch_metric_store: BamEpochMetricStore,
-
-    /// Cluster
-    cluster: Cluster,
 }
 
 impl BamWriterService {
     /// Initialize [`BamWriterService`]
-    pub fn new(
+    pub async fn new(
+        cluster_name: &str,
+        mongo_connection_uri: &str,
+        mongo_db_name: &str,
         stake_pool: Pubkey,
-        rpc_client: RpcClient,
-        bam_api_client: BamApiClient,
-        bam_epoch_metric_store: BamEpochMetricStore,
-        cluster: Cluster,
-    ) -> Self {
-        Self {
+        rpc_url: &str,
+        bam_api_base_url: &str,
+    ) -> anyhow::Result<Self> {
+        let cluster = Cluster::get_cluster(cluster_name)?;
+
+        // Connect to MongoDB
+        let client = mongodb::Client::with_uri_str(mongo_connection_uri).await?;
+        let db = client.database(mongo_db_name);
+
+        let bam_epoch_metric_collection: Collection<BamEpochMetric> =
+            db.collection(BamEpochMetricStore::COLLECTION);
+        let bam_epoch_metric_store = BamEpochMetricStore::new(bam_epoch_metric_collection);
+
+        // Connect to RPC node
+        let rpc_client = RpcClient::new_with_timeout_and_commitment(
+            rpc_url.to_string(),
+            Duration::from_secs(20),
+            CommitmentConfig::finalized(),
+        );
+
+        let bam_api_config = bam_api_client::config::Config::custom(bam_api_base_url);
+        let bam_api_client = BamApiClient::new(bam_api_config);
+
+        let kobe_api_config = match cluster {
+            Cluster::MainnetBeta => Config::mainnet(),
+            Cluster::Testnet => Config::testnet(),
+            Cluster::Devnet => unimplemented!(),
+            Cluster::Localhost => Config::custom("http://localhost:8080"),
+        };
+        let kobe_api_client = KobeApiClient::new(kobe_api_config);
+
+        Ok(Self {
             stake_pool,
             rpc_client: Arc::new(rpc_client),
             bam_api_client,
+            kobe_api_client,
             bam_epoch_metric_store,
-            cluster,
-        }
+        })
     }
 
     /// Run [`BamWriterService`]
@@ -58,9 +89,9 @@ impl BamWriterService {
             get_stake_pool_account(&self.rpc_client.clone(), &self.stake_pool).await?;
 
         let bam_node_validators = self.bam_api_client.get_validators().await?;
-        let bam_validator_map: HashMap<String, &ValidatorsResponse> = bam_node_validators
+        let bam_validator_map: HashMap<&str, &ValidatorsResponse> = bam_node_validators
             .iter()
-            .map(|v| (v.validator_pubkey.clone(), v))
+            .map(|v| (v.validator_pubkey.as_str(), v))
             .collect();
 
         let vote_accounts = self.rpc_client.get_vote_accounts().await?;
@@ -70,29 +101,21 @@ impl BamWriterService {
             .map(|v| v.activated_stake)
             .sum();
 
-        let kobe_api_config = match self.cluster {
-            Cluster::MainnetBeta => Config::mainnet(),
-            Cluster::Testnet | Cluster::Devnet => Config::testnet(),
-        };
-        let kobe_api_client = KobeApiClient::new(kobe_api_config);
-
-        let validators = kobe_api_client.get_validators(Some(epoch)).await?;
+        let validators = self.kobe_api_client.get_validators(Some(epoch)).await?;
 
         let mut eligible_bam_validator_count = 0_u64;
         let mut bam_sol_stake = 0_u64;
         for validator in validators.validators.iter() {
             if let Some(ref identity_account) = validator.identity_account {
-                if bam_validator_map.contains_key(identity_account) {
+                if bam_validator_map.contains_key(identity_account.as_str()) {
                     bam_sol_stake += validator.active_stake;
 
                     if let Some(true) = validator.jito_pool_eligible {
-                        eligible_bam_validator_count += 0;
+                        eligible_bam_validator_count += 1;
                     }
                 }
             }
         }
-
-        let bam_total_network_stake_weight: f64 = bam_node_validators.iter().map(|v| v.stake).sum();
 
         let criteria = BamDelegationCriteria::new();
         let available_bam_delegation_stake = criteria.calculate_available_delegation(
@@ -103,12 +126,12 @@ impl BamWriterService {
 
         let bam_epoch_metric = BamEpochMetric::new(
             epoch,
-            bam_total_network_stake_weight,
+            bam_sol_stake,
             available_bam_delegation_stake,
             eligible_bam_validator_count,
         );
 
-        self.bam_epoch_metric_store.insert(bam_epoch_metric).await?;
+        self.bam_epoch_metric_store.upsert(bam_epoch_metric).await?;
 
         Ok(())
     }

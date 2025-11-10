@@ -75,6 +75,7 @@ pub struct ChainData {
 pub fn get_tip_distribution_program_id(cluster: &Cluster) -> Pubkey {
     // These seem to be in flux
     match cluster {
+        Cluster::Localhost => unimplemented!(),
         Cluster::Devnet => unimplemented!(),
         Cluster::Testnet => Pubkey::from_str(TIP_DISTRIBUTION_PROGRAM_TESTNET).unwrap(),
         Cluster::MainnetBeta => Pubkey::from_str(TIP_DISTRIBUTION_PROGRAM_MAINNET).unwrap(),
@@ -84,6 +85,7 @@ pub fn get_tip_distribution_program_id(cluster: &Cluster) -> Pubkey {
 /// Get validator history program ID
 pub fn get_validator_history_program_id(cluster: &Cluster) -> Pubkey {
     match cluster {
+        Cluster::Localhost => unimplemented!(),
         Cluster::Devnet => unimplemented!(),
         Cluster::Testnet => Pubkey::from_str(VALIDATOR_HISTORY_PROGRAM_TESTNET).unwrap(),
         Cluster::MainnetBeta => Pubkey::from_str(VALIDATOR_HISTORY_PROGRAM_MAINNET).unwrap(),

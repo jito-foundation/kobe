@@ -18,7 +18,7 @@ BAM Epoch Metrics
 - eligible_validator_count
 - timestamp
 
-BAM validators table
+BAM validators table -> (validators table)
 
 - id
 - epoch

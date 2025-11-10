@@ -1,4 +1,7 @@
-use mongodb::{bson::DateTime, Collection};
+use mongodb::{
+    bson::{self, doc, DateTime},
+    Collection,
+};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -7,7 +10,7 @@ pub struct BamEpochMetric {
     epoch: u64,
 
     /// BAM total network stake weight
-    bam_total_network_stake_weight: f64,
+    bam_total_network_stake_weight: u64,
 
     /// Available BAM delegation stake
     available_bam_delegation_stake: u64,
@@ -22,7 +25,7 @@ pub struct BamEpochMetric {
 impl BamEpochMetric {
     pub fn new(
         epoch: u64,
-        bam_total_network_stake_weight: f64,
+        bam_total_network_stake_weight: u64,
         available_bam_delegation_stake: u64,
         eligible_bam_validator_count: u64,
     ) -> Self {
@@ -56,6 +59,20 @@ impl BamEpochMetricStore {
         bam_epoch_metric: BamEpochMetric,
     ) -> Result<(), mongodb::error::Error> {
         self.collection.insert_one(bam_epoch_metric, None).await?;
+        Ok(())
+    }
+
+    /// Upsert a [`BamEpochMetric`] record
+    pub async fn upsert(
+        &self,
+        bam_epoch_metric: BamEpochMetric,
+    ) -> Result<(), mongodb::error::Error> {
+        let update = doc! { "$set": bson::to_document(&bam_epoch_metric)? };
+        let filter = doc! { "epoch": &bam_epoch_metric.epoch.to_string() };
+        let options = mongodb::options::UpdateOptions::builder()
+            .upsert(true)
+            .build();
+        self.collection.update_one(filter, update, options).await?;
         Ok(())
     }
 }

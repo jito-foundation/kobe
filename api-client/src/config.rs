@@ -37,7 +37,7 @@ impl Config {
         }
     }
 
-    /// Create a new configuration with mainnet defaults
+    /// Create a new configuration with testnet defaults
     pub fn testnet() -> Self {
         Self {
             base_url: crate::TESTNET_BASE_URL.to_string(),

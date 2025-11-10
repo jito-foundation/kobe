@@ -523,6 +523,11 @@ impl QueryResolver {
                     "Devnet is not supported yet".to_string(),
                 ));
             }
+            Cluster::Localhost => {
+                return Err(QueryResolverError::InvalidRequest(
+                    "Localhost is not supported yet".to_string(),
+                ));
+            }
         };
         let jitosol_validator_list = Pubkey::from_str(jito_sol_validator_list_address)
             .map_err(|e| QueryResolverError::CustomError(e.to_string()))?;

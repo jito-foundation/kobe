@@ -168,6 +168,7 @@ pub fn resolve_stake_pool_address(cluster: &Cluster) -> Result<Pubkey> {
         Cluster::Devnet => DEVNET_STAKE_POOL_ADDRESS,
         Cluster::Testnet => TESTNET_STAKE_POOL_ADDRESS,
         Cluster::MainnetBeta => MAINNET_STAKE_POOL_ADDRESS,
+        Cluster::Localhost => unimplemented!(),
     };
     Ok(Pubkey::from_str(address_str)?)
 }

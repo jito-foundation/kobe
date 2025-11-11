@@ -1,6 +1,7 @@
 use std::io::Error as IoError;
 
 use backoff::Error as BackoffError;
+use bam_api_client::error::BamApiError;
 use kobe_core::error::KobeCoreError;
 use log::SetLoggerError;
 use mongodb::error::Error as MongoError;
@@ -60,8 +61,11 @@ pub enum AppError {
     #[error("Empty Fee Account Balance: {0}")]
     EmptyFeeAccountBalance(String),
 
-    #[error("Join errorr")]
+    #[error("Join error")]
     JoinError(#[from] tokio::task::JoinError),
+
+    #[error(transparent)]
+    BamApi(#[from] BamApiError),
 
     #[error(transparent)]
     KobeCore(#[from] KobeCoreError),

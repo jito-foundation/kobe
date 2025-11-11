@@ -11,6 +11,7 @@ readme = "./README.md"
 
 [dependencies]
 anchor-lang = { workspace = true }
+bam-api-client = { workspace = true }
 chrono = { workspace = true }
 futures = { workspace = true }
 futures-util = { workspace = true }

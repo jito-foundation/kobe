@@ -1,5 +1,6 @@
 use std::{str::FromStr, thread::sleep, time::Duration as CoreDuration};
 
+use bam_api_client::client::BamApiClient;
 use chrono::{Duration, DurationRound, Utc};
 use kobe_core::{
     constants::{
@@ -18,18 +19,40 @@ use spl_stake_pool_cli::client::get_stake_pool;
 use crate::{result::Result, rpc_utils};
 
 pub struct StakePoolManager {
+    /// RPC client
     pub rpc_client: RpcClient,
+
+    /// Validators app client
     pub validators_app_client: Client,
+
+    /// BAM API client
+    pub bam_api_client: Option<BamApiClient>,
+
+    /// Cluster [Mainnet, Testnet, Devnet]
     pub cluster: Cluster,
 }
 
 impl StakePoolManager {
-    pub fn new(rpc_client: RpcClient, validators_app_client: Client, cluster: Cluster) -> Self {
-        Self {
+    pub fn new(
+        rpc_client: RpcClient,
+        validators_app_client: Client,
+        bam_api_base_url: Option<String>,
+        cluster: Cluster,
+    ) -> Self {
+        let mut manager = Self {
             rpc_client,
             validators_app_client,
+            bam_api_client: None,
             cluster,
+        };
+
+        if let Some(bam_api_base_url) = bam_api_base_url {
+            let bam_api_config = bam_api_client::config::Config::custom(bam_api_base_url);
+            let bam_api_client = BamApiClient::new(bam_api_config);
+            manager.bam_api_client = Some(bam_api_client);
         }
+
+        manager
     }
 
     pub async fn fetch_all_validators(
@@ -43,8 +66,14 @@ impl StakePoolManager {
         })
         .await??;
 
+        let mut bam_validators = Vec::new();
+        if let Some(ref bam_api_client) = self.bam_api_client {
+            bam_validators.extend(bam_api_client.get_validators().await?);
+        }
+
         let on_chain_data = fetch_chain_data(
             network_validators.as_ref(),
+            &bam_validators,
             &self.rpc_client,
             &self.cluster,
             epoch,

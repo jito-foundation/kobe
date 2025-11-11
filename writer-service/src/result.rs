@@ -1,6 +1,7 @@
 use std::io::Error as IoError;
 
 use backoff::Error as BackoffError;
+use bam_api_client::error::BamApiError;
 use kobe_core::error::KobeCoreError;
 use log::SetLoggerError;
 use mongodb::error::Error as MongoError;
@@ -62,6 +63,9 @@ pub enum AppError {
 
     #[error("Join errorr")]
     JoinError(#[from] tokio::task::JoinError),
+
+    #[error(transparent)]
+    BamApi(#[from] BamApiError),
 
     #[error(transparent)]
     KobeCore(#[from] KobeCoreError),

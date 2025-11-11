@@ -38,7 +38,7 @@ use crate::{
             StakerRewardsResponse, ValidatorRewards, ValidatorRewardsRequest,
             ValidatorRewardsResponse,
         },
-        preferred_withdraw::PreferredWithdraw,
+        preferred_withdraw::{PreferredWithdraw, PreferredWithdrawRequest},
         stake_pool_stats::{
             round_to_hour, F64DataPoint, GetStakePoolStatsRequest, GetStakePoolStatsResponse,
             I64DataPoint,
@@ -53,6 +53,9 @@ use crate::{
 };
 
 const STEWARD_CONFIG: Pubkey = pubkey!("jitoVjT9jRUyeXHzvCwzPgHj7yWNRhLcUoXtes4wtjv");
+const PREFFERED_WITHDRAW_MIN_STAKE_THRESHOLD: u64 = 10_000; // Denominated in SOL
+const PREFFERED_WITHDRAW_MIN_RETAINED_BALANCE: u64 = 1_000; // Denominated in SOL
+const PREFERRED_WITHDRAW_LIST_SIZE: u32 = 50;
 
 #[derive(Clone)]
 pub struct QueryResolver {
@@ -61,10 +64,8 @@ pub struct QueryResolver {
     validator_rewards_store: ValidatorRewardsStore,
     staker_rewards_store: StakerRewardsStore,
     steward_events_store: StewardEventsStore,
-
     /// RPC Client URL
     rpc_client: Arc<RpcClient>,
-
     /// Solana Cluster
     cluster: Cluster,
 }
@@ -378,21 +379,50 @@ pub async fn get_validator_histories_wrapper(
     }
 }
 
-// Cache with 10 second lifespan for fresher withdraw data
 #[cached(
-    type = "TimedCache<String, (StatusCode, Json<Vec<PreferredWithdraw>>)>",
-    create = "{ TimedCache::with_lifespan_and_capacity(10, 1) }",
+    type = "TimedCache<String, Vec<PreferredWithdraw>>",
+    create = "{ TimedCache::with_lifespan_and_capacity(10, 100) }",
     key = "String",
-    convert = r#"{ "preferred-withdraw-validator-list".to_string() }"#
+    convert = r#"{ format!("preferred-withdraw-{}-{}", min_stake_threshold.unwrap_or(PREFFERED_WITHDRAW_MIN_STAKE_THRESHOLD), list_size.unwrap_or(PREFERRED_WITHDRAW_LIST_SIZE)) }"#,
+    result = true
 )]
+async fn get_preferred_withdraw_cached(
+    resolver: Extension<QueryResolver>,
+    min_stake_threshold: Option<u64>,
+    list_size: Option<u32>,
+) -> Result<Vec<PreferredWithdraw>> {
+    let min_stake_threshold =
+        min_stake_threshold.unwrap_or(PREFFERED_WITHDRAW_MIN_STAKE_THRESHOLD) * LAMPORTS_PER_SOL;
+    let list_size = list_size.unwrap_or(PREFERRED_WITHDRAW_LIST_SIZE);
+    resolver
+        .get_preferred_withdraw_validator_list(min_stake_threshold, list_size)
+        .await
+}
+
 pub async fn preferred_withdraw_validator_list_cacheable_wrapper(
     resolver: Extension<QueryResolver>,
+    req: PreferredWithdrawRequest,
 ) -> (StatusCode, Json<Vec<PreferredWithdraw>>) {
-    if let Ok(res) = resolver.get_preferred_withdraw_validator_list().await {
-        (StatusCode::OK, Json(res))
-    } else {
-        (StatusCode::INTERNAL_SERVER_ERROR, Json(vec![]))
+    // Get cached result
+    let list_result =
+        get_preferred_withdraw_cached(resolver, req.min_stake_threshold, req.list_size).await;
+
+    // Exit early on error
+    let mut list = match list_result {
+        Ok(validators) => validators,
+        Err(_) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(vec![])),
+    };
+
+    // Apply randomization if requested (after retrieving from cache)
+    // This ensures each request gets a different order while preserving cache security
+    if req.randomized.unwrap_or(false) {
+        use rand::seq::SliceRandom;
+        use rand::thread_rng;
+        let mut rng = thread_rng();
+        list.shuffle(&mut rng);
     }
+
+    (StatusCode::OK, Json(list))
 }
 
 impl QueryResolver {
@@ -877,11 +907,12 @@ impl QueryResolver {
         Ok(history)
     }
 
-    pub async fn get_preferred_withdraw_validator_list(&self) -> Result<Vec<PreferredWithdraw>> {
-        // Constants
-        const MIN_STAKE_THRESHOLD: u64 = 10_000 * LAMPORTS_PER_SOL;
-        const MIN_RETAINED_BALANCE: u64 = 1_000 * LAMPORTS_PER_SOL; // Minimum balance to retain in validator stake account
-        const LIST_SIZE: usize = 50;
+    pub async fn get_preferred_withdraw_validator_list(
+        &self,
+        min_stake_threshold: u64,
+        list_size: u32,
+    ) -> Result<Vec<PreferredWithdraw>> {
+        let min_retained_balance: u64 = PREFFERED_WITHDRAW_MIN_RETAINED_BALANCE * LAMPORTS_PER_SOL;
 
         // Get all steward accounts
         let all_steward_accounts =
@@ -890,7 +921,8 @@ impl QueryResolver {
         let validator_list = &all_steward_accounts.validator_list_account;
 
         // Collect validators with their scores and available stake
-        let mut preferred_withdraw_list: Vec<PreferredWithdraw> = Vec::with_capacity(LIST_SIZE);
+        let mut preferred_withdraw_list: Vec<PreferredWithdraw> =
+            Vec::with_capacity(list_size as usize);
 
         // Iterate through sorted raw indices in reverse order to get validators with lowest scores first
         for i in (0..steward_state.num_pool_validators as usize).rev() {
@@ -913,13 +945,13 @@ impl QueryResolver {
             }
 
             // Check if validator has enough stake above the threshold + minimum retained balance
-            // We need at least MIN_STAKE_THRESHOLD total, and must be able to withdraw while leaving MIN_RETAINED_BALANCE
-            if active_stake <= (MIN_STAKE_THRESHOLD + MIN_RETAINED_BALANCE) {
+            // We need at least min_stake_threshold total, and must be able to withdraw while leaving min_retained_balance
+            if active_stake <= (min_stake_threshold + min_retained_balance) {
                 continue;
             }
 
             // Calculate withdrawable amount (active stake minus minimum retained balance)
-            let withdrawable_amount = active_stake.saturating_sub(MIN_RETAINED_BALANCE);
+            let withdrawable_amount = active_stake.saturating_sub(min_retained_balance);
 
             // Get the validator's canonical stake account
             let validator_seed_suffix: Option<std::num::NonZeroU32> = {
@@ -942,7 +974,7 @@ impl QueryResolver {
             });
 
             // Stop if we've found enough validators
-            if preferred_withdraw_list.len() >= LIST_SIZE {
+            if preferred_withdraw_list.len() >= list_size as usize {
                 break;
             }
         }

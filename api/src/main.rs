@@ -27,6 +27,7 @@ use kobe_api::{
     schemas::{
         jitosol_ratio::JitoSolRatioRequest,
         mev_rewards::{MevRewardsRequest, StakerRewardsRequest, ValidatorRewardsRequest},
+        preferred_withdraw::PreferredWithdrawRequest,
         stake_pool_stats::GetStakePoolStatsRequest,
         steward_events::StewardEventsRequest,
         validator::ValidatorsRequest,
@@ -196,8 +197,9 @@ async fn get_validator_histories(
 
 async fn preferred_withdraw_validator_list_handler(
     resolver: Extension<QueryResolver>,
+    request: Query<PreferredWithdrawRequest>,
 ) -> impl IntoResponse {
-    preferred_withdraw_validator_list_cacheable_wrapper(resolver).await
+    preferred_withdraw_validator_list_cacheable_wrapper(resolver, request.0).await
 }
 
 #[derive(Parser, Debug)]

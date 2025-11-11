@@ -113,6 +113,7 @@ pub fn get_priority_fee_distribution_program_id() -> solana_pubkey::Pubkey {
 ///
 /// - If BAM validator set exists and not empty: check if validator identity is in the set
 /// - Otherwise: fall back to client_type check from validator history
+#[allow(clippy::too_many_arguments)]
 pub async fn fetch_chain_data(
     validators: &[ValidatorsAppResponseEntry],
     bam_validator_set: HashSet<String>,

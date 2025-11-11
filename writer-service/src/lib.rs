@@ -92,8 +92,14 @@ impl KobeWriterService {
         .await
         .expect("Failed to initialize Validators App client");
 
-        let stake_pool_manager =
-            StakePoolManager::new(rpc_client, validators_app_client, bam_api_base_url, cluster);
+        let stake_pool_manager = StakePoolManager::new(
+            rpc_client,
+            validators_app_client,
+            bam_api_base_url,
+            cluster,
+            jito_steward_program_id,
+            steward_config,
+        );
 
         Ok(Self {
             db,

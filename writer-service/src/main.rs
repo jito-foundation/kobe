@@ -128,6 +128,8 @@ fn main() -> Result<()> {
             args.tip_distribution_program_id,
             args.priority_fee_distribution_program_id,
             args.mainnet_gcp_server_names,
+            args.jito_steward_program_id,
+            args.steward_config_pubkey,
             args.bam_api_base_url,
         )
         .await

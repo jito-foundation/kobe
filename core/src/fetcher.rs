@@ -1,6 +1,7 @@
 use std::{
     collections::{HashMap, HashSet},
-    str::FromStr, sync::Arc
+    str::FromStr,
+    sync::Arc,
 };
 
 use anchor_lang::AccountDeserialize;

@@ -35,6 +35,10 @@ struct Args {
     #[arg(long, env)]
     sentry_api_url: String,
 
+    /// BAM api base url
+    #[clap(long, env)]
+    bam_api_base_url: Option<String>,
+
     // Whether to start running a live loop or single epoch backfill
     #[command(subcommand)]
     command: Commands,
@@ -124,8 +128,7 @@ fn main() -> Result<()> {
             args.tip_distribution_program_id,
             args.priority_fee_distribution_program_id,
             args.mainnet_gcp_server_names,
-            args.jito_steward_program_id,
-            args.steward_config_pubkey,
+            args.bam_api_base_url,
         )
         .await
         .expect("Failed to initialize KobeWriterService");

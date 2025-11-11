@@ -69,6 +69,7 @@ impl KobeWriterService {
         mainnet_gcp_server_names: Vec<String>,
         jito_steward_program_id: Pubkey,
         steward_config: Pubkey,
+        bam_api_base_url: Option<String>,
     ) -> Result<Self> {
         let mongodb_client = db::setup_mongo_client(mongo_connection_uri).await?;
 
@@ -91,13 +92,8 @@ impl KobeWriterService {
         .await
         .expect("Failed to initialize Validators App client");
 
-        let stake_pool_manager = StakePoolManager::new(
-            rpc_client,
-            validators_app_client,
-            cluster,
-            jito_steward_program_id,
-            steward_config,
-        );
+        let stake_pool_manager =
+            StakePoolManager::new(rpc_client, validators_app_client, bam_api_base_url, cluster);
 
         Ok(Self {
             db,

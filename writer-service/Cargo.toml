@@ -11,6 +11,7 @@ readme = "./README.md"
 
 [dependencies]
 backoff = { workspace = true }
+bam-api-client = { workspace = true }
 chrono = { workspace = true }
 clap = { workspace = true }
 dotenvy = { workspace = true }

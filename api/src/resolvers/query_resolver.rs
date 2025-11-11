@@ -55,7 +55,7 @@ use crate::{
 const STEWARD_CONFIG: Pubkey = pubkey!("jitoVjT9jRUyeXHzvCwzPgHj7yWNRhLcUoXtes4wtjv");
 const PREFFERED_WITHDRAW_MIN_STAKE_THRESHOLD: u64 = 10_000; // Denominated in SOL
 const PREFFERED_WITHDRAW_MIN_RETAINED_BALANCE: u64 = 1_000; // Denominated in SOL
-const PREFERRED_WITHDRAW_LIST_SIZE: u32 = 50;
+const PREFERRED_WITHDRAW_LIMIT: u32 = 50;
 
 #[derive(Clone)]
 pub struct QueryResolver {
@@ -383,19 +383,16 @@ pub async fn get_validator_histories_wrapper(
     type = "TimedCache<String, Vec<PreferredWithdraw>>",
     create = "{ TimedCache::with_lifespan_and_capacity(10, 100) }",
     key = "String",
-    convert = r#"{ format!("preferred-withdraw-{}-{}", min_stake_threshold.unwrap_or(PREFFERED_WITHDRAW_MIN_STAKE_THRESHOLD), list_size.unwrap_or(PREFERRED_WITHDRAW_LIST_SIZE)) }"#,
+    convert = r#"{ format!("preferred-withdraw-{}-{}", min_stake_threshold, limit) }"#,
     result = true
 )]
 async fn get_preferred_withdraw_cached(
     resolver: Extension<QueryResolver>,
-    min_stake_threshold: Option<u64>,
-    list_size: Option<u32>,
+    min_stake_threshold: u64,
+    limit: u32,
 ) -> Result<Vec<PreferredWithdraw>> {
-    let min_stake_threshold =
-        min_stake_threshold.unwrap_or(PREFFERED_WITHDRAW_MIN_STAKE_THRESHOLD) * LAMPORTS_PER_SOL;
-    let list_size = list_size.unwrap_or(PREFERRED_WITHDRAW_LIST_SIZE);
     resolver
-        .get_preferred_withdraw_validator_list(min_stake_threshold, list_size)
+        .get_preferred_withdraw_validator_list(min_stake_threshold, limit)
         .await
 }
 
@@ -404,8 +401,12 @@ pub async fn preferred_withdraw_validator_list_cacheable_wrapper(
     req: PreferredWithdrawRequest,
 ) -> (StatusCode, Json<Vec<PreferredWithdraw>>) {
     // Get cached result
-    let list_result =
-        get_preferred_withdraw_cached(resolver, req.min_stake_threshold, req.list_size).await;
+    let min_stake_threshold = req
+        .min_stake_threshold
+        .unwrap_or(PREFFERED_WITHDRAW_MIN_STAKE_THRESHOLD)
+        * LAMPORTS_PER_SOL;
+    let limit = req.limit.unwrap_or(PREFERRED_WITHDRAW_LIMIT);
+    let list_result = get_preferred_withdraw_cached(resolver, min_stake_threshold, limit).await;
 
     // Exit early on error
     let mut list = match list_result {
@@ -910,7 +911,7 @@ impl QueryResolver {
     pub async fn get_preferred_withdraw_validator_list(
         &self,
         min_stake_threshold: u64,
-        list_size: u32,
+        limit: u32,
     ) -> Result<Vec<PreferredWithdraw>> {
         let min_retained_balance: u64 = PREFFERED_WITHDRAW_MIN_RETAINED_BALANCE * LAMPORTS_PER_SOL;
 
@@ -922,7 +923,7 @@ impl QueryResolver {
 
         // Collect validators with their scores and available stake
         let mut preferred_withdraw_list: Vec<PreferredWithdraw> =
-            Vec::with_capacity(list_size as usize);
+            Vec::with_capacity(limit as usize);
 
         // Iterate through sorted raw indices in reverse order to get validators with lowest scores first
         for i in (0..steward_state.num_pool_validators as usize).rev() {
@@ -974,7 +975,7 @@ impl QueryResolver {
             });
 
             // Stop if we've found enough validators
-            if preferred_withdraw_list.len() >= list_size as usize {
+            if preferred_withdraw_list.len() >= limit as usize {
                 break;
             }
         }

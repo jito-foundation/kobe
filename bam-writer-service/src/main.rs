@@ -4,6 +4,7 @@ use clap::{Parser, Subcommand};
 use kobe_bam_writer_service::BamWriterService;
 use log::{error, info};
 use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_metrics::datapoint_info;
 use solana_pubkey::Pubkey;
 
 #[derive(Parser, Debug)]
@@ -123,13 +124,30 @@ async fn main() -> anyhow::Result<()> {
                     Ok(current_epoch) => {
                         // Only run if we haven't processed this epoch yet
                         if last_processed_epoch != Some(current_epoch) {
-                            info!("Processing epoch {}", current_epoch);
+                            info!("Processing epoch {current_epoch}");
 
-                            if let Err(e) = bam_writer_service.run().await {
-                                error!("Error processing epoch {}: {}", current_epoch, e);
-                            } else {
-                                info!("Successfully processed epoch {}", current_epoch);
-                                last_processed_epoch = Some(current_epoch);
+                            match bam_writer_service.run().await {
+                                Ok(()) => {
+                                    info!("Successfully processed epoch {current_epoch}");
+                                    last_processed_epoch = Some(current_epoch);
+
+                                    datapoint_info!(
+                                        "bam-writer-service-stats",
+                                        ("epoch", current_epoch, i64),
+                                        ("success", 1, i64),
+                                        "cluster" => args.cluster_name,
+                                    );
+                                }
+                                Err(e) => {
+                                    error!("Error processing epoch {current_epoch}: {e}");
+
+                                    datapoint_info!(
+                                        "bam-writer-service-stats",
+                                        ("epoch", current_epoch, i64),
+                                        ("success", 0, i64),
+                                        "cluster" => args.cluster_name,
+                                    );
+                                }
                             }
                         }
 
@@ -138,6 +156,7 @@ async fn main() -> anyhow::Result<()> {
                     }
                     Err(e) => {
                         error!("Error checking epoch info: {}", e);
+
                         tokio::time::sleep(poll_interval).await;
                     }
                 }

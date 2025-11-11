@@ -76,7 +76,7 @@ impl BamEpochMetricStore {
     /// Find a [`BamEpochMetric`] record by epoch
     pub async fn find_by_epoch(
         &self,
-        epoch: Option<u16>,
+        epoch: Option<u64>,
     ) -> Result<Option<BamEpochMetric>, mongodb::error::Error> {
         match epoch {
             Some(epoch) => {

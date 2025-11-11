@@ -5,7 +5,7 @@ use validator_history::{
 
 #[derive(Deserialize)]
 pub struct EpochQuery {
-    pub epoch: Option<u16>,
+    pub epoch: Option<u64>,
 }
 
 #[derive(Default, Clone, Serialize, Deserialize)]

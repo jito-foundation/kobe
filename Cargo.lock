@@ -2973,7 +2973,7 @@ dependencies = [
 
 [[package]]
 name = "kobe-api"
-version = "1.1.0"
+version = "1.1.1"
 dependencies = [
  "anchor-lang",
  "axum",
@@ -3032,6 +3032,7 @@ dependencies = [
  "reqwest 0.12.24",
  "solana-client",
  "solana-commitment-config",
+ "solana-metrics",
  "solana-pubkey",
  "stakenet-sdk",
  "tokio",
@@ -3040,7 +3041,7 @@ dependencies = [
 
 [[package]]
 name = "kobe-core"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "anchor-lang",
  "chrono",
@@ -3122,7 +3123,7 @@ dependencies = [
 
 [[package]]
 name = "kobe-writer-service"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "backoff",
  "chrono",

@@ -396,7 +396,7 @@ pub async fn get_validator_histories_wrapper(
 )]
 pub async fn get_bam_epoch_metric_wrapper(
     resolver: Extension<QueryResolver>,
-    epoch: Option<u16>,
+    epoch: Option<u64>,
 ) -> (StatusCode, Json<BamEpochMetricResponse>) {
     if let Ok(res) = resolver.get_bam_epoch_metric(epoch).await {
         (StatusCode::OK, Json(res))
@@ -880,7 +880,7 @@ impl QueryResolver {
                 .arr
                 .iter()
                 .filter_map(|entry| {
-                    if epoch == entry.epoch {
+                    if epoch as u16 == entry.epoch {
                         Some(ValidatorHistoryEntryResponse::from_validator_history_entry(
                             entry,
                         ))
@@ -913,8 +913,8 @@ impl QueryResolver {
     /// ```ignore
     /// GET /bam_epoch_metric?epoch=800
     /// ```
-    /// This request retrieves the history for the specified vote account, filtered by epoch 800.
-    pub async fn get_bam_epoch_metric(&self, epoch: Option<u16>) -> Result<BamEpochMetricResponse> {
+    /// This request retrieves the BAM epoch metric for epoch 800.
+    pub async fn get_bam_epoch_metric(&self, epoch: Option<u64>) -> Result<BamEpochMetricResponse> {
         let bam_epoch_metric = self.bam_epoch_metric_store.find_by_epoch(epoch).await?;
 
         Ok(BamEpochMetricResponse { bam_epoch_metric })

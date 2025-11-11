@@ -37,10 +37,6 @@ struct Args {
     )]
     stake_pool: Pubkey,
 
-    /// Whether to dry run before writing to db
-    #[clap(long, env, action)]
-    dry_run: bool,
-
     /// Cluster name for metrics
     #[clap(long, env, default_value = "mainnet")]
     cluster_name: String,

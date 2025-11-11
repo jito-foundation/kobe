@@ -10,31 +10,32 @@ Named after both the premium grade of Kobe beef and in honor of basketball legen
 ## Architecture Overview
 
 ```
-                       ┌───────────────────────────────────────────────────────┐
-                       │                    Solana Network                     │
-                       │                    (Blockchain)                       │
-                       └───────────────────────────────────────────────────────┘
-                         ▲             │                         │
-                         │             │  (read on-chain data)   │
-                         │             ▼                         ▼
-             (write      │      ┌──────────────────┐    ┌──────────────────┐
-          transactions)  │      │  Kobe Writer     │    │ Steward Writer   │
-                         │      │   Service        │    │    Service       │
-                         │      │ (Data Collection)│    │ (Steward Events) │
-                         │      └──────────────────┘    └──────────────────┘
-                         │             │                        │
-                         │             ▼ (write to db)          ▼ (write to db)
-          ┌──────────────────┐   ┌─────────────────────────────────────────────┐
-          │  Kobe Cranker    │   │              MongoDB                        │
-          │ (Pool Management)│   │            (Database)                       │
-          └──────────────────┘   └─────────────────────────────────────────────┘
-                                                   │
-                                                   │ (read from db + on-chain)
-                                                   ▼
-                                         ┌─────────────────┐
-                                         │   Kobe API      │
-                                         │  (Data Access)  │
-                                         └─────────────────┘
+       ┌────────────────────────────────────────────────────────────────────────────────────────┐   ┌─────────────┐
+       │                                  Solana Network                                        │   │   BAM API   │
+       │                                   (Blockchain)                                         │   │             │
+       └────────────────────────────────────────────────────────────────────────────────────────┘   └─────────────┘
+                      ▲             │                         │                        │                   │
+                      │             │  (read on-chain data)   │ (read on-chain data)   │                   │  (read bam data)
+                      │             ▼                         ▼                        ▼                   ▼
+          (write      │      ┌──────────────────┐    ┌──────────────────┐    ┌────────────────────────────────────┐
+       transactions)  │      │  Kobe Writer     │    │ Steward Writer   │    │             BAM Writer             │
+                      │      │   Service        │    │    Service       │    │              Service               │
+                      │      │ (Data Collection)│    │ (Steward Events) │    │                                    │
+                      │      └──────────────────┘    └──────────────────┘    └────────────────────────────────────┘
+                      │             │                        │                           │                 ▲
+                      │             ▼ (write to db)          ▼ (write to db)             ▼ (write to db)   │
+       ┌──────────────────┐   ┌──────────────────────────────────────────────────────────────────────┐     │
+       │  Kobe Cranker    │   │                            MongoDB                                   │     │
+       │ (Pool Management)│   │                           (Database)                                 │     │
+       └──────────────────┘   └──────────────────────────────────────────────────────────────────────┘     │  (read validators data)
+                                                │                                                          │
+                                                │ (read from db + on-chain)                                │
+                                                ▼                                                          │
+                                      ┌─────────────────┐                                                  │
+                                      │   Kobe API      │                                                  │
+                                      │  (Data Access)  │ ──────────────────────────────────────────────────
+                                      │                 │
+                                      └─────────────────┘
 ```
 
 ## JitoSOL APY Calculation
@@ -253,7 +254,24 @@ Therefore, users may see different APY values between real-time calculations and
 - Risk management actions
 - Stake rebalancing operations
 
-**Use Cases:** Steward transparency, audit trails, performance analysis, regulatory compliance
+---
+
+### [Kobe BAM Writer Service](./bam-writer-service/README.md)
+**Specialized monitoring** service for Block Assembly Marketplace (BAM) delegation calculations, tracking network-wide BAM validator participation and computing available JitoSOL delegation based on JIP-28 specifications.
+
+**Capabilities:**
+- Real-time BAM validator stake tracking
+- JIP-28 tier-based delegation calculations
+- Network stakeweight monitoring
+- Epoch-based metrics collection and storage
+
+**Key Features:**
+- Automated epoch threshold detection (default: 90% epoch progress)
+- Integration with BAM API for validator discovery
+- Dynamic delegation allocation based on network participation tiers
+- Historical BAM metrics persistence in MongoDB
+
+**Use Cases:** Powers BAM delegation strategy, provides transparency into automated stake allocation decisions, enables historical analysis of BAM adoption trends
 
 ## Quick Start
 

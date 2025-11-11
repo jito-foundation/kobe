@@ -1,4 +1,4 @@
-use std::{str::FromStr, thread::sleep, time::Duration as CoreDuration};
+use std::{collections::HashSet, str::FromStr, thread::sleep, time::Duration as CoreDuration};
 
 use bam_api_client::client::BamApiClient;
 use chrono::{Duration, DurationRound, Utc};
@@ -66,14 +66,20 @@ impl StakePoolManager {
         })
         .await??;
 
-        let mut bam_validators = Vec::new();
-        if let Some(ref bam_api_client) = self.bam_api_client {
-            bam_validators.extend(bam_api_client.get_validators().await?);
-        }
+        let bam_validator_set: HashSet<String> =
+            if let Some(ref bam_api_client) = self.bam_api_client {
+                let bam_validators = bam_api_client.get_validators().await?;
+                bam_validators
+                    .iter()
+                    .map(|v| v.validator_pubkey.clone())
+                    .collect()
+            } else {
+                HashSet::new()
+            };
 
         let on_chain_data = fetch_chain_data(
             network_validators.as_ref(),
-            &bam_validators,
+            bam_validator_set,
             &self.rpc_client,
             &self.cluster,
             epoch,

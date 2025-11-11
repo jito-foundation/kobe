@@ -1,4 +1,4 @@
-use std::{collections::HashMap, str::FromStr};
+use std::{collections::HashMap, str::FromStr, sync::Arc};
 
 use anchor_lang::AccountDeserialize;
 use jito_priority_fee_distribution::state::PriorityFeeDistributionAccount;
@@ -10,7 +10,7 @@ use solana_pubkey::Pubkey;
 use spl_stake_pool::state::ValidatorStakeInfo;
 use spl_stake_pool_cli::client::get_validator_list;
 use stakenet_sdk::utils::accounts::{
-    get_all_validator_history_accounts, get_steward_config_account,
+    get_all_validator_history_accounts, get_directed_stake_meta, get_steward_config_account,
 };
 use validator_history::{ValidatorHistory, ValidatorHistoryEntry};
 
@@ -23,26 +23,6 @@ use crate::{
     },
     validators_app::{Cluster, ValidatorsAppResponseEntry},
 };
-
-mod jito_tip_distribution_sdk {
-    use anchor_lang::{prelude::Pubkey, solana_program::clock::Epoch};
-    use jito_tip_distribution::state::TipDistributionAccount;
-
-    pub fn derive_tip_distribution_account_address(
-        tip_distribution_program_id: &Pubkey,
-        vote_pubkey: &Pubkey,
-        epoch: Epoch,
-    ) -> (Pubkey, u8) {
-        Pubkey::find_program_address(
-            &[
-                TipDistributionAccount::SEED,
-                vote_pubkey.to_bytes().as_ref(),
-                epoch.to_le_bytes().as_ref(),
-            ],
-            tip_distribution_program_id,
-        )
-    }
-}
 
 type Error = Box<dyn std::error::Error>;
 
@@ -126,25 +106,27 @@ pub fn get_priority_fee_distribution_program_id() -> solana_pubkey::Pubkey {
 /// 3. **Combined detection**: Detect `running_jito` = (`has_tip_account || is_jito_client`)
 pub async fn fetch_chain_data(
     validators: &[ValidatorsAppResponseEntry],
-    rpc_client: &RpcClient,
+    rpc_client: Arc<RpcClient>,
     cluster: &Cluster,
     epoch: u64,
     validator_list_pubkey: &Pubkey,
+    jito_steward_program_id: &Pubkey,
     steward_config_pubkey: &Pubkey,
 ) -> Result<HashMap<Pubkey, ChainData>, Error> {
     // Fetch on-chain data
     let tip_distributions =
-        fetch_tip_distribution_accounts(validators, rpc_client, cluster, epoch).await?;
+        fetch_tip_distribution_accounts(validators, &rpc_client.clone(), cluster, epoch).await?;
     let priority_fee_distributions =
-        fetch_priority_fee_distribution_accounts(validators, rpc_client, epoch).await?;
+        fetch_priority_fee_distribution_accounts(validators, &rpc_client.clone(), epoch).await?;
     let vote_accounts = rpc_client.get_vote_accounts().await?;
     let (global_average, vote_credits_map) = fetch_vote_credits(&vote_accounts)?;
 
     let total_staked_lamports = fetch_total_staked_lamports(&vote_accounts);
 
-    let steward_config = get_steward_config_account(rpc_client, steward_config_pubkey).await?;
+    let steward_config =
+        get_steward_config_account(&rpc_client.clone(), steward_config_pubkey).await?;
 
-    let staked_validators = get_validator_list(rpc_client, validator_list_pubkey).await?;
+    let staked_validators = get_validator_list(&rpc_client.clone(), validator_list_pubkey).await?;
     let inflation_rate = match rpc_client.get_inflation_rate().await {
         Ok(rate) => rate.total,
         Err(e) => {
@@ -155,7 +137,14 @@ pub async fn fetch_chain_data(
 
     let validator_history_program_id = get_validator_history_program_id(cluster);
     let validator_histories =
-        fetch_validator_history_accounts(rpc_client, validator_history_program_id).await?;
+        fetch_validator_history_accounts(&rpc_client.clone(), validator_history_program_id).await?;
+
+    let directed_stake_meta = get_directed_stake_meta(
+        rpc_client.clone(),
+        steward_config_pubkey,
+        jito_steward_program_id,
+    )
+    .await?;
 
     Ok(HashMap::from_iter(validators.iter().map(|v| {
         let vote_account = v.vote_account;
@@ -250,8 +239,10 @@ pub async fn fetch_chain_data(
             }
         }
 
-        // FIXME
-        let jito_directed_stake_target = false;
+        let jito_directed_stake_target = directed_stake_meta
+            .targets
+            .iter()
+            .any(|target| target.vote_pubkey.eq(&v.vote_account));
 
         let data = ChainData {
             mev_commission_bps,

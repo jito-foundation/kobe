@@ -1,4 +1,4 @@
-use std::{str::FromStr, thread::sleep, time::Duration as CoreDuration};
+use std::{str::FromStr, sync::Arc, thread::sleep, time::Duration as CoreDuration};
 
 use chrono::{Duration, DurationRound, Utc};
 use kobe_core::{
@@ -19,13 +19,16 @@ use crate::{result::Result, rpc_utils};
 
 pub struct StakePoolManager {
     /// RPC Client
-    pub rpc_client: RpcClient,
+    pub rpc_client: Arc<RpcClient>,
 
     /// Validators app client
     pub validators_app_client: Client,
 
     /// Cluster name
     pub cluster: Cluster,
+
+    /// Jito steward program ID
+    pub jito_steward_program_id: Pubkey,
 
     /// Steward config pubkey
     pub steward_config: Pubkey,
@@ -36,12 +39,14 @@ impl StakePoolManager {
         rpc_client: RpcClient,
         validators_app_client: Client,
         cluster: Cluster,
+        jito_steward_program_id: Pubkey,
         steward_config: Pubkey,
     ) -> Self {
         Self {
-            rpc_client,
+            rpc_client: Arc::new(rpc_client),
             validators_app_client,
             cluster,
+            jito_steward_program_id,
             steward_config,
         }
     }
@@ -59,10 +64,11 @@ impl StakePoolManager {
 
         let on_chain_data = fetch_chain_data(
             network_validators.as_ref(),
-            &self.rpc_client,
+            self.rpc_client.clone(),
             &self.cluster,
             epoch,
             validator_list_address,
+            &self.jito_steward_program_id,
             &self.steward_config,
         )
         .await?;

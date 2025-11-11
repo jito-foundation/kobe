@@ -65,7 +65,7 @@ impl BamEpochMetricStore {
         bam_epoch_metric: BamEpochMetric,
     ) -> Result<(), mongodb::error::Error> {
         let update = doc! { "$set": bson::to_document(&bam_epoch_metric)? };
-        let filter = doc! { "epoch": &bam_epoch_metric.epoch.to_string() };
+        let filter = doc! { "epoch": bam_epoch_metric.epoch as u32 };
         let options = mongodb::options::UpdateOptions::builder()
             .upsert(true)
             .build();

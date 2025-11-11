@@ -55,9 +55,13 @@ struct Args {
     )]
     priority_fee_distribution_program_id: String,
 
-    /// Mainnet gcp server names
-    #[arg(long, env, value_delimiter = ',')]
-    mainnet_gcp_server_names: Vec<String>,
+    /// Jito steward program id
+    #[arg(
+        long,
+        env,
+        default_value = "Stewardf95sJbmtcZsyagb2dg4Mo8eVQho8gpECvLx8"
+    )]
+    jito_steward_program_id: Pubkey,
 
     /// Steward config pubkey
     #[arg(
@@ -66,6 +70,10 @@ struct Args {
         default_value = "jitoVjT9jRUyeXHzvCwzPgHj7yWNRhLcUoXtes4wtjv"
     )]
     steward_config_pubkey: Pubkey,
+
+    /// Mainnet gcp server names
+    #[arg(long, env, value_delimiter = ',')]
+    mainnet_gcp_server_names: Vec<String>,
 }
 
 #[derive(Subcommand)]
@@ -116,6 +124,7 @@ fn main() -> Result<()> {
             args.tip_distribution_program_id,
             args.priority_fee_distribution_program_id,
             args.mainnet_gcp_server_names,
+            args.jito_steward_program_id,
             args.steward_config_pubkey,
         )
         .await

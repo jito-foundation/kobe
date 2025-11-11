@@ -2855,7 +2855,7 @@ dependencies = [
 [[package]]
 name = "jito-steward"
 version = "0.1.0"
-source = "git+https://github.com/jito-foundation/stakenet?rev=d724a42b49c0cd32791afbd2a362dd63364a7a9a#d724a42b49c0cd32791afbd2a362dd63364a7a9a"
+source = "git+https://github.com/jito-foundation/stakenet?rev=6d35e58013cf7442dce287a1f45013085cb24967#6d35e58013cf7442dce287a1f45013085cb24967"
 dependencies = [
  "anchor-lang",
  "bincode",
@@ -2884,6 +2884,15 @@ dependencies = [
  "jito-programs-vote-state",
  "solana-program",
  "solana-security-txt",
+]
+
+[[package]]
+name = "jito-tip-distribution-sdk"
+version = "0.1.6"
+source = "git+https://github.com/jito-foundation/jito-programs?branch=master#8f55af0a9b31ac2192415b59ce2c47329ee255a2"
+dependencies = [
+ "anchor-lang",
+ "jito-tip-distribution",
 ]
 
 [[package]]
@@ -3042,6 +3051,7 @@ dependencies = [
  "jito-priority-fee-distribution-sdk",
  "jito-steward",
  "jito-tip-distribution",
+ "jito-tip-distribution-sdk",
  "log",
  "mongodb",
  "reqwest 0.12.24",
@@ -7888,7 +7898,7 @@ checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
 [[package]]
 name = "stakenet-sdk"
 version = "0.1.0"
-source = "git+https://github.com/jito-foundation/stakenet?rev=d724a42b49c0cd32791afbd2a362dd63364a7a9a#d724a42b49c0cd32791afbd2a362dd63364a7a9a"
+source = "git+https://github.com/jito-foundation/stakenet?rev=6d35e58013cf7442dce287a1f45013085cb24967#6d35e58013cf7442dce287a1f45013085cb24967"
 dependencies = [
  "anchor-lang",
  "base64 0.21.7",
@@ -7905,6 +7915,7 @@ dependencies = [
  "solana-program",
  "solana-sdk",
  "solana-transaction-status",
+ "spl-associated-token-account",
  "spl-pod",
  "spl-stake-pool",
  "thiserror 1.0.69",
@@ -8719,7 +8730,7 @@ dependencies = [
 [[package]]
 name = "validator-history"
 version = "0.1.0"
-source = "git+https://github.com/jito-foundation/stakenet?rev=d724a42b49c0cd32791afbd2a362dd63364a7a9a#d724a42b49c0cd32791afbd2a362dd63364a7a9a"
+source = "git+https://github.com/jito-foundation/stakenet?rev=6d35e58013cf7442dce287a1f45013085cb24967#6d35e58013cf7442dce287a1f45013085cb24967"
 dependencies = [
  "anchor-lang",
  "bincode",
@@ -8741,7 +8752,7 @@ dependencies = [
 [[package]]
 name = "validator-history-vote-state"
 version = "0.1.2"
-source = "git+https://github.com/jito-foundation/stakenet?rev=d724a42b49c0cd32791afbd2a362dd63364a7a9a#d724a42b49c0cd32791afbd2a362dd63364a7a9a"
+source = "git+https://github.com/jito-foundation/stakenet?rev=6d35e58013cf7442dce287a1f45013085cb24967#6d35e58013cf7442dce287a1f45013085cb24967"
 dependencies = [
  "anchor-lang",
  "bincode",

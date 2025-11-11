@@ -61,7 +61,7 @@ pub enum AppError {
     #[error("Empty Fee Account Balance: {0}")]
     EmptyFeeAccountBalance(String),
 
-    #[error("Join errorr")]
+    #[error("Join error")]
     JoinError(#[from] tokio::task::JoinError),
 
     #[error(transparent)]

@@ -95,6 +95,7 @@ services:
       - SENTRY_API_URL=$SENTRY_API_URL
       - SOLANA_METRICS_CONFIG=$SOLANA_METRICS_CONFIG
       - MAINNET_GCP_SERVER_NAMES=$MAINNET_GCP_SERVER_NAMES
+      - BAM_API_BASE_URL=$BAM_API_BASE_URL
     build:
       context: .
       dockerfile: Dockerfile
@@ -116,6 +117,7 @@ services:
       - SENTRY_API_URL=$SENTRY_API_URL
       - SOLANA_METRICS_CONFIG=$SOLANA_METRICS_CONFIG
       - MAINNET_GCP_SERVER_NAMES=$MAINNET_GCP_SERVER_NAMES
+      - BAM_API_BASE_URL=$BAM_API_BASE_URL
     build:
       context: .
       dockerfile: Dockerfile

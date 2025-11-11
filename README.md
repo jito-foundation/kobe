@@ -201,6 +201,7 @@ Therefore, users may see different APY values between real-time calculations and
 - Validator performance and rankings
 - JitoSOL stake pool metrics
 - Historical trend analysis
+- Preferred withdraw validator list
 
 **Use Cases:** Frontend applications, analytics dashboards, integration partners
 

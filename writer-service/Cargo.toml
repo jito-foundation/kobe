@@ -1,7 +1,7 @@
 [package]
 name = "kobe-writer-service"
 description = "Kobe Writer is a data collection service"
-version = "1.0.0"
+version = "1.0.1"
 authors = { workspace = true }
 repository = { workspace = true }
 homepage = { workspace = true }
@@ -29,6 +29,7 @@ solana-clap-utils = { workspace = true }
 solana-client = { workspace = true }
 solana-metrics = { workspace = true }
 solana-program = { workspace = true }
+solana-pubkey = { workspace = true }
 solana-sdk = { workspace = true }
 spl-stake-pool = { workspace = true }
 spl-stake-pool-cli = { workspace = true }

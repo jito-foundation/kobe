@@ -1,5 +1,6 @@
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+
+use serde::{Deserialize, Serialize};
 
 #[derive(Default, Serialize, Deserialize, Clone)]
 pub struct JitoStakeOverTimeResponse {
@@ -18,6 +19,10 @@ pub struct ValidatorsResponse {
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct ValidatorEntry {
+    /// Identity account pubkey
+    pub identity_account: Option<String>,
+
+    /// Vote account pubkey
     pub vote_account: String,
     pub mev_commission_bps: Option<u16>,
     pub mev_rewards: Option<u64>,
@@ -35,6 +40,12 @@ pub struct ValidatorEntry {
     /// Active stake lamports delegated to this validator from the JitoSOL stake-pool
     #[serde(skip_serializing_if = "Option::is_none")]
     pub jito_sol_active_lamports: Option<u64>,
+
+    /// Whether or not jito pool eligible validator
+    pub jito_pool_eligible: Option<bool>,
+
+    /// Whether or not jito pool directed stake target
+    pub jito_pool_directed_stake_target: Option<bool>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Default)]

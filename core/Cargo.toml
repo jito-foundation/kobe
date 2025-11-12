@@ -1,7 +1,7 @@
 [package]
 name = "kobe-core"
 description = "Kobe Core is the foundational library that provides shared functionality, data models, and utilities used across all Kobe services"
-version = "1.0.0"
+version = "1.0.1"
 authors = { workspace = true }
 repository = { workspace = true }
 homepage = { workspace = true }
@@ -19,6 +19,7 @@ jito-priority-fee-distribution = { workspace = true }
 jito-priority-fee-distribution-sdk = { workspace = true }
 jito-steward = { workspace = true }
 jito-tip-distribution = { workspace = true }
+jito-tip-distribution-sdk = { workspace = true }
 log = { workspace = true }
 mongodb = { workspace = true }
 reqwest = { workspace = true }
@@ -28,7 +29,6 @@ solana-clock = { workspace = true }
 solana-commitment-config = { workspace = true }
 solana-native-token = { workspace = true }
 solana-pubkey = { workspace = true }
-solana-rpc-client-api = { workspace = true }
 solana-signature = { workspace = true }
 solana-transaction-status = { workspace = true }
 spl-stake-pool = { workspace = true }
@@ -38,6 +38,3 @@ thiserror = { workspace = true }
 tokio = { workspace = true }
 tokio-retry = { workspace = true }
 validator-history = { workspace = true }
-
-[dev-dependencies]
-env_logger = { workspace = true }

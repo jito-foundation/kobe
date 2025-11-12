@@ -10,6 +10,7 @@ use cached::{proc_macro::cached, TimedCache};
 use kobe_core::{
     constants::{JITOSOL_VALIDATOR_LIST_MAINNET, JITOSOL_VALIDATOR_LIST_TESTNET},
     db_models::{
+        bam_epoch_metric::BamEpochMetricStore,
         mev_rewards::{StakerRewardsStore, ValidatorRewardsStore},
         stake_pool_stats::{StakePoolStats, StakePoolStatsStore},
         steward_events::StewardEventsStore,
@@ -31,6 +32,7 @@ use validator_history::ValidatorHistory;
 use crate::{
     resolvers::error::{QueryResolverError, Result},
     schemas::{
+        bam_epoch_metric::BamEpochMetricResponse,
         jitosol_ratio::{JitoSolRatioRequest, JitoSolRatioResponse},
         mev_rewards::{
             MevRewards, MevRewardsRequest, StakerRewards, StakerRewardsRequest,
@@ -52,11 +54,23 @@ use crate::{
 
 #[derive(Clone)]
 pub struct QueryResolver {
+    /// Stake pool store
     stake_pool_store: StakePoolStatsStore,
+
+    /// Validator store
     validator_store: ValidatorStore,
+
+    /// Validator Rewards store
     validator_rewards_store: ValidatorRewardsStore,
+
+    /// Staker rewards store
     staker_rewards_store: StakerRewardsStore,
+
+    /// Steward events store
     steward_events_store: StewardEventsStore,
+
+    /// BAM epoch metric store
+    bam_epoch_metric_store: BamEpochMetricStore,
 
     /// RPC Client URL
     rpc_client: Arc<RpcClient>,
@@ -374,6 +388,26 @@ pub async fn get_validator_histories_wrapper(
     }
 }
 
+#[cached(
+    type = "TimedCache<String, (StatusCode, Json<BamEpochMetricResponse>)>",
+    create = "{ TimedCache::with_lifespan_and_capacity(60, 1000) }",
+    key = "String",
+    convert = r#"{ format!("bam-epoch-metric-{}", epoch.as_ref().map(|e| e.to_string()).unwrap_or(0.to_string())) }"#
+)]
+pub async fn get_bam_epoch_metric_wrapper(
+    resolver: Extension<QueryResolver>,
+    epoch: Option<u64>,
+) -> (StatusCode, Json<BamEpochMetricResponse>) {
+    if let Ok(res) = resolver.get_bam_epoch_metric(epoch).await {
+        (StatusCode::OK, Json(res))
+    } else {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(BamEpochMetricResponse::default()),
+        )
+    }
+}
+
 impl QueryResolver {
     pub fn new(database: &Database, rpc_client_url: String, cluster: Cluster) -> Self {
         let client = RpcClient::new(rpc_client_url);
@@ -391,6 +425,9 @@ impl QueryResolver {
             ),
             steward_events_store: StewardEventsStore::new(
                 database.collection(StewardEventsStore::COLLECTION),
+            ),
+            bam_epoch_metric_store: BamEpochMetricStore::new(
+                database.collection(BamEpochMetricStore::COLLECTION),
             ),
             rpc_client: Arc::new(client),
             cluster,
@@ -476,6 +513,7 @@ impl QueryResolver {
                     let mev_rewards = mev_rewards.get(&v.vote_account).unwrap_or(&0);
 
                     ValidatorEntry {
+                        identity_account: v.identity_account,
                         active_stake: v.active_stake.unwrap_or(0),
                         vote_account: v.vote_account,
                         mev_commission_bps: if v.running_jito {
@@ -489,6 +527,8 @@ impl QueryResolver {
                         running_jito: v.running_jito,
                         running_bam: v.running_bam,
                         jito_sol_active_lamports: None,
+                        jito_pool_eligible: v.jito_pool_eligible,
+                        jito_pool_directed_stake_target: v.jito_directed_stake_target,
                     }
                 })
                 .collect(),
@@ -518,6 +558,11 @@ impl QueryResolver {
             Cluster::Devnet => {
                 return Err(QueryResolverError::InvalidRequest(
                     "Devnet is not supported yet".to_string(),
+                ));
+            }
+            Cluster::Localhost => {
+                return Err(QueryResolverError::InvalidRequest(
+                    "Localhost is not supported yet".to_string(),
                 ));
             }
         };
@@ -556,6 +601,7 @@ impl QueryResolver {
                     let mev_rewards = mev_rewards.get(&v.vote_account).unwrap_or(&0);
 
                     ValidatorEntry {
+                        identity_account: v.identity_account,
                         active_stake: v.active_stake.unwrap_or(0),
                         vote_account: v.vote_account,
                         mev_commission_bps: if v.running_jito {
@@ -569,6 +615,8 @@ impl QueryResolver {
                         running_jito: v.running_jito,
                         running_bam: v.running_bam,
                         jito_sol_active_lamports: Some(v.target_pool_active_lamports),
+                        jito_pool_eligible: v.jito_pool_eligible,
+                        jito_pool_directed_stake_target: v.jito_directed_stake_target,
                     }
                 })
                 .collect(),
@@ -800,7 +848,7 @@ impl QueryResolver {
     ///
     /// This endpoint can be used to fetch the history of a validator's performance over time, either for a specific epoch or for all recorded epochs:
     ///
-    /// ```
+    /// ```ignore
     /// GET /validator_history/{vote_account}?epoch=800
     /// ```
     /// This request retrieves the history for the specified vote account, filtered by epoch 800.
@@ -832,7 +880,7 @@ impl QueryResolver {
                 .arr
                 .iter()
                 .filter_map(|entry| {
-                    if epoch == entry.epoch {
+                    if epoch as u16 == entry.epoch {
                         Some(ValidatorHistoryEntryResponse::from_validator_history_entry(
                             entry,
                         ))
@@ -854,6 +902,22 @@ impl QueryResolver {
             ValidatorHistoryResponse::from_validator_history(validator_history, history_entries);
 
         Ok(history)
+    }
+
+    /// Retrieves the bam epoch metric, based on the provided epoch filter.
+    ///
+    /// # Example
+    ///
+    /// This endpoint can be used to fetch the bam metric for a specific epoch:
+    ///
+    /// ```ignore
+    /// GET /bam_epoch_metric?epoch=800
+    /// ```
+    /// This request retrieves the BAM epoch metric for epoch 800.
+    pub async fn get_bam_epoch_metric(&self, epoch: Option<u64>) -> Result<BamEpochMetricResponse> {
+        let bam_epoch_metric = self.bam_epoch_metric_store.find_by_epoch(epoch).await?;
+
+        Ok(BamEpochMetricResponse { bam_epoch_metric })
     }
 }
 

@@ -996,18 +996,18 @@ dependencies = [
 
 [[package]]
 name = "bytemuck"
-version = "1.23.1"
+version = "1.24.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5c76a5792e44e4abe34d3abf15636779261d45a7450612059293d1d2cfc63422"
+checksum = "1fbdf580320f38b612e485521afda1ee26d10cc9884efaaa750d383e13e3c5f4"
 dependencies = [
  "bytemuck_derive",
 ]
 
 [[package]]
 name = "bytemuck_derive"
-version = "1.9.3"
+version = "1.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7ecc273b49b3205b83d648f0690daa588925572cc5063745bfe547fe7ec8e1a1"
+checksum = "f9abbd1bc6865053c427f7198e6af43bfdedc55ab791faed4fbd361d789575ff"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2464,20 +2464,6 @@ dependencies = [
 
 [[package]]
 name = "hyper-rustls"
-version = "0.24.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ec3efd23720e2049821a693cbc7e65ea87c72f1c58ff2f9522ff332b1491e590"
-dependencies = [
- "futures-util",
- "http 0.2.12",
- "hyper 0.14.32",
- "rustls 0.21.12",
- "tokio",
- "tokio-rustls 0.24.1",
-]
-
-[[package]]
-name = "hyper-rustls"
 version = "0.27.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e3c93eb611681b207e1fe55d5a71ecf91572ec8a6705cdb6857f7d8d5242cf58"
@@ -2831,7 +2817,7 @@ dependencies = [
 [[package]]
 name = "jito-steward"
 version = "0.1.0"
-source = "git+https://github.com/jito-foundation/stakenet?rev=d724a42b49c0cd32791afbd2a362dd63364a7a9a#d724a42b49c0cd32791afbd2a362dd63364a7a9a"
+source = "git+https://github.com/jito-foundation/stakenet?rev=6d35e58013cf7442dce287a1f45013085cb24967#6d35e58013cf7442dce287a1f45013085cb24967"
 dependencies = [
  "anchor-lang",
  "bincode",
@@ -2860,6 +2846,15 @@ dependencies = [
  "jito-programs-vote-state",
  "solana-program",
  "solana-security-txt",
+]
+
+[[package]]
+name = "jito-tip-distribution-sdk"
+version = "0.1.6"
+source = "git+https://github.com/jito-foundation/jito-programs?branch=master#8f55af0a9b31ac2192415b59ce2c47329ee255a2"
+dependencies = [
+ "anchor-lang",
+ "jito-tip-distribution",
 ]
 
 [[package]]
@@ -2940,7 +2935,7 @@ dependencies = [
 
 [[package]]
 name = "kobe-api"
-version = "1.1.0"
+version = "1.1.1"
 dependencies = [
  "anchor-lang",
  "axum",
@@ -2952,7 +2947,7 @@ dependencies = [
  "kobe-core",
  "log",
  "mongodb",
- "reqwest 0.11.27",
+ "reqwest 0.12.24",
  "sentry",
  "serde",
  "serde_json",
@@ -2970,12 +2965,48 @@ dependencies = [
 ]
 
 [[package]]
-name = "kobe-core"
+name = "kobe-api-client"
 version = "1.0.0"
+dependencies = [
+ "chrono",
+ "kobe-api",
+ "kobe-core",
+ "reqwest 0.12.24",
+ "serde",
+ "serde_json",
+ "solana-pubkey",
+ "thiserror 1.0.69",
+ "tokio",
+]
+
+[[package]]
+name = "kobe-bam-writer-service"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bam-api-client",
+ "clap 4.5.40",
+ "env_logger 0.10.2",
+ "kobe-api-client",
+ "kobe-core",
+ "log",
+ "mongodb",
+ "reqwest 0.12.24",
+ "solana-client",
+ "solana-commitment-config",
+ "solana-metrics",
+ "solana-pubkey",
+ "stakenet-sdk",
+ "tokio",
+ "validator-history",
+]
+
+[[package]]
+name = "kobe-core"
+version = "1.0.1"
 dependencies = [
  "anchor-lang",
  "chrono",
- "env_logger 0.10.2",
  "futures",
  "futures-util",
  "itertools 0.5.10",
@@ -2983,16 +3014,16 @@ dependencies = [
  "jito-priority-fee-distribution-sdk",
  "jito-steward",
  "jito-tip-distribution",
+ "jito-tip-distribution-sdk",
  "log",
  "mongodb",
- "reqwest 0.11.27",
+ "reqwest 0.12.24",
  "serde",
  "solana-client",
  "solana-clock",
  "solana-commitment-config",
  "solana-native-token",
  "solana-pubkey",
- "solana-rpc-client-api",
  "solana-signature",
  "solana-transaction-status",
  "spl-stake-pool",
@@ -3016,7 +3047,7 @@ dependencies = [
  "futures",
  "kobe-core",
  "log",
- "reqwest 0.11.27",
+ "reqwest 0.12.24",
  "sentry",
  "sentry-log",
  "solana-cli-config",
@@ -3026,7 +3057,6 @@ dependencies = [
  "solana-metrics",
  "solana-program",
  "solana-pubkey",
- "solana-rpc-client-api",
  "solana-sdk",
  "solana-transaction-status",
  "spl-stake-pool",
@@ -3055,7 +3085,7 @@ dependencies = [
 
 [[package]]
 name = "kobe-writer-service"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "backoff",
  "bam-api-client",
@@ -3067,7 +3097,7 @@ dependencies = [
  "kobe-core",
  "log",
  "mongodb",
- "reqwest 0.11.27",
+ "reqwest 0.12.24",
  "sentry",
  "sentry-log",
  "serde",
@@ -3076,6 +3106,7 @@ dependencies = [
  "solana-client",
  "solana-metrics",
  "solana-program",
+ "solana-pubkey",
  "solana-sdk",
  "spl-stake-pool",
  "spl-stake-pool-cli",
@@ -4147,7 +4178,6 @@ dependencies = [
  "http 0.2.12",
  "http-body 0.4.6",
  "hyper 0.14.32",
- "hyper-rustls 0.24.2",
  "hyper-tls",
  "ipnet",
  "js-sys",
@@ -4157,7 +4187,6 @@ dependencies = [
  "once_cell",
  "percent-encoding",
  "pin-project-lite",
- "rustls 0.21.12",
  "rustls-pemfile",
  "serde",
  "serde_json",
@@ -4166,13 +4195,11 @@ dependencies = [
  "system-configuration",
  "tokio",
  "tokio-native-tls",
- "tokio-rustls 0.24.1",
  "tower-service",
  "url",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
- "webpki-roots 0.25.4",
  "winreg",
 ]
 
@@ -4192,7 +4219,7 @@ dependencies = [
  "http-body 1.0.1",
  "http-body-util",
  "hyper 1.7.0",
- "hyper-rustls 0.27.7",
+ "hyper-rustls",
  "hyper-util",
  "js-sys",
  "log",
@@ -7829,7 +7856,7 @@ checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
 [[package]]
 name = "stakenet-sdk"
 version = "0.1.0"
-source = "git+https://github.com/jito-foundation/stakenet?rev=d724a42b49c0cd32791afbd2a362dd63364a7a9a#d724a42b49c0cd32791afbd2a362dd63364a7a9a"
+source = "git+https://github.com/jito-foundation/stakenet?rev=6d35e58013cf7442dce287a1f45013085cb24967#6d35e58013cf7442dce287a1f45013085cb24967"
 dependencies = [
  "anchor-lang",
  "base64 0.21.7",
@@ -7846,6 +7873,7 @@ dependencies = [
  "solana-program",
  "solana-sdk",
  "solana-transaction-status",
+ "spl-associated-token-account",
  "spl-pod",
  "spl-stake-pool",
  "thiserror 1.0.69",
@@ -8639,7 +8667,7 @@ dependencies = [
 [[package]]
 name = "validator-history"
 version = "0.1.0"
-source = "git+https://github.com/jito-foundation/stakenet?rev=d724a42b49c0cd32791afbd2a362dd63364a7a9a#d724a42b49c0cd32791afbd2a362dd63364a7a9a"
+source = "git+https://github.com/jito-foundation/stakenet?rev=6d35e58013cf7442dce287a1f45013085cb24967#6d35e58013cf7442dce287a1f45013085cb24967"
 dependencies = [
  "anchor-lang",
  "bincode",
@@ -8661,7 +8689,7 @@ dependencies = [
 [[package]]
 name = "validator-history-vote-state"
 version = "0.1.2"
-source = "git+https://github.com/jito-foundation/stakenet?rev=d724a42b49c0cd32791afbd2a362dd63364a7a9a#d724a42b49c0cd32791afbd2a362dd63364a7a9a"
+source = "git+https://github.com/jito-foundation/stakenet?rev=6d35e58013cf7442dce287a1f45013085cb24967#6d35e58013cf7442dce287a1f45013085cb24967"
 dependencies = [
  "anchor-lang",
  "bincode",

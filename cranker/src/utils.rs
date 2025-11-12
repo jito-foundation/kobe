@@ -252,6 +252,7 @@ pub async fn parallel_execute_stake_pool_update(
     let program_id = match config.cluster {
         Cluster::MainnetBeta | Cluster::Testnet => spl_stake_pool::id(),
         Cluster::Devnet => spl_stake_pool::devnet::id(),
+        Cluster::Localhost => unimplemented!(),
     };
 
     let (update_list_instructions, final_instructions) = update_stake_pool(
@@ -385,7 +386,7 @@ pub async fn send_transaction(
         }
     }
 
-    Err(solana_rpc_client_api::client_error::ErrorKind::Custom(
+    Err(solana_client::client_error::ClientErrorKind::Custom(
         "Transaction not confirmed".to_string(),
     )
     .into())

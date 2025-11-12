@@ -19,7 +19,7 @@ use crate::{
     response_type::DailyMevRewards,
 };
 
-/// Main client for interacting with Jito APIs
+/// Main client for interacting with Kobe APIs
 #[derive(Debug, Clone)]
 pub struct KobeApiClient {
     /// Reqwest client
@@ -28,7 +28,7 @@ pub struct KobeApiClient {
 }
 
 impl KobeApiClient {
-    /// Create a new Jito API client with the given configuration
+    /// Create a new Kobe API client with the given configuration
     pub fn new(config: Config) -> Self {
         let client = Client::builder()
             .timeout(config.timeout)

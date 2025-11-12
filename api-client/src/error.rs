@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-/// Error types for Jito API client
+/// Error types for Kobe API client
 #[derive(Error, Debug)]
 pub enum KobeApiError {
     /// HTTP request error

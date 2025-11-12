@@ -62,7 +62,7 @@ async fn main() -> anyhow::Result<()> {
 #### Get Staker Rewards
 
 ```rust
-use kobe_client::client::KobeApiClient;
+use kobe_api_client::client::KobeApiClient;
 
 let client = KobeApiClient::mainnet();
 
@@ -197,7 +197,7 @@ println!("Total MEV from epoch 600-610: {} lamports", total_mev);
 ```rust
 use std::time::Duration;
 
-use kobe_client::client::KobeApiClientBuilder;
+use kobe_api_client::client::KobeApiClientBuilder;
 
 let client = KobeApiClientBuilder::new()
     .timeout(Duration::from_secs(60))
@@ -210,7 +210,7 @@ let client = KobeApiClientBuilder::new()
 ### Using Config
 
 ```rust
-use kobe_client::{KobeApiClient, Config};
+use kobe_api_client::{KobeApiClient, Config};
 use std::time::Duration;
 
 let config = Config::mainnet()
@@ -234,7 +234,7 @@ let client = JitoClient::new(config);
 The library provides detailed error types:
 
 ```rust
-use kobe_client::{KobeApiClient, JitoError};
+use kobe_api_client::{KobeApiClient, KobeApiError};
 
 let client = KobeApiClient::mainnet();
 
@@ -244,12 +244,12 @@ match client.get_staker_rewards(Some(10)).await {
         eprintln!("Rate limit exceeded, please wait");
     }
     Err(JitoError::NotFound(msg)) => {
-        eprintln!("Resource not found: {}", msg);
+        eprintln!("Resource not found: {msg}");
     }
     Err(JitoError::ApiError { status_code, message }) => {
-        eprintln!("API error {}: {}", status_code, message);
+        eprintln!("API error {status_code}: {message}");
     }
-    Err(e) => eprintln!("Other error: {}", e),
+    Err(e) => eprintln!("Other error: {e}"),
 }
 ```
 
@@ -258,7 +258,7 @@ match client.get_staker_rewards(Some(10)).await {
 ### Query Parameters
 
 ```rust
-use kobe_client::QueryParams;
+use kobe_api_client::QueryParams;
 
 let params = QueryParams::default()
     .limit(50)

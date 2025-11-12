@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use crate::{client::KobeApiClient, config::Config};
 
-/// Builder for creating a JitoClient with custom configuration
+/// Builder for creating a KobeApiClient with custom configuration
 pub struct KobeApiClientBuilder {
     config: Config,
 }

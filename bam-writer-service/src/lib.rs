@@ -85,8 +85,7 @@ impl BamWriterService {
         let epoch_info = self.rpc_client.get_epoch_info().await?;
         let epoch = epoch_info.epoch;
 
-        let jitosol_stake =
-            get_stake_pool_account(&self.rpc_client.clone(), &self.stake_pool).await?;
+        let jitosol_stake = get_stake_pool_account(&self.rpc_client, &self.stake_pool).await?;
 
         let bam_node_validators = self.bam_api_client.get_validators().await?;
         let bam_validator_map: HashMap<&str, &ValidatorsResponse> = bam_node_validators

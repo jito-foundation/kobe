@@ -126,18 +126,17 @@ pub async fn fetch_chain_data(
 ) -> Result<HashMap<Pubkey, ChainData>, Error> {
     // Fetch on-chain data
     let tip_distributions =
-        fetch_tip_distribution_accounts(validators, &rpc_client.clone(), cluster, epoch).await?;
+        fetch_tip_distribution_accounts(validators, &rpc_client, cluster, epoch).await?;
     let priority_fee_distributions =
-        fetch_priority_fee_distribution_accounts(validators, &rpc_client.clone(), epoch).await?;
+        fetch_priority_fee_distribution_accounts(validators, &rpc_client, epoch).await?;
     let vote_accounts = rpc_client.get_vote_accounts().await?;
     let (global_average, vote_credits_map) = fetch_vote_credits(&vote_accounts)?;
 
     let total_staked_lamports = fetch_total_staked_lamports(&vote_accounts);
 
-    let steward_config =
-        get_steward_config_account(&rpc_client.clone(), steward_config_pubkey).await?;
+    let steward_config = get_steward_config_account(&rpc_client, steward_config_pubkey).await?;
 
-    let staked_validators = get_validator_list(&rpc_client.clone(), validator_list_pubkey).await?;
+    let staked_validators = get_validator_list(&rpc_client, validator_list_pubkey).await?;
     let inflation_rate = match rpc_client.get_inflation_rate().await {
         Ok(rate) => rate.total,
         Err(e) => {
@@ -148,7 +147,7 @@ pub async fn fetch_chain_data(
 
     let validator_history_program_id = get_validator_history_program_id(cluster);
     let validator_histories =
-        fetch_validator_history_accounts(&rpc_client.clone(), validator_history_program_id).await?;
+        fetch_validator_history_accounts(&rpc_client, validator_history_program_id).await?;
 
     let directed_stake_meta = get_directed_stake_meta(
         rpc_client.clone(),

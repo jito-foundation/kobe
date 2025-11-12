@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-/// Configuration for the Jito API client
+/// Configuration for the Kobe API client
 #[derive(Debug, Clone)]
 pub struct Config {
     /// Base URL for the API

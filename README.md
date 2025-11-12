@@ -357,6 +357,8 @@ RUST_LOG=info cargo r -p kobe-bam-writer-service -- \
     --rpc-url "https://api.mainnet-beta.solana.com/" \
     --bam-api-base-url "" \
     --kobe-api-base-url "https://kobe.mainnet.jito.network" \
+    --epoch-progress-threshold "0.8" \
+    --poll-interval-secs "60" \
     run
 ```
 

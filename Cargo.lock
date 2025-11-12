@@ -2982,6 +2982,7 @@ dependencies = [
  "log",
  "mongodb",
  "reqwest 0.11.27",
+ "serde_json",
  "solana-client",
  "solana-commitment-config",
  "solana-metrics",

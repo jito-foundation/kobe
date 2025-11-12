@@ -86,11 +86,13 @@ impl BamWriterService {
             .map(|v| v.activated_stake)
             .sum();
 
-        let validators_url = format!(
-            "{}/api/v1/validators?epoch={}",
-            self.kobe_base_api_url, epoch
-        );
-        let validators = reqwest::get(&validators_url)
+        let validators_url = format!("{}/api/v1/validators", self.kobe_base_api_url);
+
+        let client = reqwest::Client::new();
+        let validators = client
+            .post(&validators_url)
+            .json(&serde_json::json!({ "epoch": epoch }))
+            .send()
             .await?
             .json::<kobe_api::schemas::validator::ValidatorsResponse>()
             .await?;

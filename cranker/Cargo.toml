@@ -28,9 +28,9 @@ solana-epoch-rewards = { workspace = true }
 solana-metrics = { workspace = true }
 solana-program = { workspace = true }
 solana-pubkey = { workspace = true }
+solana-rpc-client-api = { workspace = true }
 solana-sdk = { workspace = true }
 solana-transaction-status = { workspace = true }
-solana_rpc_client_api = { workspace = true }
 spl-stake-pool = { workspace = true }
 spl-stake-pool-cli = { workspace = true }
 thiserror = { workspace = true }

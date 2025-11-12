@@ -1,11 +1,7 @@
 use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use bam_api_client::{client::BamApiClient, types::ValidatorsResponse};
-use kobe_api_client::{client::KobeApiClient, config::Config};
-use kobe_core::{
-    db_models::bam_epoch_metric::{BamEpochMetric, BamEpochMetricStore},
-    validators_app::Cluster,
-};
+use kobe_core::db_models::bam_epoch_metric::{BamEpochMetric, BamEpochMetricStore};
 use mongodb::Collection;
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_commitment_config::CommitmentConfig;
@@ -26,8 +22,8 @@ pub struct BamWriterService {
     /// BAM API client
     bam_api_client: BamApiClient,
 
-    /// Kobe API Client
-    kobe_api_client: KobeApiClient,
+    /// Kobe API base URL
+    kobe_base_api_url: String,
 
     /// Bam epoch metric store
     bam_epoch_metric_store: BamEpochMetricStore,
@@ -36,15 +32,13 @@ pub struct BamWriterService {
 impl BamWriterService {
     /// Initialize [`BamWriterService`]
     pub async fn new(
-        cluster_name: &str,
         mongo_connection_uri: &str,
         mongo_db_name: &str,
         stake_pool: Pubkey,
         rpc_url: &str,
         bam_api_base_url: &str,
+        kobe_api_base_url: &str,
     ) -> anyhow::Result<Self> {
-        let cluster = Cluster::get_cluster(cluster_name)?;
-
         // Connect to MongoDB
         let client = mongodb::Client::with_uri_str(mongo_connection_uri).await?;
         let db = client.database(mongo_db_name);
@@ -63,19 +57,11 @@ impl BamWriterService {
         let bam_api_config = bam_api_client::config::Config::custom(bam_api_base_url);
         let bam_api_client = BamApiClient::new(bam_api_config);
 
-        let kobe_api_config = match cluster {
-            Cluster::MainnetBeta => Config::mainnet(),
-            Cluster::Testnet => Config::testnet(),
-            Cluster::Devnet => unimplemented!(),
-            Cluster::Localhost => Config::custom("http://localhost:8080"),
-        };
-        let kobe_api_client = KobeApiClient::new(kobe_api_config);
-
         Ok(Self {
             stake_pool,
             rpc_client: Arc::new(rpc_client),
             bam_api_client,
-            kobe_api_client,
+            kobe_base_api_url: kobe_api_base_url.to_string(),
             bam_epoch_metric_store,
         })
     }
@@ -100,7 +86,14 @@ impl BamWriterService {
             .map(|v| v.activated_stake)
             .sum();
 
-        let validators = self.kobe_api_client.get_validators(Some(epoch)).await?;
+        let validators_url = format!(
+            "{}//api/v1/validators?epoch={}",
+            self.kobe_base_api_url, epoch
+        );
+        let validators = reqwest::get(&validators_url)
+            .await?
+            .json::<kobe_api::schemas::validator::ValidatorsResponse>()
+            .await?;
 
         let mut eligible_bam_validator_count = 0_u64;
         let mut bam_stake = 0_u64;

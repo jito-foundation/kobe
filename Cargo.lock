@@ -2965,21 +2965,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "kobe-api-client"
-version = "1.0.0"
-dependencies = [
- "chrono",
- "kobe-api",
- "kobe-core",
- "reqwest 0.12.24",
- "serde",
- "serde_json",
- "solana-pubkey",
- "thiserror 1.0.69",
- "tokio",
-]
-
-[[package]]
 name = "kobe-bam-writer-service"
 version = "0.1.0"
 dependencies = [
@@ -2987,7 +2972,7 @@ dependencies = [
  "bam-api-client",
  "clap 4.5.40",
  "env_logger 0.10.2",
- "kobe-api-client",
+ "kobe-api",
  "kobe-core",
  "log",
  "mongodb",

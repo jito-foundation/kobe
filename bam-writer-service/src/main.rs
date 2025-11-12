@@ -29,6 +29,10 @@ struct Args {
     #[clap(long, env)]
     bam_api_base_url: String,
 
+    /// Kobe api base url
+    #[clap(long, env)]
+    kobe_api_base_url: String,
+
     /// Stake pool address
     #[clap(
         long,
@@ -95,12 +99,12 @@ async fn main() -> anyhow::Result<()> {
     let poll_interval = Duration::from_secs(args.poll_interval_secs);
 
     let bam_writer_service = BamWriterService::new(
-        &args.cluster_name,
         &args.mongo_connection_uri,
         &args.mongo_db_name,
         args.stake_pool,
         &args.rpc_url,
         &args.bam_api_base_url,
+        &args.kobe_api_base_url,
     )
     .await?;
 

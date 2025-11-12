@@ -87,7 +87,7 @@ impl BamWriterService {
             .sum();
 
         let validators_url = format!(
-            "{}//api/v1/validators?epoch={}",
+            "{}/api/v1/validators?epoch={}",
             self.kobe_base_api_url, epoch
         );
         let validators = reqwest::get(&validators_url)

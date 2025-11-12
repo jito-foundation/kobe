@@ -245,8 +245,10 @@ pub async fn fetch_chain_data(
                 .saturating_sub(1),
         );
 
-        let mut jito_pool_eligible = true;
+        let mut jito_pool_eligible = false;
         if let Some(validator_history) = validator_histories.get(&vote_account) {
+            jito_pool_eligible = true;
+
             if validator_history
                 .history
                 .epoch_credits_range(start_epoch as u16, epoch as u16)

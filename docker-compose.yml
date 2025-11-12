@@ -181,6 +181,7 @@ services:
       - MONGO_DB_NAME=$MONGO_DB_NAME
       - RPC_URL=$RPC_URL
       - BAM_API_BASE_URL=$BAM_API_BASE_URL
+      - KOBE_API_BASE_URL=$KOBE_API_BASE_URL
       - STAKE_POOL=$STAKE_POOL
       - CLUSTER_NAME=$CLUSTER_NAME
       - RUST_LOG=info
@@ -188,10 +189,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      target: writer-service
-    labels:
-      com.datadoghq.ad.logs: '[{"source": "kobe", "service":"writer-service"}]'
-      com.datadoghq.ad.tags: '["network:$SOLANA_CLUSTER"]'
+      target: bam-writer-service
     restart: on-failure:5
 
   bam-writer-service-testnet:
@@ -201,6 +199,7 @@ services:
       - MONGO_DB_NAME=$MONGO_DB_NAME
       - RPC_URL=$RPC_URL
       - BAM_API_BASE_URL=$BAM_API_BASE_URL
+      - KOBE_API_BASE_URL=$KOBE_API_BASE_URL
       - STAKE_POOL=$STAKE_POOL
       - CLUSTER_NAME=$CLUSTER_NAME
       - RUST_LOG=info
@@ -208,10 +207,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      target: writer-service
-    labels:
-      com.datadoghq.ad.logs: '[{"source": "kobe", "service":"writer-service"}]'
-      com.datadoghq.ad.tags: '["network:$SOLANA_CLUSTER"]'
+      target: bam-writer-service
     restart: on-failure:5
 
   mongodb:

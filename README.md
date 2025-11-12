@@ -356,6 +356,7 @@ RUST_LOG=info cargo r -p kobe-bam-writer-service -- \
     --mongo-db-name "validators" \
     --rpc-url "https://api.mainnet-beta.solana.com/" \
     --bam-api-base-url "" \
+    --kobe-api-base-url "https://kobe.mainnet.jito.network" \
     run
 ```
 

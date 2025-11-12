@@ -320,7 +320,7 @@ RUST_LOG=info cargo r -p kobe-cranker -- \
     --network "testnet" \
     --pool-address "Jito4APyf642JPZPx3hGc6WWJ8zPKtRbRs4P815Awbb" \
     --sentry-api-url "" \
-    --region "mainnet"
+    --region "testnet"
 ```
 
 #### Start Data Collection

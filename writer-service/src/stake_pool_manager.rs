@@ -21,7 +21,7 @@ use spl_stake_pool_cli::client::get_stake_pool;
 use crate::{result::Result, rpc_utils};
 
 pub struct StakePoolManager {
-    /// RPC Client
+    /// RPC client
     pub rpc_client: Arc<RpcClient>,
 
     /// Validators app client

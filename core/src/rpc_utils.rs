@@ -1,8 +1,8 @@
-use solana_client::client_error::ClientError;
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_client::rpc_config::RpcTransactionConfig;
 use solana_clock::Slot;
 use solana_commitment_config::CommitmentConfig;
+use solana_rpc_client_api::client_error::Error as RpcError;
 use solana_signature::Signature;
 use solana_transaction_status::{EncodedConfirmedTransactionWithStatusMeta, UiTransactionEncoding};
 use std::iter::{Map, Take};
@@ -24,7 +24,7 @@ pub fn retry() -> RetryStrategy {
 pub async fn retry_get_transactions(
     rpc_client: &RpcClient,
     transaction_signatures: &[Signature],
-) -> Result<Vec<EncodedConfirmedTransactionWithStatusMeta>, ClientError> {
+) -> Result<Vec<EncodedConfirmedTransactionWithStatusMeta>, RpcError> {
     let txes = Retry::spawn(retry(), || {
         get_signatures_internal(rpc_client, transaction_signatures)
     })
@@ -36,7 +36,7 @@ pub async fn retry_get_transactions(
 async fn get_signatures_internal(
     rpc_client: &RpcClient,
     transaction_signatures: &[Signature],
-) -> Result<Vec<EncodedConfirmedTransactionWithStatusMeta>, ClientError> {
+) -> Result<Vec<EncodedConfirmedTransactionWithStatusMeta>, RpcError> {
     let config = RpcTransactionConfig {
         commitment: CommitmentConfig::finalized().into(),
         encoding: UiTransactionEncoding::Base64.into(),
@@ -53,6 +53,6 @@ async fn get_signatures_internal(
     Ok(temp_txs)
 }
 
-pub async fn retry_get_slot(rpc_client: &RpcClient) -> Result<Slot, ClientError> {
+pub async fn retry_get_slot(rpc_client: &RpcClient) -> Result<Slot, RpcError> {
     Retry::spawn(retry(), || rpc_client.get_slot()).await
 }

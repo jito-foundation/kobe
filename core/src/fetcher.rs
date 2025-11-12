@@ -28,6 +28,26 @@ use crate::{
     validators_app::{Cluster, ValidatorsAppResponseEntry},
 };
 
+mod jito_tip_distribution_sdk {
+    use anchor_lang::{prelude::Pubkey, solana_program::clock::Epoch};
+    use jito_tip_distribution::state::TipDistributionAccount;
+
+    pub fn derive_tip_distribution_account_address(
+        tip_distribution_program_id: &Pubkey,
+        vote_pubkey: &Pubkey,
+        epoch: Epoch,
+    ) -> (Pubkey, u8) {
+        Pubkey::find_program_address(
+            &[
+                TipDistributionAccount::SEED,
+                vote_pubkey.to_bytes().as_ref(),
+                epoch.to_le_bytes().as_ref(),
+            ],
+            tip_distribution_program_id,
+        )
+    }
+}
+
 type Error = Box<dyn std::error::Error>;
 
 #[derive(Default, Debug)]

@@ -59,6 +59,7 @@ impl KobeWriterService {
     ///
     /// [`KobeWriterService`] uses multiple managers to fetch information such as validators, stake
     /// pool. so initialize these services in this function.
+    #[allow(clippy::too_many_arguments)]
     pub async fn new(
         mongo_connection_uri: &str,
         cluster: Cluster,
@@ -66,6 +67,8 @@ impl KobeWriterService {
         tip_distribution_program_id: String,
         priority_fee_distribution_program_id: String,
         mainnet_gcp_server_names: Vec<String>,
+        jito_steward_program_id: Pubkey,
+        steward_config: Pubkey,
         bam_api_base_url: Option<String>,
     ) -> Result<Self> {
         let mongodb_client = db::setup_mongo_client(mongo_connection_uri).await?;
@@ -89,8 +92,14 @@ impl KobeWriterService {
         .await
         .expect("Failed to initialize Validators App client");
 
-        let stake_pool_manager =
-            StakePoolManager::new(rpc_client, validators_app_client, bam_api_base_url, cluster);
+        let stake_pool_manager = StakePoolManager::new(
+            rpc_client,
+            validators_app_client,
+            bam_api_base_url,
+            cluster,
+            jito_steward_program_id,
+            steward_config,
+        );
 
         Ok(Self {
             db,

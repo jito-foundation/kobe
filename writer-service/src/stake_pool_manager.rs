@@ -1,4 +1,6 @@
-use std::{collections::HashSet, str::FromStr, thread::sleep, time::Duration as CoreDuration};
+use std::{
+    collections::HashSet, str::FromStr, sync::Arc, thread::sleep, time::Duration as CoreDuration,
+};
 
 use bam_api_client::client::BamApiClient;
 use chrono::{Duration, DurationRound, Utc};
@@ -20,7 +22,7 @@ use crate::{result::Result, rpc_utils};
 
 pub struct StakePoolManager {
     /// RPC client
-    pub rpc_client: RpcClient,
+    pub rpc_client: Arc<RpcClient>,
 
     /// Validators app client
     pub validators_app_client: Client,
@@ -30,6 +32,12 @@ pub struct StakePoolManager {
 
     /// Cluster [Mainnet, Testnet, Devnet]
     pub cluster: Cluster,
+
+    /// Jito steward program ID
+    pub jito_steward_program_id: Pubkey,
+
+    /// Steward config pubkey
+    pub steward_config: Pubkey,
 }
 
 impl StakePoolManager {
@@ -38,12 +46,16 @@ impl StakePoolManager {
         validators_app_client: Client,
         bam_api_base_url: Option<String>,
         cluster: Cluster,
+        jito_steward_program_id: Pubkey,
+        steward_config: Pubkey,
     ) -> Self {
         let mut manager = Self {
-            rpc_client,
+            rpc_client: Arc::new(rpc_client),
             validators_app_client,
             bam_api_client: None,
             cluster,
+            jito_steward_program_id,
+            steward_config,
         };
 
         if let Some(bam_api_base_url) = bam_api_base_url {
@@ -80,10 +92,12 @@ impl StakePoolManager {
         let on_chain_data = fetch_chain_data(
             network_validators.as_ref(),
             bam_validator_set,
-            &self.rpc_client,
+            self.rpc_client.clone(),
             &self.cluster,
             epoch,
             validator_list_address,
+            &self.jito_steward_program_id,
+            &self.steward_config,
         )
         .await?;
 

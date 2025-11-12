@@ -27,6 +27,13 @@ pub struct Validator {
     pub epoch: u64,
     pub epoch_credits: Option<u64>,
     pub identity_account: Option<String>,
+
+    /// Whether or not jito pool eligible validator
+    pub jito_pool_eligible: Option<bool>,
+
+    /// Whether or not jito directed stake target validator
+    pub jito_directed_stake_target: Option<bool>,
+
     pub mev_commission_bps: Option<u16>,
     pub mev_revenue_lamports: u64,
     pub priority_fee_commission_bps: Option<u16>,
@@ -107,6 +114,8 @@ impl Validator {
             vote_credit_proportion: on_chain_data.vote_credit_proportion,
             www_url: validators_app_entry.www_url.clone(),
             inflation_rewards_lamports: on_chain_data.inflation_rewards_lamports,
+            jito_pool_eligible: Some(on_chain_data.jito_pool_eligible),
+            jito_directed_stake_target: Some(on_chain_data.jito_directed_stake_target),
         }
     }
 

@@ -1,0 +1,28 @@
+[package]
+name = "kobe-bam-writer-service"
+version = "0.1.0"
+authors = { workspace = true }
+repository = { workspace = true }
+homepage = { workspace = true }
+license = { workspace = true }
+edition = { workspace = true }
+readme = { workspace = true }
+
+[dependencies]
+anyhow = { workspace = true }
+bam-api-client = { workspace = true }
+clap = { workspace = true }
+env_logger = { workspace = true }
+kobe-api = { workspace = true }
+kobe-core = { workspace = true }
+log = { workspace = true }
+mongodb = { workspace = true }
+reqwest = { workspace = true }
+serde_json = { workspace = true }
+solana-client = { workspace = true }
+solana-commitment-config = { workspace = true }
+solana-metrics = { workspace = true }
+solana-pubkey = { workspace = true }
+stakenet-sdk = { workspace = true }
+tokio = { workspace = true }
+validator-history = { workspace = true }

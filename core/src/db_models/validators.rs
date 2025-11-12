@@ -26,8 +26,6 @@ pub struct Validator {
     pub delinquent: Option<bool>,
     pub epoch: u64,
     pub epoch_credits: Option<u64>,
-
-    /// Identity account pubkey
     pub identity_account: Option<String>,
 
     /// Whether or not jito pool eligible validator
@@ -61,8 +59,6 @@ pub struct Validator {
     pub target_pool_staked: bool,
     #[serde(with = "ts_seconds")]
     pub timestamp: DateTime<Utc>,
-
-    /// Vote account pubkey
     pub vote_account: String,
     pub vote_credit_proportion: f64,
     pub www_url: Option<String>,

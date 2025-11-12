@@ -17,7 +17,6 @@ use crate::error::KobeCoreError;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub enum Cluster {
-    Localhost,
     Devnet,
     Testnet,
     MainnetBeta,
@@ -30,7 +29,6 @@ impl Cluster {
             "mainnet-beta" | "mainnet" | "m" => Ok(Cluster::MainnetBeta),
             "testnet" | "t" => Ok(Cluster::Testnet),
             "devnet" | "d" => Ok(Cluster::Devnet),
-            "localhost" | "l" => Ok(Cluster::Localhost),
             _ => Err(KobeCoreError::InvalidCluster(value.to_string())),
         }
     }
@@ -42,7 +40,6 @@ impl std::fmt::Display for Cluster {
             f,
             "{}",
             match self {
-                Self::Localhost => "localhost",
                 Self::Devnet => "devnet",
                 Self::Testnet => "testnet",
                 Self::MainnetBeta => "mainnet-beta",
@@ -63,7 +60,6 @@ pub enum ClusterJson {
 impl ClusterJson {
     pub fn from_cluster(cluster: Cluster) -> ClusterJson {
         match cluster {
-            Cluster::Localhost => ClusterJson::Localhost,
             Cluster::Devnet => ClusterJson::Devnet,
             Cluster::MainnetBeta => ClusterJson::MainnetBeta,
             Cluster::Testnet => ClusterJson::Testnet,

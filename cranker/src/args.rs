@@ -108,7 +108,6 @@ impl Args {
                 Cluster::MainnetBeta => "https://api.mainnet-beta.solana.com".into(),
                 Cluster::Testnet => "https://api.testnet.solana.com".into(),
                 Cluster::Devnet => "https://api.devnet.solana.com".into(),
-                Cluster::Localhost => "http://localhost:8899".into(),
             })
     }
 }

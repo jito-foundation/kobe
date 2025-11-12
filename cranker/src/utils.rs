@@ -252,7 +252,6 @@ pub async fn parallel_execute_stake_pool_update(
     let program_id = match config.cluster {
         Cluster::MainnetBeta | Cluster::Testnet => spl_stake_pool::id(),
         Cluster::Devnet => spl_stake_pool::devnet::id(),
-        Cluster::Localhost => unimplemented!(),
     };
 
     let (update_list_instructions, final_instructions) = update_stake_pool(

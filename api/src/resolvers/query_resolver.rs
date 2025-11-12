@@ -54,19 +54,10 @@ use crate::{
 
 #[derive(Clone)]
 pub struct QueryResolver {
-    /// Stake pool store
     stake_pool_store: StakePoolStatsStore,
-
-    /// Validator store
     validator_store: ValidatorStore,
-
-    /// Validator Rewards store
     validator_rewards_store: ValidatorRewardsStore,
-
-    /// Staker rewards store
     staker_rewards_store: StakerRewardsStore,
-
-    /// Steward events store
     steward_events_store: StewardEventsStore,
 
     /// BAM epoch metric store
@@ -560,11 +551,6 @@ impl QueryResolver {
                     "Devnet is not supported yet".to_string(),
                 ));
             }
-            Cluster::Localhost => {
-                return Err(QueryResolverError::InvalidRequest(
-                    "Localhost is not supported yet".to_string(),
-                ));
-            }
         };
         let jitosol_validator_list = Pubkey::from_str(jito_sol_validator_list_address)
             .map_err(|e| QueryResolverError::CustomError(e.to_string()))?;
@@ -848,7 +834,7 @@ impl QueryResolver {
     ///
     /// This endpoint can be used to fetch the history of a validator's performance over time, either for a specific epoch or for all recorded epochs:
     ///
-    /// ```ignore
+    /// ```
     /// GET /validator_history/{vote_account}?epoch=800
     /// ```
     /// This request retrieves the history for the specified vote account, filtered by epoch 800.

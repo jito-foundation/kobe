@@ -1,9 +1,10 @@
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
 use clap::{Parser, Subcommand};
 use kobe_bam_writer_service::BamWriterService;
 use log::{error, info};
 use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_commitment_config::CommitmentConfig;
 use solana_metrics::datapoint_info;
 use solana_pubkey::Pubkey;
 
@@ -95,14 +96,20 @@ async fn main() -> anyhow::Result<()> {
     env_logger::init();
     let args = Args::parse();
 
-    let rpc_client = RpcClient::new(args.rpc_url.clone());
+    let rpc_client = RpcClient::new_with_timeout_and_commitment(
+        args.rpc_url.to_string(),
+        Duration::from_secs(20),
+        CommitmentConfig::finalized(),
+    );
+    let rpc_client = Arc::new(rpc_client);
+
     let poll_interval = Duration::from_secs(args.poll_interval_secs);
 
     let bam_writer_service = BamWriterService::new(
         &args.mongo_connection_uri,
         &args.mongo_db_name,
         args.stake_pool,
-        &args.rpc_url,
+        rpc_client.clone(),
         &args.bam_api_base_url,
         &args.kobe_api_base_url,
     )

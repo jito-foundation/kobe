@@ -1,10 +1,9 @@
-use std::{collections::HashMap, sync::Arc, time::Duration};
+use std::{collections::HashMap, sync::Arc};
 
 use bam_api_client::{client::BamApiClient, types::ValidatorsResponse};
 use kobe_core::db_models::bam_epoch_metric::{BamEpochMetric, BamEpochMetricStore};
 use mongodb::Collection;
 use solana_client::nonblocking::rpc_client::RpcClient;
-use solana_commitment_config::CommitmentConfig;
 use solana_pubkey::Pubkey;
 use stakenet_sdk::utils::accounts::get_stake_pool_account;
 
@@ -27,6 +26,9 @@ pub struct BamWriterService {
 
     /// Bam epoch metric store
     bam_epoch_metric_store: BamEpochMetricStore,
+
+    /// BAM Delegation Criteria
+    bam_delegation_criteria: BamDelegationCriteria,
 }
 
 impl BamWriterService {
@@ -35,7 +37,7 @@ impl BamWriterService {
         mongo_connection_uri: &str,
         mongo_db_name: &str,
         stake_pool: Pubkey,
-        rpc_url: &str,
+        rpc_client: Arc<RpcClient>,
         bam_api_base_url: &str,
         kobe_api_base_url: &str,
     ) -> anyhow::Result<Self> {
@@ -47,22 +49,18 @@ impl BamWriterService {
             db.collection(BamEpochMetricStore::COLLECTION);
         let bam_epoch_metric_store = BamEpochMetricStore::new(bam_epoch_metric_collection);
 
-        // Connect to RPC node
-        let rpc_client = RpcClient::new_with_timeout_and_commitment(
-            rpc_url.to_string(),
-            Duration::from_secs(20),
-            CommitmentConfig::finalized(),
-        );
-
         let bam_api_config = bam_api_client::config::Config::custom(bam_api_base_url);
         let bam_api_client = BamApiClient::new(bam_api_config);
 
+        let bam_delegation_criteria = BamDelegationCriteria::new();
+
         Ok(Self {
             stake_pool,
-            rpc_client: Arc::new(rpc_client),
+            rpc_client,
             bam_api_client,
             kobe_base_api_url: kobe_api_base_url.to_string(),
             bam_epoch_metric_store,
+            bam_delegation_criteria,
         })
     }
 
@@ -111,12 +109,9 @@ impl BamWriterService {
             }
         }
 
-        let criteria = BamDelegationCriteria::new();
-        let available_bam_delegation_stake = criteria.calculate_available_delegation(
-            bam_stake,
-            total_stake,
-            jitosol_stake.total_lamports,
-        );
+        let available_bam_delegation_stake = self
+            .bam_delegation_criteria
+            .calculate_available_delegation(bam_stake, total_stake, jitosol_stake.total_lamports);
 
         let bam_epoch_metric = BamEpochMetric::new(
             epoch,

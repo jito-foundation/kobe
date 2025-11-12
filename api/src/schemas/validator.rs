@@ -44,7 +44,7 @@ pub struct ValidatorEntry {
     /// Whether or not jito pool eligible validator
     pub jito_pool_eligible: Option<bool>,
 
-    /// Whether or not jito pool directed stake target
+    /// Indicates whether this validator is a target for directed stake from the JitoSOL stake-pool.
     pub jito_pool_directed_stake_target: Option<bool>,
 }
 

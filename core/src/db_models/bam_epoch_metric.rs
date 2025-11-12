@@ -8,28 +8,28 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BamEpochMetric {
     /// Epoch number
-    epoch: u64,
+    pub epoch: u64,
 
-    /// BAM total network stake weight
-    bam_total_network_stake_weight: u64,
+    /// BAM total stake weight
+    pub bam_total_stake_weight: u64,
 
     /// Available BAM delegation stake
-    available_bam_delegation_stake: u64,
+    pub available_bam_delegation_stake: u64,
 
     /// Eligible BAM validator count
-    eligible_bam_validator_count: u64,
+    pub eligible_bam_validator_count: u64,
 }
 
 impl BamEpochMetric {
     pub fn new(
         epoch: u64,
-        bam_total_network_stake_weight: u64,
+        bam_total_stake_weight: u64,
         available_bam_delegation_stake: u64,
         eligible_bam_validator_count: u64,
     ) -> Self {
         Self {
             epoch,
-            bam_total_network_stake_weight,
+            bam_total_stake_weight,
             available_bam_delegation_stake,
             eligible_bam_validator_count,
         }

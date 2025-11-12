@@ -28,8 +28,8 @@ solana-clock = { workspace = true }
 solana-commitment-config = { workspace = true }
 solana-native-token = { workspace = true }
 solana-pubkey = { workspace = true }
-solana-signature = { workspace = true }
 solana-rpc-client-api = { workspace = true }
+solana-signature = { workspace = true }
 solana-transaction-status = { workspace = true }
 spl-stake-pool = { workspace = true }
 spl-stake-pool-cli = { workspace = true }

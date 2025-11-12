@@ -54,7 +54,6 @@ pub enum ClusterJson {
     MainnetBeta,
     Testnet,
     Devnet,
-    Localhost,
 }
 
 impl ClusterJson {
@@ -73,7 +72,6 @@ impl AsRef<str> for ClusterJson {
             Self::MainnetBeta => "mainnet.json",
             Self::Testnet => "testnet.json",
             Self::Devnet => "devnet.json",
-            Self::Localhost => "localhost.json",
         }
     }
 }

@@ -308,7 +308,7 @@ cargo r --bin kobe-api -- \
     --mongo-connection-uri "mongodb://localhost:27017/kobe" \
     --mongo-db-name validators \
     --sentry-api-url "" \
-    --rpc-url "https://api.mainnet.solana.com"
+    --rpc-url "https://api.testnet.solana.com"
 ```
 
 #### Start Cranker

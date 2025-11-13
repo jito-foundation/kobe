@@ -24,7 +24,7 @@ use mongodb::Database;
 use serde::{Deserialize, Serialize};
 use solana_borsh::v1::try_from_slice_unchecked;
 use solana_client::nonblocking::rpc_client::RpcClient;
-use solana_pubkey::{pubkey, Pubkey};
+use solana_pubkey::Pubkey;
 use spl_stake_pool::{find_stake_program_address, state::ValidatorList};
 use stakenet_sdk::utils::accounts::{get_all_steward_accounts, get_validator_history_address};
 use validator_history::ValidatorHistory;
@@ -52,11 +52,6 @@ use crate::{
     },
 };
 
-const STEWARD_CONFIG: Pubkey = pubkey!("jitoVjT9jRUyeXHzvCwzPgHj7yWNRhLcUoXtes4wtjv");
-const PREFFERED_WITHDRAW_MIN_STAKE_THRESHOLD: u64 = 10_000; // Denominated in SOL
-const PREFFERED_WITHDRAW_MIN_RETAINED_BALANCE: u64 = 1_000; // Denominated in SOL
-const PREFERRED_WITHDRAW_LIMIT: u32 = 50;
-
 #[derive(Clone)]
 pub struct QueryResolver {
     stake_pool_store: StakePoolStatsStore,
@@ -68,6 +63,8 @@ pub struct QueryResolver {
     rpc_client: Arc<RpcClient>,
     /// Solana Cluster
     cluster: Cluster,
+    /// Steward Config Public Key
+    steward_config: Pubkey,
 }
 
 fn aggregate_mev_rewards(stats_entries: &[StakePoolStats]) -> u64 {
@@ -400,15 +397,17 @@ pub async fn preferred_withdraw_validator_list_cacheable_wrapper(
     resolver: Extension<QueryResolver>,
     req: PreferredWithdrawRequest,
 ) -> (StatusCode, Json<Vec<PreferredWithdraw>>) {
-    // Get cached result
+    // Build request args
+    let min_stake_threshold_default: u64 = 10_000; // Denominated in SOL
+    let limit_default: u32 = 50;
     let min_stake_threshold = req
         .min_stake_threshold
-        .unwrap_or(PREFFERED_WITHDRAW_MIN_STAKE_THRESHOLD)
+        .unwrap_or(min_stake_threshold_default)
         * LAMPORTS_PER_SOL;
-    let limit = req.limit.unwrap_or(PREFERRED_WITHDRAW_LIMIT);
-    let list_result = get_preferred_withdraw_cached(resolver, min_stake_threshold, limit).await;
+    let limit = req.limit.unwrap_or(limit_default);
 
-    // Exit early on error
+    // Get cached result
+    let list_result = get_preferred_withdraw_cached(resolver, min_stake_threshold, limit).await;
     let mut list = match list_result {
         Ok(validators) => validators,
         Err(_) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(vec![])),
@@ -427,8 +426,15 @@ pub async fn preferred_withdraw_validator_list_cacheable_wrapper(
 }
 
 impl QueryResolver {
-    pub fn new(database: &Database, rpc_client_url: String, cluster: Cluster) -> Self {
+    pub fn new(
+        database: &Database,
+        rpc_client_url: String,
+        cluster: Cluster,
+        steward_config: String,
+    ) -> Self {
         let client = RpcClient::new(rpc_client_url);
+        let steward_config_pubkey =
+            Pubkey::from_str(&steward_config).expect("Invalid STEWARD_CONFIG public key");
 
         Self {
             stake_pool_store: StakePoolStatsStore::new(
@@ -446,6 +452,7 @@ impl QueryResolver {
             ),
             rpc_client: Arc::new(client),
             cluster,
+            steward_config: steward_config_pubkey,
         }
     }
 
@@ -913,11 +920,12 @@ impl QueryResolver {
         min_stake_threshold: u64,
         limit: u32,
     ) -> Result<Vec<PreferredWithdraw>> {
-        let min_retained_balance: u64 = PREFFERED_WITHDRAW_MIN_RETAINED_BALANCE * LAMPORTS_PER_SOL;
+        let min_retained_balance: u64 = 1_000 * LAMPORTS_PER_SOL;
 
         // Get all steward accounts
         let all_steward_accounts =
-            get_all_steward_accounts(&self.rpc_client, &jito_steward::ID, &STEWARD_CONFIG).await?;
+            get_all_steward_accounts(&self.rpc_client, &jito_steward::ID, &self.steward_config)
+                .await?;
         let steward_state = &all_steward_accounts.state_account.state;
         let validator_list = &all_steward_accounts.validator_list_account;
 

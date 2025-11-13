@@ -232,6 +232,10 @@ struct Args {
     /// Solana cluster e.g. testnet, mainnet, devnet
     #[arg(long, short, env, default_value_t=String::from("testnet"))]
     solana_cluster: String,
+
+    /// Steward config public key
+    #[arg(long, env)]
+    steward_config: String,
 }
 
 fn main() {
@@ -268,7 +272,12 @@ async fn run_server(args: &Args) {
     let db = c.database(&args.mongo_db_name);
     let cluster = Cluster::get_cluster(&args.solana_cluster).expect("Failed to get cluster");
 
-    let query_resolver = QueryResolver::new(&db, args.rpc_url.to_owned(), cluster);
+    let query_resolver = QueryResolver::new(
+        &db,
+        args.rpc_url.to_owned(),
+        cluster,
+        args.steward_config.clone(),
+    );
 
     let cors = CorsLayer::new()
         .allow_headers(Any)

@@ -397,7 +397,7 @@ pub async fn preferred_withdraw_validator_list_cacheable_wrapper(
     resolver: Extension<QueryResolver>,
     req: PreferredWithdrawRequest,
 ) -> (StatusCode, Json<Vec<PreferredWithdraw>>) {
-    // Requst defaults
+    // Request defaults
     let min_stake_threshold_default: u64 = 10_000;
     let limit_default: u32 = 50;
 

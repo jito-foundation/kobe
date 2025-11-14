@@ -2,6 +2,7 @@
 resolver = "2"
 members = [
     "api",
+    "api-client",
     "core",
     "cranker",
     "cranker/cli",
@@ -42,6 +43,7 @@ jito-priority-fee-distribution-sdk = { git = "https://github.com/jito-foundation
 jito-steward = { features = ["no-entrypoint"], git = "https://github.com/jito-foundation/stakenet", rev = "d724a42b49c0cd32791afbd2a362dd63364a7a9a" }
 jito-tip-distribution = { features = ["no-entrypoint"], git = "https://github.com/jito-foundation/jito-programs", branch = "master" }
 jito-tip-distribution-sdk = { git = "https://github.com/jito-foundation/jito-programs", branch = "master" }
+kobe-api = { path = "api", version = "1.0.0" }
 kobe-core = { path = "core", version = "1.0.0" }
 log = "0.4.18"
 mongodb = { version = "2.2.2", features = ["bson-chrono-0_4"] }

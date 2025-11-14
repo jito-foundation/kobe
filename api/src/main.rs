@@ -19,14 +19,15 @@ use kobe_api::{
         daily_mev_rewards_cacheable_wrapper, get_validator_histories_wrapper,
         jito_stake_over_time_ratio_cacheable_wrapper, jitosol_ratio_cacheable_wrapper,
         jitosol_validators_cacheable_wrapper, mev_commission_average_over_time_cacheable_wrapper,
-        mev_rewards_cacheable_wrapper, stake_pool_stats_cacheable_wrapper,
-        staker_rewards_cacheable_wrapper, steward_events_cacheable_wrapper,
-        validator_by_vote_account_cacheable_wrapper, validator_rewards_cacheable_wrapper,
-        validators_cacheable_wrapper, QueryResolver,
+        mev_rewards_cacheable_wrapper, preferred_withdraw_validator_list_cacheable_wrapper,
+        stake_pool_stats_cacheable_wrapper, staker_rewards_cacheable_wrapper,
+        steward_events_cacheable_wrapper, validator_by_vote_account_cacheable_wrapper,
+        validator_rewards_cacheable_wrapper, validators_cacheable_wrapper, QueryResolver,
     },
     schemas::{
         jitosol_ratio::JitoSolRatioRequest,
         mev_rewards::{MevRewardsRequest, StakerRewardsRequest, ValidatorRewardsRequest},
+        preferred_withdraw::PreferredWithdrawRequest,
         stake_pool_stats::GetStakePoolStatsRequest,
         steward_events::StewardEventsRequest,
         validator::ValidatorsRequest,
@@ -40,6 +41,7 @@ use kobe_core::{
 use log::*;
 use mongodb::Client;
 use serde_json::json;
+use solana_pubkey::Pubkey;
 use tower::{buffer::BufferLayer, limit::RateLimitLayer, timeout::TimeoutLayer, ServiceBuilder};
 use tower_http::{
     cors::{Any, CorsLayer},
@@ -194,6 +196,13 @@ async fn get_validator_histories(
     get_validator_histories_wrapper(resolver, vote_account, epoch_query).await
 }
 
+async fn preferred_withdraw_validator_list_handler(
+    resolver: Extension<QueryResolver>,
+    request: Query<PreferredWithdrawRequest>,
+) -> impl IntoResponse {
+    preferred_withdraw_validator_list_cacheable_wrapper(resolver, request.0).await
+}
+
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
 struct Args {
@@ -224,6 +233,10 @@ struct Args {
     /// Solana cluster e.g. testnet, mainnet, devnet
     #[arg(long, short, env, default_value_t=String::from("testnet"))]
     solana_cluster: String,
+
+    /// Steward config public key
+    #[arg(long, env)]
+    steward_config: Pubkey,
 }
 
 fn main() {
@@ -260,7 +273,8 @@ async fn run_server(args: &Args) {
     let db = c.database(&args.mongo_db_name);
     let cluster = Cluster::get_cluster(&args.solana_cluster).expect("Failed to get cluster");
 
-    let query_resolver = QueryResolver::new(&db, args.rpc_url.to_owned(), cluster);
+    let query_resolver =
+        QueryResolver::new(&db, args.rpc_url.to_owned(), cluster, args.steward_config);
 
     let cors = CorsLayer::new()
         .allow_headers(Any)
@@ -333,6 +347,10 @@ async fn run_server(args: &Args) {
         .route(
             "/api/v1/validator_history/:vote_account",
             get(get_validator_histories),
+        )
+        .route(
+            "/api/v1/preferred_withdraw_validator_list",
+            get(preferred_withdraw_validator_list_handler),
         )
         .layer(Extension(query_resolver))
         .layer(middleware)

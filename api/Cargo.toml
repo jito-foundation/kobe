@@ -17,9 +17,11 @@ chrono = { workspace = true }
 clap = { workspace = true }
 env_logger = { workspace = true }
 http = { workspace = true }
+jito-steward = { workspace = true }
 kobe-core = { workspace = true }
 log = { workspace = true }
 mongodb = { workspace = true }
+rand = "0.8"
 reqwest = { workspace = true, features = ["json"] }
 sentry = { workspace = true }
 serde = { workspace = true }

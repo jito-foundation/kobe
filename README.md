@@ -201,6 +201,7 @@ Therefore, users may see different APY values between real-time calculations and
 - Validator performance and rankings
 - JitoSOL stake pool metrics
 - Historical trend analysis
+- Preferred withdraw validator list
 
 **Use Cases:** Frontend applications, analytics dashboards, integration partners
 
@@ -290,7 +291,8 @@ cargo r --bin kobe-api -- \
     --mongo-connection-uri "mongodb://localhost:27017/kobe" \
     --mongo-db-name validators \
     --sentry-api-url "" \
-    --rpc-url "https://api.testnet.solana.com"
+    --rpc-url "https://api.testnet.solana.com" \
+    --steward-config "jitoVjT9jRUyeXHzvCwzPgHj7yWNRhLcUoXtes4wtjv"
 ```
 
 #### Start Cranker

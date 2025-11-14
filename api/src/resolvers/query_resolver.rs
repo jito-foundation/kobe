@@ -380,16 +380,15 @@ pub async fn get_validator_histories_wrapper(
     type = "TimedCache<String, Vec<PreferredWithdraw>>",
     create = "{ TimedCache::with_lifespan_and_capacity(10, 100) }",
     key = "String",
-    convert = r#"{ format!("preferred-withdraw-{}-{}", min_stake_threshold, limit) }"#,
+    convert = r#"{ format!("preferred-withdraw-{}", min_stake_threshold) }"#,
     result = true
 )]
 async fn get_preferred_withdraw_cached(
     resolver: Extension<QueryResolver>,
     min_stake_threshold: u64,
-    limit: u32,
 ) -> Result<Vec<PreferredWithdraw>> {
     resolver
-        .get_preferred_withdraw_validator_list(min_stake_threshold, limit)
+        .get_preferred_withdraw_validator_list(min_stake_threshold)
         .await
 }
 
@@ -409,14 +408,16 @@ pub async fn preferred_withdraw_validator_list_cacheable_wrapper(
     let limit = req.limit.unwrap_or(limit_default);
 
     // Get cached result
-    let list_result = get_preferred_withdraw_cached(resolver, min_stake_threshold, limit).await;
-    let mut list = match list_result {
+    let list_result = get_preferred_withdraw_cached(resolver, min_stake_threshold).await;
+    let list = match list_result {
         Ok(validators) => validators,
         Err(_) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(vec![])),
     };
 
-    // Apply randomization if requested (after retrieving from cache)
-    // This ensures each request gets a different order while preserving cache security
+    // Apply size limit
+    let mut list = list.into_iter().take(limit as usize).collect::<Vec<_>>();
+
+    // Apply randomization
     if req.randomized.unwrap_or(false) {
         use rand::seq::SliceRandom;
         use rand::thread_rng;
@@ -920,7 +921,6 @@ impl QueryResolver {
     pub async fn get_preferred_withdraw_validator_list(
         &self,
         min_stake_threshold: u64,
-        limit: u32,
     ) -> Result<Vec<PreferredWithdraw>> {
         let min_retained_balance: u64 = 1_000 * LAMPORTS_PER_SOL;
 
@@ -932,8 +932,7 @@ impl QueryResolver {
         let validator_list = &all_steward_accounts.validator_list_account;
 
         // Collect validators with their scores and available stake
-        let mut preferred_withdraw_list: Vec<PreferredWithdraw> =
-            Vec::with_capacity(limit as usize);
+        let mut preferred_withdraw_list: Vec<PreferredWithdraw> = Vec::new();
 
         // Iterate through sorted raw indices in reverse order to get validators with lowest scores first
         for i in (0..steward_state.num_pool_validators as usize).rev() {
@@ -983,11 +982,6 @@ impl QueryResolver {
                 withdrawable_lamports: withdrawable_amount,
                 stake_account: stake_account.to_string(),
             });
-
-            // Stop if we've found enough validators
-            if preferred_withdraw_list.len() >= limit as usize {
-                break;
-            }
         }
 
         Ok(preferred_withdraw_list)

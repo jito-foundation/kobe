@@ -396,18 +396,8 @@ pub async fn preferred_withdraw_validator_list_cacheable_wrapper(
     resolver: Extension<QueryResolver>,
     req: PreferredWithdrawRequest,
 ) -> (StatusCode, Json<Vec<PreferredWithdraw>>) {
-    // Request defaults
-    let min_stake_threshold_default: u64 = 10_000;
-    let limit_default: u32 = 50;
-
-    // Build request
-    let min_stake_threshold = req
-        .min_stake_threshold
-        .unwrap_or(min_stake_threshold_default)
-        * LAMPORTS_PER_SOL;
-    let limit = req.limit.unwrap_or(limit_default);
-
     // Get cached result
+    let min_stake_threshold = req.min_stake_threshold * LAMPORTS_PER_SOL;
     let list_result = get_preferred_withdraw_cached(resolver, min_stake_threshold).await;
     let list = match list_result {
         Ok(validators) => validators,
@@ -415,10 +405,13 @@ pub async fn preferred_withdraw_validator_list_cacheable_wrapper(
     };
 
     // Apply size limit
-    let mut list = list.into_iter().take(limit as usize).collect::<Vec<_>>();
+    let mut list = list
+        .into_iter()
+        .take(req.limit as usize)
+        .collect::<Vec<_>>();
 
     // Apply randomization
-    if req.randomized.unwrap_or(false) {
+    if req.randomized {
         use rand::seq::SliceRandom;
         use rand::thread_rng;
         let mut rng = thread_rng();

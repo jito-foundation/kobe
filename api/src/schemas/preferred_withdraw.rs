@@ -2,15 +2,27 @@ use serde::{Deserialize, Serialize};
 
 /// Request parameters for the preferred withdraw validator list endpoint
 #[derive(Debug, Deserialize, Clone)]
+#[serde(default)]
 pub struct PreferredWithdrawRequest {
-    /// Minimum stake threshold in lamports (defaults to 10_000 SOL)
-    pub min_stake_threshold: Option<u64>,
+    /// Minimum stake threshold (denominated in SOL)
+    pub min_stake_threshold: u64,
 
-    /// Number of validators to return (defaults to 50)
-    pub limit: Option<u32>,
+    /// Number of validators to return
+    pub limit: u32,
 
-    /// Whether to randomize the list order (defaults to false)
-    pub randomized: Option<bool>,
+    /// Whether to randomize the list order
+    pub randomized: bool,
+}
+
+impl Default for PreferredWithdrawRequest {
+    fn default() -> Self {
+        Self {
+            // Denominated in SOL
+            min_stake_threshold: 10_000,
+            limit: 50,
+            randomized: false,
+        }
+    }
 }
 
 impl std::fmt::Display for PreferredWithdrawRequest {

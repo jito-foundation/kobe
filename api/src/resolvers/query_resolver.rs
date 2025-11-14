@@ -433,11 +433,9 @@ impl QueryResolver {
         database: &Database,
         rpc_client_url: String,
         cluster: Cluster,
-        steward_config: String,
+        steward_config: Pubkey,
     ) -> Self {
         let client = RpcClient::new(rpc_client_url);
-        let steward_config_pubkey =
-            Pubkey::from_str(&steward_config).expect("Invalid STEWARD_CONFIG public key");
 
         Self {
             stake_pool_store: StakePoolStatsStore::new(
@@ -455,7 +453,7 @@ impl QueryResolver {
             ),
             rpc_client: Arc::new(client),
             cluster,
-            steward_config: steward_config_pubkey,
+            steward_config,
         }
     }
 

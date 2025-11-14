@@ -41,6 +41,7 @@ use kobe_core::{
 use log::*;
 use mongodb::Client;
 use serde_json::json;
+use solana_pubkey::Pubkey;
 use tower::{buffer::BufferLayer, limit::RateLimitLayer, timeout::TimeoutLayer, ServiceBuilder};
 use tower_http::{
     cors::{Any, CorsLayer},
@@ -235,7 +236,7 @@ struct Args {
 
     /// Steward config public key
     #[arg(long, env)]
-    steward_config: String,
+    steward_config: Pubkey,
 }
 
 fn main() {
@@ -272,12 +273,8 @@ async fn run_server(args: &Args) {
     let db = c.database(&args.mongo_db_name);
     let cluster = Cluster::get_cluster(&args.solana_cluster).expect("Failed to get cluster");
 
-    let query_resolver = QueryResolver::new(
-        &db,
-        args.rpc_url.to_owned(),
-        cluster,
-        args.steward_config.clone(),
-    );
+    let query_resolver =
+        QueryResolver::new(&db, args.rpc_url.to_owned(), cluster, args.steward_config);
 
     let cors = CorsLayer::new()
         .allow_headers(Any)

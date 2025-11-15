@@ -2980,7 +2980,6 @@ dependencies = [
  "clap 4.5.40",
  "env_logger 0.10.2",
  "jito-steward",
- "kobe-api",
  "kobe-core",
  "log",
  "mongodb",

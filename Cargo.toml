@@ -43,7 +43,6 @@ jito-priority-fee-distribution-sdk = { git = "https://github.com/jito-foundation
 jito-steward = { package = "jito-steward", git = "https://github.com/jito-foundation/stakenet", rev = "6d35e58013cf7442dce287a1f45013085cb24967", features = ["no-entrypoint"] }
 jito-tip-distribution = { features = ["no-entrypoint"], git = "https://github.com/jito-foundation/jito-programs", branch = "master" }
 jito-tip-distribution-sdk = { git = "https://github.com/jito-foundation/jito-programs", branch = "master" }
-kobe-api = { path = "api", version = "1.0.0" }
 kobe-core = { path = "core", version = "1.0.0" }
 log = "0.4.18"
 mongodb = { version = "2.2.2", features = ["bson-chrono-0_4"] }

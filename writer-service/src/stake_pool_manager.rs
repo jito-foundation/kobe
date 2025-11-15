@@ -33,11 +33,8 @@ pub struct StakePoolManager {
     /// Cluster [Mainnet, Testnet, Devnet]
     pub cluster: Cluster,
 
-    /// Jito steward program ID
-    pub jito_steward_program_id: Pubkey,
-
     /// Steward config pubkey
-    pub steward_config: Pubkey,
+    steward_config: Pubkey,
 }
 
 impl StakePoolManager {
@@ -46,7 +43,6 @@ impl StakePoolManager {
         validators_app_client: Client,
         bam_api_base_url: Option<String>,
         cluster: Cluster,
-        jito_steward_program_id: Pubkey,
         steward_config: Pubkey,
     ) -> Self {
         let mut manager = Self {
@@ -54,7 +50,6 @@ impl StakePoolManager {
             validators_app_client,
             bam_api_client: None,
             cluster,
-            jito_steward_program_id,
             steward_config,
         };
 
@@ -96,7 +91,6 @@ impl StakePoolManager {
             &self.cluster,
             epoch,
             validator_list_address,
-            &self.jito_steward_program_id,
             &self.steward_config,
         )
         .await?;

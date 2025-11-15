@@ -13,10 +13,8 @@ use solana_client::{nonblocking::rpc_client::RpcClient, rpc_response::RpcVoteAcc
 use solana_pubkey::Pubkey;
 use spl_stake_pool::state::ValidatorStakeInfo;
 use spl_stake_pool_cli::client::get_validator_list;
-use stakenet_sdk::utils::accounts::{
-    get_all_validator_history_accounts, get_directed_stake_meta, get_steward_config_account,
-};
-use validator_history::{ValidatorHistory, ValidatorHistoryEntry};
+use stakenet_sdk::utils::accounts::{get_all_validator_history_accounts, get_directed_stake_meta};
+use validator_history::ValidatorHistory;
 
 use crate::{
     client_type::ClientType,
@@ -68,9 +66,6 @@ pub struct ChainData {
     pub inflation_rewards_lamports: u64,
     pub priority_fee_commission_bps: u16,
     pub priority_fee_revenue_lamports: u64,
-
-    /// Jito Pool eligible
-    pub jito_pool_eligible: bool,
 
     /// Jito Directed Stake Target
     pub jito_directed_stake_target: bool,
@@ -139,7 +134,6 @@ pub async fn fetch_chain_data(
     cluster: &Cluster,
     epoch: u64,
     validator_list_pubkey: &Pubkey,
-    jito_steward_program_id: &Pubkey,
     steward_config_pubkey: &Pubkey,
 ) -> Result<HashMap<Pubkey, ChainData>, Error> {
     // Fetch on-chain data
@@ -152,7 +146,7 @@ pub async fn fetch_chain_data(
 
     let total_staked_lamports = fetch_total_staked_lamports(&vote_accounts);
 
-    let steward_config = get_steward_config_account(&rpc_client, steward_config_pubkey).await?;
+    // let steward_config = get_steward_config_account(&rpc_client, steward_config_pubkey).await?;
 
     let staked_validators = get_validator_list(&rpc_client, validator_list_pubkey).await?;
     let inflation_rate = match rpc_client.get_inflation_rate().await {
@@ -167,12 +161,8 @@ pub async fn fetch_chain_data(
     let validator_histories =
         fetch_validator_history_accounts(&rpc_client, validator_history_program_id).await?;
 
-    let directed_stake_meta = get_directed_stake_meta(
-        rpc_client.clone(),
-        steward_config_pubkey,
-        jito_steward_program_id,
-    )
-    .await?;
+    let directed_stake_meta =
+        get_directed_stake_meta(rpc_client, steward_config_pubkey, &jito_steward::id()).await?;
 
     Ok(HashMap::from_iter(validators.iter().map(|v| {
         let vote_account = v.vote_account;
@@ -238,41 +228,6 @@ pub async fn fetch_chain_data(
         let inflation_rewards_lamports =
             inflation_rate / epochs_per_year * staked_amount * vote_credit_proportion;
 
-        let start_epoch = epoch.saturating_sub(
-            steward_config
-                .parameters
-                .minimum_voting_epochs
-                .saturating_sub(1),
-        );
-
-        let mut jito_pool_eligible = false;
-        if let Some(validator_history) = validator_histories.get(&vote_account) {
-            jito_pool_eligible = true;
-
-            if validator_history
-                .history
-                .epoch_credits_range(start_epoch as u16, epoch as u16)
-                .iter()
-                .any(|entry| entry.is_none())
-            {
-                jito_pool_eligible = false;
-            }
-
-            if let Some(entry) = validator_history.history.last() {
-                if entry
-                    .activated_stake_lamports
-                    .eq(&ValidatorHistoryEntry::default().activated_stake_lamports)
-                {
-                    jito_pool_eligible = false;
-                }
-
-                if entry.activated_stake_lamports < steward_config.parameters.minimum_stake_lamports
-                {
-                    jito_pool_eligible = false;
-                }
-            }
-        }
-
         let jito_directed_stake_target = directed_stake_meta
             .targets
             .iter()
@@ -289,7 +244,6 @@ pub async fn fetch_chain_data(
             inflation_rewards_lamports: inflation_rewards_lamports as u64,
             priority_fee_commission_bps,
             priority_fee_revenue_lamports,
-            jito_pool_eligible,
             jito_directed_stake_target,
         };
 

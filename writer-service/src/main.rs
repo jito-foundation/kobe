@@ -59,14 +59,6 @@ struct Args {
     )]
     priority_fee_distribution_program_id: String,
 
-    /// Jito steward program id
-    #[arg(
-        long,
-        env,
-        default_value = "Stewardf95sJbmtcZsyagb2dg4Mo8eVQho8gpECvLx8"
-    )]
-    jito_steward_program_id: Pubkey,
-
     /// Steward config pubkey
     #[arg(
         long,
@@ -128,7 +120,6 @@ fn main() -> Result<()> {
             args.tip_distribution_program_id,
             args.priority_fee_distribution_program_id,
             args.mainnet_gcp_server_names,
-            args.jito_steward_program_id,
             args.steward_config_pubkey,
             args.bam_api_base_url,
         )

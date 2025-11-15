@@ -41,9 +41,6 @@ pub struct ValidatorEntry {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub jito_sol_active_lamports: Option<u64>,
 
-    /// Whether or not jito pool eligible validator
-    pub jito_pool_eligible: Option<bool>,
-
     /// Indicates whether this validator is a target for directed stake from the JitoSOL stake-pool.
     pub jito_pool_directed_stake_target: Option<bool>,
 }

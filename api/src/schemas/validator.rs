@@ -32,7 +32,7 @@ pub struct ValidatorEntry {
     /// Total active stake delegated to this validator on the Solana network
     pub active_stake: u64,
 
-    /// Whether or not jito directed stake target validator
+    /// Whether or not this is a jito directed stake target validator
     pub jito_directed_stake_target: Option<bool>,
 
     /// Active stake lamports delegated to this validator from the JitoSOL stake-pool

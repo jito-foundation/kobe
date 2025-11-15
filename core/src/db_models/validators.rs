@@ -28,7 +28,7 @@ pub struct Validator {
     pub epoch_credits: Option<u64>,
     pub identity_account: Option<String>,
 
-    /// Whether or not jito directed stake target validator
+    /// Whether or not this is a jito directed stake target validator
     pub jito_directed_stake_target: Option<bool>,
 
     pub mev_commission_bps: Option<u16>,

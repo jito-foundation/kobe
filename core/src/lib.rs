@@ -1,5 +1,5 @@
 use mongodb::{bson::doc, options::IndexOptions, Collection, IndexModel};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 pub use solana_native_token::LAMPORTS_PER_SOL;
 
 use crate::db_models::validators::Validator;
@@ -26,7 +26,7 @@ pub async fn add_index(collection: &Collection<Validator>, key: &str) {
         .expect("add index failed");
 }
 
-#[derive(Clone, Copy, Eq, PartialEq, Deserialize, Debug)]
+#[derive(Clone, Copy, Eq, PartialEq, Serialize, Deserialize, Debug)]
 pub enum SortOrder {
     Asc,
     Desc,

@@ -27,7 +27,6 @@ pub struct Validator {
     pub epoch: u64,
     pub epoch_credits: Option<u64>,
     pub identity_account: Option<String>,
-
     pub mev_commission_bps: Option<u16>,
     pub mev_revenue_lamports: u64,
     pub priority_fee_commission_bps: Option<u16>,

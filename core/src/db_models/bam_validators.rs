@@ -8,7 +8,7 @@ use mongodb::{bson::doc, Collection};
 use serde::{Deserialize, Serialize};
 use solana_pubkey::{ParsePubkeyError, Pubkey};
 
-use crate::{constants::BAM_VALIDATOR_COLLECTION_NAME, db_models::error::DataStoreError};
+use crate::db_models::error::DataStoreError;
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 pub struct BamValidator {
@@ -104,7 +104,7 @@ pub struct BamValidatorStore {
 }
 
 impl BamValidatorStore {
-    pub const COLLECTION: &'static str = BAM_VALIDATOR_COLLECTION_NAME;
+    pub const COLLECTION: &'static str = "bam_validators";
 
     /// Initialize a [`BamValidatorStore`]
     pub fn new(collection: Collection<BamValidator>) -> Self {

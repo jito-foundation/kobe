@@ -944,7 +944,7 @@ impl QueryResolver {
                 .arr
                 .iter()
                 .filter_map(|entry| {
-                    if epoch as u16 == entry.epoch {
+                    if epoch == entry.epoch {
                         Some(ValidatorHistoryEntryResponse::from_validator_history_entry(
                             entry,
                         ))

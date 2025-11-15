@@ -1,6 +1,4 @@
-use std::{
-    collections::HashSet, str::FromStr, sync::Arc, thread::sleep, time::Duration as CoreDuration,
-};
+use std::{collections::HashSet, str::FromStr, thread::sleep, time::Duration as CoreDuration};
 
 use bam_api_client::client::BamApiClient;
 use chrono::{Duration, DurationRound, Utc};
@@ -22,7 +20,7 @@ use crate::{result::Result, rpc_utils};
 
 pub struct StakePoolManager {
     /// RPC client
-    pub rpc_client: Arc<RpcClient>,
+    pub rpc_client: RpcClient,
 
     /// Validators app client
     pub validators_app_client: Client,
@@ -42,7 +40,7 @@ impl StakePoolManager {
         cluster: Cluster,
     ) -> Self {
         let mut manager = Self {
-            rpc_client: Arc::new(rpc_client),
+            rpc_client,
             validators_app_client,
             bam_api_client: None,
             cluster,
@@ -82,7 +80,7 @@ impl StakePoolManager {
         let on_chain_data = fetch_chain_data(
             network_validators.as_ref(),
             bam_validator_set,
-            self.rpc_client.clone(),
+            &self.rpc_client,
             &self.cluster,
             epoch,
             validator_list_address,

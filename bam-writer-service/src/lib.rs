@@ -108,19 +108,19 @@ impl BamWriterService {
                 for entry in validator_history
                     .history
                     .epoch_range(start_epoch as u16, end_epoch as u16)
+                    .into_iter()
+                    .flatten()
                 {
-                    if let Some(entry) = entry {
-                        if entry.commission.ne(&0) {
-                            continue 'validator_history;
-                        }
+                    if entry.commission.ne(&0) {
+                        continue 'validator_history;
+                    }
 
-                        if entry.mev_commission.gt(&10) {
-                            continue 'validator_history;
-                        }
+                    if entry.mev_commission.gt(&10) {
+                        continue 'validator_history;
+                    }
 
-                        if entry.is_superminority.eq(&0) {
-                            continue 'validator_history;
-                        }
+                    if entry.is_superminority.eq(&0) {
+                        continue 'validator_history;
                     }
                 }
 

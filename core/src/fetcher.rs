@@ -1,7 +1,6 @@
 use std::{
     collections::{HashMap, HashSet},
     str::FromStr,
-    sync::Arc,
 };
 
 use anchor_lang::AccountDeserialize;
@@ -126,24 +125,22 @@ pub fn get_priority_fee_distribution_program_id() -> solana_pubkey::Pubkey {
 pub async fn fetch_chain_data(
     validators: &[ValidatorsAppResponseEntry],
     bam_validator_set: HashSet<String>,
-    rpc_client: Arc<RpcClient>,
+    rpc_client: &RpcClient,
     cluster: &Cluster,
     epoch: u64,
     validator_list_pubkey: &Pubkey,
 ) -> Result<HashMap<Pubkey, ChainData>, Error> {
     // Fetch on-chain data
     let tip_distributions =
-        fetch_tip_distribution_accounts(validators, &rpc_client, cluster, epoch).await?;
+        fetch_tip_distribution_accounts(validators, rpc_client, cluster, epoch).await?;
     let priority_fee_distributions =
-        fetch_priority_fee_distribution_accounts(validators, &rpc_client, epoch).await?;
+        fetch_priority_fee_distribution_accounts(validators, rpc_client, epoch).await?;
     let vote_accounts = rpc_client.get_vote_accounts().await?;
     let (global_average, vote_credits_map) = fetch_vote_credits(&vote_accounts)?;
 
     let total_staked_lamports = fetch_total_staked_lamports(&vote_accounts);
 
-    // let steward_config = get_steward_config_account(&rpc_client, steward_config_pubkey).await?;
-
-    let staked_validators = get_validator_list(&rpc_client, validator_list_pubkey).await?;
+    let staked_validators = get_validator_list(rpc_client, validator_list_pubkey).await?;
     let inflation_rate = match rpc_client.get_inflation_rate().await {
         Ok(rate) => rate.total,
         Err(e) => {
@@ -154,7 +151,7 @@ pub async fn fetch_chain_data(
 
     let validator_history_program_id = get_validator_history_program_id(cluster);
     let validator_histories =
-        fetch_validator_history_accounts(&rpc_client, validator_history_program_id).await?;
+        fetch_validator_history_accounts(rpc_client, validator_history_program_id).await?;
 
     Ok(HashMap::from_iter(validators.iter().map(|v| {
         let vote_account = v.vote_account;

@@ -1,10 +1,10 @@
 //! DB model for a BAM validator.
 
-use std::{collections::HashMap, str::FromStr, time::Instant};
+use std::{str::FromStr, time::Instant};
 
 use chrono::{serde::ts_seconds, DateTime, Utc};
 use futures::TryStreamExt;
-use mongodb::{bson, bson::doc, options::FindOneOptions, Collection};
+use mongodb::{bson::doc, Collection};
 use serde::{Deserialize, Serialize};
 use solana_pubkey::{ParsePubkeyError, Pubkey};
 
@@ -98,11 +98,6 @@ impl BamValidator {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct TotalStakeDbResult {
-    pub total_stake_lamports: u64,
-}
-
 #[derive(Clone)]
 pub struct BamValidatorStore {
     collection: Collection<BamValidator>,
@@ -130,6 +125,7 @@ impl BamValidatorStore {
         Ok(())
     }
 
+    /// Find [`BamValidator`] records
     pub async fn find(&self, epoch: u64) -> Result<Vec<BamValidator>, DataStoreError> {
         let filter = doc! {"epoch": epoch as u32};
 
@@ -137,132 +133,5 @@ impl BamValidatorStore {
         let validators: Vec<BamValidator> = cursor.try_collect().await?;
 
         Ok(validators)
-    }
-
-    pub async fn get_highest_epoch(&self) -> Result<u64, DataStoreError> {
-        let find_options = FindOneOptions::builder().sort(doc! {"epoch": -1}).build();
-        let validator = self
-            .collection
-            .find_one(doc! {}, find_options)
-            .await?
-            .expect("No entries found in validators table");
-        Ok(validator.epoch)
-    }
-
-    pub async fn get_total_stake(&self, epoch: u64) -> Result<u64, DataStoreError> {
-        let pipeline = vec![
-            doc! {
-                "$match": {
-                    "epoch": epoch as u32,
-                    "running_jito": true,
-                }
-            },
-            doc! {
-                "$group": {
-                    "_id": bson::Bson::Null,
-                    "total_stake_lamports": {
-                        "$sum": "$active_stake"
-                    }
-                }
-            },
-        ];
-        let mut cursor = self.collection.aggregate(pipeline, None).await?;
-        if let Some(res) = cursor.try_next().await? {
-            let doc: TotalStakeDbResult = bson::from_document(res)?;
-            return Ok(doc.total_stake_lamports);
-        }
-
-        Err(DataStoreError::NoResultsFound)
-    }
-
-    pub async fn get_mev_commission_average_by_epoch(
-        &self,
-    ) -> Result<HashMap<u64, f64>, DataStoreError> {
-        let pipeline = vec![
-            doc! { "$match": { "running_jito": true } },
-            doc! {
-                "$group": {
-                    "_id": {
-                        "epoch": "$epoch",
-                        "validator": "$vote_account"
-                    },
-                    "stakeWeightedMevComm": { "$sum": { "$multiply": [{ "$divide": ["$mev_commission_bps", 10000.0] }, "$active_stake"] } },
-                    "totalStake": { "$sum": "$active_stake" }
-                }
-            },
-            doc! {
-                "$group": {
-                    "_id": "$_id.epoch",
-                    "totalStakeWeightedMevComm": { "$sum": "$stakeWeightedMevComm" },
-                    "totalStake": { "$sum": "$totalStake" }
-                }
-            },
-            doc! {
-                "$project": {
-                    "_id": 0,
-                    "epoch": "$_id",
-                    "weightedAvgMevComm": {
-                        "$cond": {
-                            "if": { "$eq": ["$totalStake", 0] },
-                            "then": 0,
-                            "else": { "$divide": ["$totalStakeWeightedMevComm", "$totalStake"] }
-                        }
-                    }
-                }
-            },
-        ];
-        let mut cursor = self.collection.aggregate(pipeline, None).await?;
-        let mut results = HashMap::new();
-        while let Ok(Some(result)) = cursor.try_next().await {
-            let epoch = match result.get_i64("epoch") {
-                Ok(epoch) => epoch as u64,
-                Err(_) => continue,
-            };
-            let weighted_avg_mev_comm = match result.get_f64("weightedAvgMevComm") {
-                Ok(weighted_avg_mev_comm) => weighted_avg_mev_comm,
-                Err(_) => continue,
-            };
-            results.insert(epoch, weighted_avg_mev_comm);
-        }
-        if results.is_empty() {
-            Err(DataStoreError::NoResultsFound)
-        } else {
-            Ok(results)
-        }
-    }
-
-    pub async fn get_total_jito_stake_by_epoch(&self) -> Result<HashMap<u64, f64>, DataStoreError> {
-        let pipeline = vec![
-            doc! { "$match": { "running_jito": true } },
-            doc! {
-                "$group": {
-                    "_id": {
-                        "epoch": "$epoch",
-                        "validator": "$vote_account"
-                    },
-                    "avgStake": { "$avg": "$stake_percent" },
-                }
-            },
-            doc! {
-                "$group": {
-                    "_id": "$_id.epoch",
-                    "stakeAmount": { "$sum": "$avgStake" }
-                }
-            },
-        ];
-
-        let mut cursor = self.collection.aggregate(pipeline, None).await?;
-        let mut results = HashMap::new();
-        while let Ok(Some(result)) = cursor.try_next().await {
-            let epoch = result.get_i64("_id").unwrap_or_default() as u64;
-            let stake_amount = result.get_f64("stakeAmount").unwrap_or_default();
-            results.insert(epoch, stake_amount);
-        }
-
-        if results.is_empty() {
-            Err(DataStoreError::NoResultsFound)
-        } else {
-            Ok(results)
-        }
     }
 }

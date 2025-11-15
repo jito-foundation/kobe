@@ -78,10 +78,6 @@ impl BamWriterService {
         let jitosol_stake = get_stake_pool_account(&self.rpc_client, &self.stake_pool).await?;
 
         let bam_node_validators = self.bam_api_client.get_validators().await?;
-        //  let bam_validator_map: HashMap<&str, &ValidatorsResponse> = bam_node_validators
-        //      .iter()
-        //      .map(|v| (v.validator_pubkey.as_str(), v))
-        //      .collect();
 
         let vote_accounts = self.rpc_client.get_vote_accounts().await?;
 
@@ -147,17 +143,6 @@ impl BamWriterService {
             .iter()
             .map(|v| v.activated_stake)
             .sum();
-
-        // let validators_url = format!("{}/api/v1/validators", self.kobe_base_api_url);
-
-        // let client = reqwest::Client::new();
-        // let validators = client
-        //     .post(&validators_url)
-        //     .json(&serde_json::json!({ "epoch": epoch }))
-        //     .send()
-        //     .await?
-        //     .json::<kobe_api::schemas::validator::ValidatorsResponse>()
-        //     .await?;
 
         let eligible_bam_validator_count = bam_validators.len() as u64;
         let bam_stake = bam_validators.iter().map(|v| v.get_active_stake()).sum();

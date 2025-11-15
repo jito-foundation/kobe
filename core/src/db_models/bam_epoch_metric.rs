@@ -1,3 +1,5 @@
+//! DB model for a BAM epoch metric.
+
 use mongodb::{
     bson::{self, doc},
     options::FindOneOptions,

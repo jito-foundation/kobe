@@ -2,7 +2,6 @@
 
 use mongodb::{
     bson::{self, doc},
-    options::FindOneOptions,
     Collection,
 };
 use serde::{Deserialize, Serialize};
@@ -78,22 +77,10 @@ impl BamEpochMetricStore {
     /// Find a [`BamEpochMetric`] record by epoch
     pub async fn find_by_epoch(
         &self,
-        epoch: Option<u64>,
+        epoch: u64,
     ) -> Result<Option<BamEpochMetric>, mongodb::error::Error> {
-        match epoch {
-            Some(epoch) => {
-                self.collection
-                    .find_one(doc! {"epoch": epoch as u32}, None)
-                    .await
-            }
-            None => {
-                self.collection
-                    .find_one(
-                        doc! {},
-                        FindOneOptions::builder().sort(doc! {"epoch": -1}).build(),
-                    )
-                    .await
-            }
-        }
+        self.collection
+            .find_one(doc! {"epoch": epoch as u32}, None)
+            .await
     }
 }

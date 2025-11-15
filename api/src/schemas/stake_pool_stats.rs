@@ -4,13 +4,13 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::ApiError;
 
-#[derive(Clone, Copy, Eq, PartialEq, Default, Serialize, Deserialize, Debug)]
+#[derive(Clone, Copy, Eq, PartialEq, Default, Deserialize, Debug)]
 pub enum BucketType {
     #[default]
     Daily,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Deserialize, Clone, Debug)]
 pub struct DateTimeRangeFilter {
     pub start: DateTime<Utc>,
     pub end: DateTime<Utc>,
@@ -42,12 +42,12 @@ pub fn round_to_hour(dt: DateTime<Utc>) -> DateTime<Utc> {
     dt.duration_round(Duration::hours(1)).unwrap_or(dt)
 }
 
-#[derive(Clone, Copy, Eq, PartialEq, Serialize, Deserialize, Debug)]
+#[derive(Clone, Copy, Eq, PartialEq, Deserialize, Debug)]
 pub enum SortField {
     BlockTime,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Deserialize, Debug)]
 pub struct SortBy {
     pub field: SortField,
     pub order: SortOrder,
@@ -62,7 +62,7 @@ impl Default for SortBy {
     }
 }
 
-#[derive(Default, Serialize, Deserialize, Clone, Debug)]
+#[derive(Default, Deserialize, Clone, Debug)]
 pub struct GetStakePoolStatsRequest {
     /// Specifies how to bucket the data.
     pub bucket_type: BucketType,
@@ -100,7 +100,7 @@ impl std::fmt::Display for GetStakePoolStatsRequest {
     }
 }
 
-#[derive(Default, Serialize, Deserialize, Clone)]
+#[derive(Default, Serialize, Clone)]
 pub struct GetStakePoolStatsResponse {
     /// A summation of the mev_rewards data points.
     pub aggregated_mev_rewards: i64,
@@ -121,13 +121,13 @@ pub struct GetStakePoolStatsResponse {
     pub supply: Vec<F64DataPoint>,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Clone)]
 pub struct I64DataPoint {
     pub data: i64,
     pub date: DateTime<Utc>,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Clone)]
 pub struct F64DataPoint {
     pub data: f64,
     pub date: DateTime<Utc>,

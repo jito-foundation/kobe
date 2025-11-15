@@ -26,6 +26,7 @@ use kobe_api::{
         validator_rewards_cacheable_wrapper, validators_cacheable_wrapper, QueryResolver,
     },
     schemas::{
+        bam_epoch_metric::BamEpochMetricRequest,
         bam_validator::BamValidatorsRequest,
         jitosol_ratio::JitoSolRatioRequest,
         mev_rewards::{MevRewardsRequest, StakerRewardsRequest, ValidatorRewardsRequest},
@@ -200,7 +201,7 @@ async fn get_validator_histories(
 
 async fn get_bam_epoch_metric_handler(
     resolver: Extension<QueryResolver>,
-    Query(epoch_query): Query<EpochQuery>,
+    Query(epoch_query): Query<BamEpochMetricRequest>,
 ) -> impl IntoResponse {
     get_bam_epoch_metric_wrapper(resolver, epoch_query.epoch).await
 }

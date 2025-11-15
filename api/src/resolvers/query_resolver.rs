@@ -391,11 +391,11 @@ pub async fn get_validator_histories_wrapper(
     type = "TimedCache<String, (StatusCode, Json<BamEpochMetricResponse>)>",
     create = "{ TimedCache::with_lifespan_and_capacity(60, 1000) }",
     key = "String",
-    convert = r#"{ format!("bam-epoch-metric-{}", epoch.as_ref().map(|e| e.to_string()).unwrap_or(0.to_string())) }"#
+    convert = r#"{ format!("bam-epoch-metric-{}", epoch.to_string()) }"#
 )]
 pub async fn get_bam_epoch_metric_wrapper(
     resolver: Extension<QueryResolver>,
-    epoch: Option<u64>,
+    epoch: u64,
 ) -> (StatusCode, Json<BamEpochMetricResponse>) {
     if let Ok(res) = resolver.get_bam_epoch_metric(epoch).await {
         (StatusCode::OK, Json(res))
@@ -978,7 +978,7 @@ impl QueryResolver {
     /// GET /bam_epoch_metric?epoch=800
     /// ```
     /// This request retrieves the BAM epoch metric for epoch 800.
-    pub async fn get_bam_epoch_metric(&self, epoch: Option<u64>) -> Result<BamEpochMetricResponse> {
+    pub async fn get_bam_epoch_metric(&self, epoch: u64) -> Result<BamEpochMetricResponse> {
         let bam_epoch_metric = self.bam_epoch_metric_store.find_by_epoch(epoch).await?;
 
         Ok(BamEpochMetricResponse { bam_epoch_metric })

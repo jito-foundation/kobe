@@ -6,7 +6,7 @@ pub struct JitoSolRatioRequest {
     pub range_filter: DateTimeRangeFilter,
 }
 
-#[derive(Default, Serialize, Deserialize, Clone)]
+#[derive(Default, Serialize, Clone)]
 pub struct JitoSolRatioResponse {
     pub ratios: Vec<F64DataPoint>,
 }

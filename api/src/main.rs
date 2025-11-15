@@ -16,13 +16,14 @@ use env_logger::{Builder, Target};
 use kobe_api::{
     error::{handle_error, ApiError},
     resolvers::query_resolver::{
-        daily_mev_rewards_cacheable_wrapper, get_validator_histories_wrapper,
-        jito_stake_over_time_ratio_cacheable_wrapper, jitosol_ratio_cacheable_wrapper,
-        jitosol_validators_cacheable_wrapper, mev_commission_average_over_time_cacheable_wrapper,
-        mev_rewards_cacheable_wrapper, preferred_withdraw_validator_list_cacheable_wrapper,
-        stake_pool_stats_cacheable_wrapper, staker_rewards_cacheable_wrapper,
-        steward_events_cacheable_wrapper, validator_by_vote_account_cacheable_wrapper,
-        validator_rewards_cacheable_wrapper, validators_cacheable_wrapper, QueryResolver,
+        daily_mev_rewards_cacheable_wrapper, get_bam_epoch_metric_wrapper,
+        get_validator_histories_wrapper, jito_stake_over_time_ratio_cacheable_wrapper,
+        jitosol_ratio_cacheable_wrapper, jitosol_validators_cacheable_wrapper,
+        mev_commission_average_over_time_cacheable_wrapper, mev_rewards_cacheable_wrapper,
+        preferred_withdraw_validator_list_cacheable_wrapper, stake_pool_stats_cacheable_wrapper,
+        staker_rewards_cacheable_wrapper, steward_events_cacheable_wrapper,
+        validator_by_vote_account_cacheable_wrapper, validator_rewards_cacheable_wrapper,
+        validators_cacheable_wrapper, QueryResolver,
     },
     schemas::{
         jitosol_ratio::JitoSolRatioRequest,

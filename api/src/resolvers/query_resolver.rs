@@ -959,7 +959,7 @@ impl QueryResolver {
 
         Ok(BamEpochMetricResponse { bam_epoch_metric })
     }
-    
+
     pub async fn get_preferred_withdraw_validator_list(
         &self,
         min_stake_threshold: u64,

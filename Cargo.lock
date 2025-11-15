@@ -3102,7 +3102,6 @@ dependencies = [
  "solana-client",
  "solana-metrics",
  "solana-program",
- "solana-pubkey",
  "solana-sdk",
  "spl-stake-pool",
  "spl-stake-pool-cli",

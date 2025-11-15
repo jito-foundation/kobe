@@ -13,7 +13,7 @@ use solana_client::{nonblocking::rpc_client::RpcClient, rpc_response::RpcVoteAcc
 use solana_pubkey::Pubkey;
 use spl_stake_pool::state::ValidatorStakeInfo;
 use spl_stake_pool_cli::client::get_validator_list;
-use stakenet_sdk::utils::accounts::{get_all_validator_history_accounts, get_directed_stake_meta};
+use stakenet_sdk::utils::accounts::get_all_validator_history_accounts;
 use validator_history::ValidatorHistory;
 
 use crate::{
@@ -66,9 +66,6 @@ pub struct ChainData {
     pub inflation_rewards_lamports: u64,
     pub priority_fee_commission_bps: u16,
     pub priority_fee_revenue_lamports: u64,
-
-    /// Jito Directed Stake Target
-    pub jito_directed_stake_target: bool,
 }
 
 pub fn get_tip_distribution_program_id(cluster: &Cluster) -> Pubkey {
@@ -126,7 +123,6 @@ pub fn get_priority_fee_distribution_program_id() -> solana_pubkey::Pubkey {
 ///
 /// - If BAM validator set exists and not empty: check if validator identity is in the set
 /// - Otherwise: fall back to client_type check from validator history
-#[allow(clippy::too_many_arguments)]
 pub async fn fetch_chain_data(
     validators: &[ValidatorsAppResponseEntry],
     bam_validator_set: HashSet<String>,
@@ -134,7 +130,6 @@ pub async fn fetch_chain_data(
     cluster: &Cluster,
     epoch: u64,
     validator_list_pubkey: &Pubkey,
-    steward_config_pubkey: &Pubkey,
 ) -> Result<HashMap<Pubkey, ChainData>, Error> {
     // Fetch on-chain data
     let tip_distributions =
@@ -160,9 +155,6 @@ pub async fn fetch_chain_data(
     let validator_history_program_id = get_validator_history_program_id(cluster);
     let validator_histories =
         fetch_validator_history_accounts(&rpc_client, validator_history_program_id).await?;
-
-    let directed_stake_meta =
-        get_directed_stake_meta(rpc_client, steward_config_pubkey, &jito_steward::id()).await?;
 
     Ok(HashMap::from_iter(validators.iter().map(|v| {
         let vote_account = v.vote_account;
@@ -228,11 +220,6 @@ pub async fn fetch_chain_data(
         let inflation_rewards_lamports =
             inflation_rate / epochs_per_year * staked_amount * vote_credit_proportion;
 
-        let jito_directed_stake_target = directed_stake_meta
-            .targets
-            .iter()
-            .any(|target| target.vote_pubkey.eq(&v.vote_account));
-
         let data = ChainData {
             mev_commission_bps,
             mev_revenue_lamports,
@@ -244,7 +231,6 @@ pub async fn fetch_chain_data(
             inflation_rewards_lamports: inflation_rewards_lamports as u64,
             priority_fee_commission_bps,
             priority_fee_revenue_lamports,
-            jito_directed_stake_target,
         };
 
         (vote_account, data)

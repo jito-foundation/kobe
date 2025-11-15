@@ -40,9 +40,6 @@ pub struct ValidatorEntry {
     /// Active stake lamports delegated to this validator from the JitoSOL stake-pool
     #[serde(skip_serializing_if = "Option::is_none")]
     pub jito_sol_active_lamports: Option<u64>,
-
-    /// Indicates whether this validator is a target for directed stake from the JitoSOL stake-pool.
-    pub jito_pool_directed_stake_target: Option<bool>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Default)]

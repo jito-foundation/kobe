@@ -32,9 +32,6 @@ pub struct StakePoolManager {
 
     /// Cluster [Mainnet, Testnet, Devnet]
     pub cluster: Cluster,
-
-    /// Steward config pubkey
-    steward_config: Pubkey,
 }
 
 impl StakePoolManager {
@@ -43,14 +40,12 @@ impl StakePoolManager {
         validators_app_client: Client,
         bam_api_base_url: Option<String>,
         cluster: Cluster,
-        steward_config: Pubkey,
     ) -> Self {
         let mut manager = Self {
             rpc_client: Arc::new(rpc_client),
             validators_app_client,
             bam_api_client: None,
             cluster,
-            steward_config,
         };
 
         if let Some(bam_api_base_url) = bam_api_base_url {
@@ -91,7 +86,6 @@ impl StakePoolManager {
             &self.cluster,
             epoch,
             validator_list_address,
-            &self.steward_config,
         )
         .await?;
 

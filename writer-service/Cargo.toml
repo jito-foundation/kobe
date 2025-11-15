@@ -29,7 +29,6 @@ solana-clap-utils = { workspace = true }
 solana-client = { workspace = true }
 solana-metrics = { workspace = true }
 solana-program = { workspace = true }
-solana-pubkey = { workspace = true }
 solana-sdk = { workspace = true }
 spl-stake-pool = { workspace = true }
 spl-stake-pool-cli = { workspace = true }

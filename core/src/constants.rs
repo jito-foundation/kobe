@@ -15,6 +15,7 @@ pub const JITOSOL_VALIDATOR_LIST_MAINNET: &str = "3R3nGZpQs2aZo5FDQvd2MUQ6R7KhAP
 pub const JITOSOL_VALIDATOR_LIST_TESTNET: &str = "G5N6K3qW86GSkNEpywcbJk42LjEZoshzECFg1LNVjSLa";
 pub const DATABASE_NAME: &str = "validators";
 pub const VALIDATOR_COLLECTION_NAME: &str = "validators";
+pub const BAM_VALIDATOR_COLLECTION_NAME: &str = "bam_validators";
 pub const STAKE_POOL_STATS_COLLECTION_NAME: &str = "stake_pool_stats";
 pub const VALIDATOR_REWARDS_COLLECTION_NAME: &str = "validator_rewards";
 pub const STAKER_REWARDS_COLLECTION_NAME: &str = "staker_rewards";

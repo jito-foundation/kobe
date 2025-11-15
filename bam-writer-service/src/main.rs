@@ -30,10 +30,6 @@ struct Args {
     #[clap(long, env)]
     bam_api_base_url: String,
 
-    /// Kobe api base url
-    #[clap(long, env)]
-    kobe_api_base_url: String,
-
     /// Stake pool address
     #[clap(
         long,
@@ -111,7 +107,6 @@ async fn main() -> anyhow::Result<()> {
         args.stake_pool,
         rpc_client.clone(),
         &args.bam_api_base_url,
-        &args.kobe_api_base_url,
     )
     .await?;
 

@@ -13,6 +13,7 @@ anyhow = { workspace = true }
 bam-api-client = { workspace = true }
 clap = { workspace = true }
 env_logger = { workspace = true }
+jito-steward = { workspace = true}
 kobe-api = { workspace = true }
 kobe-core = { workspace = true }
 log = { workspace = true }

@@ -7,6 +7,7 @@ use std::{
 use anchor_lang::AccountDeserialize;
 use axum::{http::StatusCode, Extension, Json};
 use cached::{proc_macro::cached, TimedCache};
+use jito_steward::constants::MAX_VALIDATORS;
 use kobe_core::{
     constants::{JITOSOL_VALIDATOR_LIST_MAINNET, JITOSOL_VALIDATOR_LIST_TESTNET},
     db_models::{
@@ -25,8 +26,8 @@ use serde::{Deserialize, Serialize};
 use solana_borsh::v1::try_from_slice_unchecked;
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_pubkey::Pubkey;
-use spl_stake_pool::state::ValidatorList;
-use stakenet_sdk::utils::accounts::get_validator_history_address;
+use spl_stake_pool::{find_stake_program_address, state::ValidatorList};
+use stakenet_sdk::utils::accounts::{get_all_steward_accounts, get_validator_history_address};
 use validator_history::ValidatorHistory;
 
 use crate::{
@@ -39,6 +40,7 @@ use crate::{
             StakerRewardsResponse, ValidatorRewards, ValidatorRewardsRequest,
             ValidatorRewardsResponse,
         },
+        preferred_withdraw::{PreferredWithdraw, PreferredWithdrawRequest},
         stake_pool_stats::{
             round_to_hour, F64DataPoint, GetStakePoolStatsRequest, GetStakePoolStatsResponse,
             I64DataPoint,
@@ -65,9 +67,10 @@ pub struct QueryResolver {
 
     /// RPC Client URL
     rpc_client: Arc<RpcClient>,
-
     /// Solana Cluster
     cluster: Cluster,
+    /// Steward Config Public Key
+    steward_config: Pubkey,
 }
 
 fn aggregate_mev_rewards(stats_entries: &[StakePoolStats]) -> u64 {
@@ -399,8 +402,58 @@ pub async fn get_bam_epoch_metric_wrapper(
     }
 }
 
+#[cached(
+    type = "TimedCache<String, Vec<PreferredWithdraw>>",
+    create = "{ TimedCache::with_lifespan_and_capacity(10, 100) }",
+    key = "String",
+    convert = r#"{ format!("preferred-withdraw-{}", min_stake_threshold) }"#,
+    result = true
+)]
+async fn get_preferred_withdraw_cached(
+    resolver: Extension<QueryResolver>,
+    min_stake_threshold: u64,
+) -> Result<Vec<PreferredWithdraw>> {
+    resolver
+        .get_preferred_withdraw_validator_list(min_stake_threshold)
+        .await
+}
+
+pub async fn preferred_withdraw_validator_list_cacheable_wrapper(
+    resolver: Extension<QueryResolver>,
+    req: PreferredWithdrawRequest,
+) -> (StatusCode, Json<Vec<PreferredWithdraw>>) {
+    // Get cached result
+    let min_stake_threshold = req.min_stake_threshold * LAMPORTS_PER_SOL;
+    let list_result = get_preferred_withdraw_cached(resolver, min_stake_threshold).await;
+    let list = match list_result {
+        Ok(validators) => validators,
+        Err(_) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(vec![])),
+    };
+
+    // Apply size limit
+    let mut list = list
+        .into_iter()
+        .take(req.limit as usize)
+        .collect::<Vec<_>>();
+
+    // Apply randomization
+    if req.randomized {
+        use rand::seq::SliceRandom;
+        use rand::thread_rng;
+        let mut rng = thread_rng();
+        list.shuffle(&mut rng);
+    }
+
+    (StatusCode::OK, Json(list))
+}
+
 impl QueryResolver {
-    pub fn new(database: &Database, rpc_client_url: String, cluster: Cluster) -> Self {
+    pub fn new(
+        database: &Database,
+        rpc_client_url: String,
+        cluster: Cluster,
+        steward_config: Pubkey,
+    ) -> Self {
         let client = RpcClient::new(rpc_client_url);
 
         Self {
@@ -422,6 +475,7 @@ impl QueryResolver {
             ),
             rpc_client: Arc::new(client),
             cluster,
+            steward_config,
         }
     }
 
@@ -904,6 +958,75 @@ impl QueryResolver {
         let bam_epoch_metric = self.bam_epoch_metric_store.find_by_epoch(epoch).await?;
 
         Ok(BamEpochMetricResponse { bam_epoch_metric })
+    }
+    
+    pub async fn get_preferred_withdraw_validator_list(
+        &self,
+        min_stake_threshold: u64,
+    ) -> Result<Vec<PreferredWithdraw>> {
+        let min_retained_balance: u64 = 1_000 * LAMPORTS_PER_SOL;
+
+        // Get all steward accounts
+        let all_steward_accounts =
+            get_all_steward_accounts(&self.rpc_client, &jito_steward::ID, &self.steward_config)
+                .await?;
+        let steward_state = &all_steward_accounts.state_account.state;
+        let validator_list = &all_steward_accounts.validator_list_account;
+
+        // Collect validators with their scores and available stake
+        let mut preferred_withdraw_list: Vec<PreferredWithdraw> = Vec::new();
+
+        // Iterate through sorted raw indices in reverse order to get validators with lowest scores first
+        for i in (0..steward_state.num_pool_validators as usize).rev() {
+            // Get the validator index from sorted indices
+            let validator_index = steward_state.sorted_raw_score_indices[i] as usize;
+
+            // Skip if this is a sentinel value (indicates no validator)
+            if validator_index >= MAX_VALIDATORS {
+                continue;
+            }
+
+            // Get validator info from the list
+            let validator_stake_info = &validator_list.validators[validator_index];
+            let active_stake: u64 = validator_stake_info.active_stake_lamports.into();
+            let vote_account = validator_stake_info.vote_account_address;
+
+            // Skip if validator is not active
+            if validator_stake_info.status != spl_stake_pool::state::StakeStatus::Active.into() {
+                continue;
+            }
+
+            // Check if validator has enough stake above the threshold + minimum retained balance
+            // We need at least min_stake_threshold total, and must be able to withdraw while leaving min_retained_balance
+            if active_stake <= (min_stake_threshold + min_retained_balance) {
+                continue;
+            }
+
+            // Calculate withdrawable amount (active stake minus minimum retained balance)
+            let withdrawable_amount = active_stake.saturating_sub(min_retained_balance);
+
+            // Get the validator's canonical stake account
+            let validator_seed_suffix: Option<std::num::NonZeroU32> = {
+                let suffix_value: u32 = validator_stake_info.validator_seed_suffix.into();
+                std::num::NonZeroU32::new(suffix_value)
+            };
+            let (stake_account, _) = find_stake_program_address(
+                &spl_stake_pool::id(),
+                &vote_account,
+                &all_steward_accounts.stake_pool_address,
+                validator_seed_suffix,
+            );
+
+            // Push validator to list
+            preferred_withdraw_list.push(PreferredWithdraw {
+                rank: i as u16,
+                vote_account: vote_account.to_string(),
+                withdrawable_lamports: withdrawable_amount,
+                stake_account: stake_account.to_string(),
+            });
+        }
+
+        Ok(preferred_withdraw_list)
     }
 }
 

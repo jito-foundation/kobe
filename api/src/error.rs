@@ -80,6 +80,7 @@ impl From<QueryResolverError> for ApiError {
             },
             QueryResolverError::ValidatorHistoryError(msg) => ApiError::Internal(msg),
             QueryResolverError::CustomError(msg) => ApiError::Internal(msg),
+            QueryResolverError::JitoTransactionError(err) => ApiError::Internal(err.to_string()),
         }
     }
 }

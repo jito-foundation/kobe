@@ -1,6 +1,7 @@
 pub mod bam_epoch_metric;
 pub mod jitosol_ratio;
 pub mod mev_rewards;
+pub mod preferred_withdraw;
 pub mod stake_pool_stats;
 pub mod steward_events;
 pub mod validator;

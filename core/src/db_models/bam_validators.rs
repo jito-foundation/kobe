@@ -12,7 +12,7 @@ use crate::db_models::error::DataStoreError;
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 pub struct BamValidator {
-    /// Active stake lamports
+    /// Active stake in lamports
     active_stake: u64,
 
     /// Epoch number
@@ -113,6 +113,11 @@ impl BamValidatorStore {
 
     /// Insert many [`BamValidator`]
     pub async fn insert_many(&self, items: &[BamValidator]) -> Result<(), DataStoreError> {
+        if items.is_empty() {
+            log::info!("No items to insert");
+            return Ok(());
+        }
+
         let start = Instant::now();
         self.collection.insert_many(items, None).await?;
 

@@ -10,9 +10,13 @@ use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_pubkey::Pubkey;
 use stakenet_sdk::utils::accounts::{get_all_validator_history_accounts, get_stake_pool_account};
 
-use crate::bam_delegation_criteria::BamDelegationCriteria;
+use crate::{
+    bam_delegation_criteria::BamDelegationCriteria,
+    bam_validator_eligibility::BamValidatorEligibility,
+};
 
 mod bam_delegation_criteria;
+mod bam_validator_eligibility;
 
 pub struct BamWriterService {
     /// Stake pool address
@@ -80,19 +84,19 @@ impl BamWriterService {
         let bam_node_validators = self.bam_api_client.get_validators().await?;
 
         let vote_accounts = self.rpc_client.get_vote_accounts().await?;
+        let vote_account_by_node: HashMap<_, _> = vote_accounts
+            .current
+            .iter()
+            .map(|v| (v.node_pubkey.clone(), v))
+            .collect();
 
         let mut bam_validator_map = HashMap::new();
         for bam_node_validator in bam_node_validators {
-            for vote_account in vote_accounts.current.iter() {
-                if vote_account
-                    .node_pubkey
-                    .eq(&bam_node_validator.validator_pubkey)
-                {
-                    bam_validator_map.insert(
-                        Pubkey::from_str(&vote_account.vote_pubkey).unwrap(),
-                        vote_account,
-                    );
-                }
+            if let Some(vote_account) =
+                vote_account_by_node.get(&bam_node_validator.validator_pubkey)
+            {
+                bam_validator_map
+                    .insert(Pubkey::from_str(&vote_account.vote_pubkey)?, vote_account);
             }
         }
 
@@ -100,37 +104,29 @@ impl BamWriterService {
             get_all_validator_history_accounts(&self.rpc_client.clone(), jito_steward::id())
                 .await?;
 
-        let start_epoch = epoch - 3;
-        let end_epoch = epoch;
+        let eligibility_checker = BamValidatorEligibility::new(epoch, &validator_histories);
         let mut bam_validators: Vec<BamValidator> = Vec::new();
-        'validator_history: for validator_history in validator_histories {
+
+        for validator_history in validator_histories.iter() {
             if let Some(vote_account) = bam_validator_map.get(&validator_history.vote_account) {
-                for entry in validator_history
-                    .history
-                    .epoch_range(start_epoch as u16, end_epoch as u16)
-                    .into_iter()
-                    .flatten()
-                {
-                    if entry.commission.ne(&0) {
-                        continue 'validator_history;
+                match eligibility_checker.check_eligibility(validator_history) {
+                    Ok(()) => {
+                        let bam_validator = BamValidator::new(
+                            vote_account.activated_stake,
+                            epoch,
+                            &vote_account.node_pubkey,
+                            &vote_account.vote_pubkey,
+                        );
+                        bam_validators.push(bam_validator);
                     }
-
-                    if entry.mev_commission.gt(&10) {
-                        continue 'validator_history;
-                    }
-
-                    if entry.is_superminority.eq(&0) {
-                        continue 'validator_history;
+                    Err(reason) => {
+                        log::debug!(
+                            "Validator {} ineligible: {:?}",
+                            vote_account.vote_pubkey,
+                            reason
+                        );
                     }
                 }
-
-                let bam_validator = BamValidator::new(
-                    vote_account.activated_stake,
-                    epoch,
-                    &vote_account.node_pubkey,
-                    &vote_account.vote_pubkey,
-                );
-                bam_validators.push(bam_validator);
             }
         }
 
@@ -147,18 +143,25 @@ impl BamWriterService {
         let eligible_bam_validator_count = bam_validators.len() as u64;
         let bam_stake = bam_validators.iter().map(|v| v.get_active_stake()).sum();
 
-        let available_bam_delegation_stake = self
+        let mut current_epoch_metric =
+            BamEpochMetric::new(epoch, bam_stake, total_stake, eligible_bam_validator_count);
+
+        let previous_epoch_metric = self.bam_epoch_metric_store.find_by_epoch(epoch - 1).await?;
+
+        let allocation_percentage = self
             .bam_delegation_criteria
-            .calculate_available_delegation(bam_stake, total_stake, jitosol_stake.total_lamports);
+            .calculate_current_allocation(&current_epoch_metric, previous_epoch_metric.as_ref());
 
-        let bam_epoch_metric = BamEpochMetric::new(
-            epoch,
-            bam_stake,
-            available_bam_delegation_stake,
-            eligible_bam_validator_count,
-        );
+        let available_delegation = self
+            .bam_delegation_criteria
+            .calculate_available_delegation(allocation_percentage, jitosol_stake.total_lamports);
 
-        self.bam_epoch_metric_store.upsert(bam_epoch_metric).await?;
+        current_epoch_metric.set_allocation_bps(allocation_percentage);
+        current_epoch_metric.set_available_bam_delegation_stake(available_delegation);
+
+        self.bam_epoch_metric_store
+            .upsert(current_epoch_metric)
+            .await?;
 
         Ok(())
     }

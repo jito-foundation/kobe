@@ -988,7 +988,7 @@ impl QueryResolver {
     ///
     /// # Example
     ///
-    /// This endpoint can be used to fetch the bam metric for a specific epoch:
+    /// This endpoint can be used to fetch the bam validators for a specific epoch:
     ///
     /// ```ignore
     /// GET /bam_validators?epoch=800

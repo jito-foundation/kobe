@@ -1,5 +1,6 @@
 //! DB model for a BAM epoch metric.
 
+use chrono::{serde::ts_seconds, DateTime, Utc};
 use mongodb::{
     bson::{self, doc},
     Collection,
@@ -8,32 +9,77 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BamEpochMetric {
-    /// Epoch number
-    pub epoch: u64,
+    /// Allocation tier in BPS
+    allocation_bps: u64,
 
-    /// BAM total stake weight
-    pub bam_total_stake_weight: u64,
+    /// Available BAM delegation stake amount in lamports
+    available_bam_delegation_stake: u64,
 
-    /// Available BAM delegation stake
-    pub available_bam_delegation_stake: u64,
+    /// Total stake amount of BAM validators in lamports
+    bam_stake: u64,
 
     /// Eligible BAM validator count
-    pub eligible_bam_validator_count: u64,
+    eligible_bam_validator_count: u64,
+
+    /// Epoch number
+    epoch: u64,
+
+    /// Timestamp
+    #[serde(with = "ts_seconds")]
+    timestamp: DateTime<Utc>,
+
+    /// Total stake amount of all validaotors in lamports
+    total_stake: u64,
 }
 
 impl BamEpochMetric {
     pub fn new(
         epoch: u64,
-        bam_total_stake_weight: u64,
-        available_bam_delegation_stake: u64,
+        bam_stake: u64,
+        total_stake: u64,
         eligible_bam_validator_count: u64,
     ) -> Self {
+        let timestamp = Utc::now();
+
         Self {
-            epoch,
-            bam_total_stake_weight,
-            available_bam_delegation_stake,
+            allocation_bps: 0,
+            available_bam_delegation_stake: 0,
+            bam_stake,
             eligible_bam_validator_count,
+            epoch,
+            timestamp,
+            total_stake,
         }
+    }
+
+    /// Set allocation percentage in BPS
+    pub fn set_allocation_bps(&mut self, allocation_bps: u64) {
+        self.allocation_bps = allocation_bps;
+    }
+
+    /// Get available bam delegation stake in lamports
+    pub fn get_available_bam_delegation_stake(&self) -> u64 {
+        self.available_bam_delegation_stake
+    }
+
+    /// Set available bam delegation stake in lamports
+    pub fn set_available_bam_delegation_stake(&mut self, available_bam_delegation_stake: u64) {
+        self.available_bam_delegation_stake = available_bam_delegation_stake;
+    }
+
+    /// Get bam stake amount in lamports
+    pub fn get_bam_stake(&self) -> u64 {
+        self.bam_stake
+    }
+
+    /// Get total stake amount in lamports
+    pub fn get_total_stake(&self) -> u64 {
+        self.total_stake
+    }
+
+    /// Get epoch number
+    pub fn get_epoch(&self) -> u64 {
+        self.epoch
     }
 }
 

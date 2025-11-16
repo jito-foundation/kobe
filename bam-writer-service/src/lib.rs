@@ -102,11 +102,11 @@ impl BamWriterService {
         }
 
         let validator_histories =
-            get_all_validator_history_accounts(&self.rpc_client.clone(), jito_steward::id())
+            get_all_validator_history_accounts(&self.rpc_client.clone(), validator_history::id())
                 .await?;
 
         let eligibility_checker = BamValidatorEligibility::new(epoch, &validator_histories);
-        let mut bam_validators: Vec<BamValidator> = Vec::new();
+        let mut bam_eligible_validators: Vec<BamValidator> = Vec::new();
 
         for validator_history in validator_histories.iter() {
             if let Some(vote_account) = bam_validator_map.get(&validator_history.vote_account) {
@@ -118,7 +118,7 @@ impl BamWriterService {
                             &vote_account.node_pubkey,
                             &vote_account.vote_pubkey,
                         );
-                        bam_validators.push(bam_validator);
+                        bam_eligible_validators.push(bam_validator);
                     }
                     Err(reason) => {
                         log::debug!(
@@ -132,7 +132,7 @@ impl BamWriterService {
         }
 
         self.bam_validators_store
-            .insert_many(&bam_validators)
+            .insert_many(&bam_eligible_validators)
             .await?;
 
         let total_stake = vote_accounts
@@ -141,8 +141,11 @@ impl BamWriterService {
             .map(|v| v.activated_stake)
             .sum();
 
-        let eligible_bam_validator_count = bam_validators.len() as u64;
-        let bam_stake = bam_validators.iter().map(|v| v.get_active_stake()).sum();
+        let eligible_bam_validator_count = bam_eligible_validators.len() as u64;
+        let bam_stake = bam_eligible_validators
+            .iter()
+            .map(|v| v.get_active_stake())
+            .sum();
 
         let mut current_epoch_metric = BamEpochMetric::new(
             epoch,

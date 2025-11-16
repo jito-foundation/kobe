@@ -16,7 +16,8 @@ use env_logger::{Builder, Target};
 use kobe_api::{
     error::{handle_error, ApiError},
     resolvers::query_resolver::{
-        daily_mev_rewards_cacheable_wrapper, get_validator_histories_wrapper,
+        daily_mev_rewards_cacheable_wrapper, get_bam_epoch_metric_wrapper,
+        get_bam_validators_wrapper, get_validator_histories_wrapper,
         jito_stake_over_time_ratio_cacheable_wrapper, jitosol_ratio_cacheable_wrapper,
         jitosol_validators_cacheable_wrapper, mev_commission_average_over_time_cacheable_wrapper,
         mev_rewards_cacheable_wrapper, preferred_withdraw_validator_list_cacheable_wrapper,
@@ -25,6 +26,8 @@ use kobe_api::{
         validator_rewards_cacheable_wrapper, validators_cacheable_wrapper, QueryResolver,
     },
     schemas::{
+        bam_epoch_metric::BamEpochMetricRequest,
+        bam_validator::BamValidatorsRequest,
         jitosol_ratio::JitoSolRatioRequest,
         mev_rewards::{MevRewardsRequest, StakerRewardsRequest, ValidatorRewardsRequest},
         preferred_withdraw::PreferredWithdrawRequest,
@@ -196,6 +199,20 @@ async fn get_validator_histories(
     get_validator_histories_wrapper(resolver, vote_account, epoch_query).await
 }
 
+async fn get_bam_epoch_metric_handler(
+    resolver: Extension<QueryResolver>,
+    Query(epoch_query): Query<BamEpochMetricRequest>,
+) -> impl IntoResponse {
+    get_bam_epoch_metric_wrapper(resolver, epoch_query.epoch).await
+}
+
+async fn get_bam_validators_handler(
+    resolver: Extension<QueryResolver>,
+    Query(epoch_query): Query<BamValidatorsRequest>,
+) -> impl IntoResponse {
+    get_bam_validators_wrapper(resolver, epoch_query.epoch).await
+}
+
 async fn preferred_withdraw_validator_list_handler(
     resolver: Extension<QueryResolver>,
     request: Query<PreferredWithdrawRequest>,
@@ -348,6 +365,11 @@ async fn run_server(args: &Args) {
             "/api/v1/validator_history/:vote_account",
             get(get_validator_histories),
         )
+        .route(
+            "/api/v1/bam_epoch_metric",
+            get(get_bam_epoch_metric_handler),
+        )
+        .route("/api/v1/bam_validators", get(get_bam_validators_handler))
         .route(
             "/api/v1/preferred_withdraw_validator_list",
             get(preferred_withdraw_validator_list_handler),

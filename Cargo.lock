@@ -996,18 +996,18 @@ dependencies = [
 
 [[package]]
 name = "bytemuck"
-version = "1.23.1"
+version = "1.24.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5c76a5792e44e4abe34d3abf15636779261d45a7450612059293d1d2cfc63422"
+checksum = "1fbdf580320f38b612e485521afda1ee26d10cc9884efaaa750d383e13e3c5f4"
 dependencies = [
  "bytemuck_derive",
 ]
 
 [[package]]
 name = "bytemuck_derive"
-version = "1.9.3"
+version = "1.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7ecc273b49b3205b83d648f0690daa588925572cc5063745bfe547fe7ec8e1a1"
+checksum = "f9abbd1bc6865053c427f7198e6af43bfdedc55ab791faed4fbd361d789575ff"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2831,7 +2831,7 @@ dependencies = [
 [[package]]
 name = "jito-steward"
 version = "0.1.0"
-source = "git+https://github.com/jito-foundation/stakenet?rev=d724a42b49c0cd32791afbd2a362dd63364a7a9a#d724a42b49c0cd32791afbd2a362dd63364a7a9a"
+source = "git+https://github.com/jito-foundation/stakenet?rev=6d35e58013cf7442dce287a1f45013085cb24967#6d35e58013cf7442dce287a1f45013085cb24967"
 dependencies = [
  "anchor-lang",
  "bincode",
@@ -2968,6 +2968,29 @@ dependencies = [
  "tower 0.4.13",
  "tower-http 0.4.4",
  "tracing-core",
+ "validator-history",
+]
+
+[[package]]
+name = "kobe-bam-writer-service"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bam-api-client",
+ "clap 4.5.40",
+ "env_logger 0.10.2",
+ "jito-steward",
+ "kobe-core",
+ "log",
+ "mongodb",
+ "reqwest 0.11.27",
+ "serde_json",
+ "solana-client",
+ "solana-commitment-config",
+ "solana-metrics",
+ "solana-pubkey",
+ "stakenet-sdk",
+ "tokio",
  "validator-history",
 ]
 
@@ -7831,7 +7854,7 @@ checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
 [[package]]
 name = "stakenet-sdk"
 version = "0.1.0"
-source = "git+https://github.com/jito-foundation/stakenet?rev=d724a42b49c0cd32791afbd2a362dd63364a7a9a#d724a42b49c0cd32791afbd2a362dd63364a7a9a"
+source = "git+https://github.com/jito-foundation/stakenet?rev=6d35e58013cf7442dce287a1f45013085cb24967#6d35e58013cf7442dce287a1f45013085cb24967"
 dependencies = [
  "anchor-lang",
  "base64 0.21.7",
@@ -7848,6 +7871,7 @@ dependencies = [
  "solana-program",
  "solana-sdk",
  "solana-transaction-status",
+ "spl-associated-token-account",
  "spl-pod",
  "spl-stake-pool",
  "thiserror 1.0.69",
@@ -8641,7 +8665,7 @@ dependencies = [
 [[package]]
 name = "validator-history"
 version = "0.1.0"
-source = "git+https://github.com/jito-foundation/stakenet?rev=d724a42b49c0cd32791afbd2a362dd63364a7a9a#d724a42b49c0cd32791afbd2a362dd63364a7a9a"
+source = "git+https://github.com/jito-foundation/stakenet?rev=6d35e58013cf7442dce287a1f45013085cb24967#6d35e58013cf7442dce287a1f45013085cb24967"
 dependencies = [
  "anchor-lang",
  "bincode",
@@ -8663,7 +8687,7 @@ dependencies = [
 [[package]]
 name = "validator-history-vote-state"
 version = "0.1.2"
-source = "git+https://github.com/jito-foundation/stakenet?rev=d724a42b49c0cd32791afbd2a362dd63364a7a9a#d724a42b49c0cd32791afbd2a362dd63364a7a9a"
+source = "git+https://github.com/jito-foundation/stakenet?rev=6d35e58013cf7442dce287a1f45013085cb24967#6d35e58013cf7442dce287a1f45013085cb24967"
 dependencies = [
  "anchor-lang",
  "bincode",

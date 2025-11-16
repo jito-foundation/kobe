@@ -11,6 +11,8 @@ use jito_steward::constants::MAX_VALIDATORS;
 use kobe_core::{
     constants::{JITOSOL_VALIDATOR_LIST_MAINNET, JITOSOL_VALIDATOR_LIST_TESTNET},
     db_models::{
+        bam_epoch_metric::BamEpochMetricStore,
+        bam_validators::BamValidatorStore,
         mev_rewards::{StakerRewardsStore, ValidatorRewardsStore},
         stake_pool_stats::{StakePoolStats, StakePoolStatsStore},
         steward_events::StewardEventsStore,
@@ -32,6 +34,8 @@ use validator_history::ValidatorHistory;
 use crate::{
     resolvers::error::{QueryResolverError, Result},
     schemas::{
+        bam_epoch_metric::BamEpochMetricResponse,
+        bam_validator::BamValidatorsResponse,
         jitosol_ratio::{JitoSolRatioRequest, JitoSolRatioResponse},
         mev_rewards::{
             MevRewards, MevRewardsRequest, StakerRewards, StakerRewardsRequest,
@@ -59,6 +63,13 @@ pub struct QueryResolver {
     validator_rewards_store: ValidatorRewardsStore,
     staker_rewards_store: StakerRewardsStore,
     steward_events_store: StewardEventsStore,
+
+    /// BAM epoch metric store
+    bam_epoch_metric_store: BamEpochMetricStore,
+
+    /// BAM validators store
+    bam_validators_store: BamValidatorStore,
+
     /// RPC Client URL
     rpc_client: Arc<RpcClient>,
     /// Solana Cluster
@@ -377,6 +388,46 @@ pub async fn get_validator_histories_wrapper(
 }
 
 #[cached(
+    type = "TimedCache<String, (StatusCode, Json<BamEpochMetricResponse>)>",
+    create = "{ TimedCache::with_lifespan_and_capacity(60, 1000) }",
+    key = "String",
+    convert = r#"{ format!("bam-epoch-metric-{}", epoch.to_string()) }"#
+)]
+pub async fn get_bam_epoch_metric_wrapper(
+    resolver: Extension<QueryResolver>,
+    epoch: u64,
+) -> (StatusCode, Json<BamEpochMetricResponse>) {
+    if let Ok(res) = resolver.get_bam_epoch_metric(epoch).await {
+        (StatusCode::OK, Json(res))
+    } else {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(BamEpochMetricResponse::default()),
+        )
+    }
+}
+
+#[cached(
+    type = "TimedCache<String, (StatusCode, Json<BamValidatorsResponse>)>",
+    create = "{ TimedCache::with_lifespan_and_capacity(60, 1000) }",
+    key = "String",
+    convert = r#"{ format!("bam-validators-{}", epoch.to_string()) }"#
+)]
+pub async fn get_bam_validators_wrapper(
+    resolver: Extension<QueryResolver>,
+    epoch: u64,
+) -> (StatusCode, Json<BamValidatorsResponse>) {
+    if let Ok(res) = resolver.get_bam_validators(epoch).await {
+        (StatusCode::OK, Json(res))
+    } else {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(BamValidatorsResponse::default()),
+        )
+    }
+}
+
+#[cached(
     type = "TimedCache<String, Vec<PreferredWithdraw>>",
     create = "{ TimedCache::with_lifespan_and_capacity(10, 100) }",
     key = "String",
@@ -443,6 +494,12 @@ impl QueryResolver {
             ),
             steward_events_store: StewardEventsStore::new(
                 database.collection(StewardEventsStore::COLLECTION),
+            ),
+            bam_epoch_metric_store: BamEpochMetricStore::new(
+                database.collection(BamEpochMetricStore::COLLECTION),
+            ),
+            bam_validators_store: BamValidatorStore::new(
+                database.collection(BamValidatorStore::COLLECTION),
             ),
             rpc_client: Arc::new(client),
             cluster,
@@ -529,6 +586,7 @@ impl QueryResolver {
                     let mev_rewards = mev_rewards.get(&v.vote_account).unwrap_or(&0);
 
                     ValidatorEntry {
+                        identity_account: v.identity_account,
                         active_stake: v.active_stake.unwrap_or(0),
                         vote_account: v.vote_account,
                         mev_commission_bps: if v.running_jito {
@@ -609,6 +667,7 @@ impl QueryResolver {
                     let mev_rewards = mev_rewards.get(&v.vote_account).unwrap_or(&0);
 
                     ValidatorEntry {
+                        identity_account: v.identity_account,
                         active_stake: v.active_stake.unwrap_or(0),
                         vote_account: v.vote_account,
                         mev_commission_bps: if v.running_jito {
@@ -907,6 +966,38 @@ impl QueryResolver {
             ValidatorHistoryResponse::from_validator_history(validator_history, history_entries);
 
         Ok(history)
+    }
+
+    /// Retrieves the bam epoch metric, based on the provided epoch filter.
+    ///
+    /// # Example
+    ///
+    /// This endpoint can be used to fetch the bam metric for a specific epoch:
+    ///
+    /// ```ignore
+    /// GET /bam_epoch_metric?epoch=800
+    /// ```
+    /// This request retrieves the BAM epoch metric for epoch 800.
+    pub async fn get_bam_epoch_metric(&self, epoch: u64) -> Result<BamEpochMetricResponse> {
+        let bam_epoch_metric = self.bam_epoch_metric_store.find_by_epoch(epoch).await?;
+
+        Ok(BamEpochMetricResponse { bam_epoch_metric })
+    }
+
+    /// Retrieves the bam validators, based on the provided epoch filter.
+    ///
+    /// # Example
+    ///
+    /// This endpoint can be used to fetch the bam validators for a specific epoch:
+    ///
+    /// ```ignore
+    /// GET /bam_validators?epoch=800
+    /// ```
+    /// This request retrieves the BAM validators for epoch 800.
+    pub async fn get_bam_validators(&self, epoch: u64) -> Result<BamValidatorsResponse> {
+        let bam_validators = self.bam_validators_store.find(epoch).await?;
+
+        Ok(BamValidatorsResponse { bam_validators })
     }
 
     pub async fn get_preferred_withdraw_validator_list(

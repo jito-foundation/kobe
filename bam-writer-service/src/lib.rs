@@ -12,7 +12,7 @@ use stakenet_sdk::utils::accounts::{get_all_validator_history_accounts, get_stak
 
 use crate::{
     bam_delegation_criteria::BamDelegationCriteria,
-    bam_validator_eligibility::BamValidatorEligibility,
+    bam_validator_eligibility::{BamValidatorEligibility, IneligibilityReason},
 };
 
 mod bam_delegation_criteria;
@@ -106,33 +106,62 @@ impl BamWriterService {
                 .await?;
 
         let eligibility_checker = BamValidatorEligibility::new(epoch, &validator_histories);
-        let mut bam_eligible_validators: Vec<BamValidator> = Vec::new();
+        let mut bam_validators: Vec<BamValidator> = Vec::new();
 
         for validator_history in validator_histories.iter() {
             if let Some(vote_account) = bam_validator_map.get(&validator_history.vote_account) {
+                let vote_pubkey = &vote_account.vote_pubkey;
+                let mut bam_validator = BamValidator::new(
+                    vote_account.activated_stake,
+                    epoch,
+                    &vote_account.node_pubkey,
+                    false,
+                    vote_pubkey,
+                );
+
                 match eligibility_checker.check_eligibility(validator_history) {
                     Ok(()) => {
-                        let bam_validator = BamValidator::new(
-                            vote_account.activated_stake,
-                            epoch,
-                            &vote_account.node_pubkey,
-                            &vote_account.vote_pubkey,
-                        );
-                        bam_eligible_validators.push(bam_validator);
+                        bam_validator.set_is_eligible(true);
                     }
                     Err(reason) => {
-                        log::debug!(
-                            "Validator {} ineligible: {:?}",
-                            vote_account.vote_pubkey,
-                            reason
-                        );
+                        let reason_string = match reason {
+                            IneligibilityReason::NotBamClient => "NotBamClient".to_string(),
+                            IneligibilityReason::NonZeroCommission { epoch, commission } => {
+                                format!("NonZeroCommission: {} in epoch {}", commission, epoch)
+                            }
+                            IneligibilityReason::HighMevCommission {
+                                epoch,
+                                mev_commission,
+                            } => {
+                                format!("HighMevCommission: {} in epoch {}", mev_commission, epoch)
+                            }
+                            IneligibilityReason::InSuperminority { epoch } => {
+                                format!("InSuperminority in epoch {}", epoch)
+                            }
+                            IneligibilityReason::LowVoteCredits {
+                                epoch,
+                                credits,
+                                min_required,
+                            } => {
+                                format!(
+                                    "LowVoteCredits: {} credits (required: {}) in epoch {}",
+                                    credits, min_required, epoch
+                                )
+                            }
+                            IneligibilityReason::InsufficientHistory => {
+                                "InsufficientHistory: Less than 3 epochs".to_string()
+                            }
+                        };
+                        bam_validator.set_ineligibility_reason(Some(reason_string));
                     }
                 }
+
+                bam_validators.push(bam_validator);
             }
         }
 
         self.bam_validators_store
-            .insert_many(&bam_eligible_validators)
+            .insert_many(&bam_validators)
             .await?;
 
         let total_stake = vote_accounts
@@ -141,8 +170,11 @@ impl BamWriterService {
             .map(|v| v.activated_stake)
             .sum();
 
-        let eligible_bam_validator_count = bam_eligible_validators.len() as u64;
-        let bam_stake = bam_eligible_validators
+        let eligible_bam_validators = bam_validators
+            .into_iter()
+            .filter(|bv| bv.is_eligible())
+            .collect::<Vec<BamValidator>>();
+        let bam_stake = eligible_bam_validators
             .iter()
             .map(|v| v.get_active_stake())
             .sum();
@@ -152,7 +184,7 @@ impl BamWriterService {
             bam_stake,
             total_stake,
             jitosol_stake,
-            eligible_bam_validator_count,
+            eligible_bam_validators.len() as u64,
         );
 
         let previous_epoch_metric = if let Some(prev_epoch) = epoch.checked_sub(1) {

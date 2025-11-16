@@ -21,6 +21,12 @@ pub struct BamValidator {
     /// Identity account public key
     identity_account: String,
 
+    /// Is eligible validator
+    is_eligible: bool,
+
+    // The reason of ineligibility
+    ineligibility_reason: Option<String>,
+
     /// Timestamp
     #[serde(with = "ts_seconds")]
     timestamp: DateTime<Utc>,
@@ -37,6 +43,8 @@ impl Default for BamValidator {
             active_stake: 0,
             epoch: 0,
             identity_account: String::new(),
+            is_eligible: false,
+            ineligibility_reason: None,
             timestamp,
             vote_account: String::new(),
         }
@@ -45,13 +53,21 @@ impl Default for BamValidator {
 
 impl BamValidator {
     /// Initialize a [`BamValidator`]
-    pub fn new(active_stake: u64, epoch: u64, identity_account: &str, vote_account: &str) -> Self {
+    pub fn new(
+        active_stake: u64,
+        epoch: u64,
+        identity_account: &str,
+        is_eligible: bool,
+        vote_account: &str,
+    ) -> Self {
         let timestamp = Utc::now();
 
         Self {
             active_stake,
             epoch,
             identity_account: identity_account.to_string(),
+            is_eligible,
+            ineligibility_reason: None,
             timestamp,
             vote_account: vote_account.to_string(),
         }
@@ -75,6 +91,21 @@ impl BamValidator {
     /// Set epoch number
     pub fn set_epoch(&mut self, epoch: u64) {
         self.epoch = epoch;
+    }
+
+    /// Eligible validator
+    pub fn is_eligible(&self) -> bool {
+        self.is_eligible
+    }
+
+    /// Set is eligible validator
+    pub fn set_is_eligible(&mut self, is_eligible: bool) {
+        self.is_eligible = is_eligible;
+    }
+
+    /// Get ineligiblity reason
+    pub fn set_ineligibility_reason(&mut self, ineligibility_reason: Option<String>) {
+        self.ineligibility_reason = ineligibility_reason;
     }
 
     /// Get identity account pubkey (node public key)

@@ -15,7 +15,7 @@ pub struct BamEpochMetric {
     /// Available BAM delegation stake amount in lamports
     available_bam_delegation_stake: u64,
 
-    /// Total stake amount of BAM validators in lamports
+    /// Total stake amount of BAM eligible validators in lamports
     bam_stake: u64,
 
     /// Eligible BAM validator count

@@ -1,5 +1,8 @@
 //! Validator eligibility validation for BAM delegation (JIP-28)
 
+use std::collections::HashMap;
+
+use kobe_core::client_type::ClientType;
 use validator_history::ValidatorHistory;
 
 /// Validates validator eligibility for BAM delegation according to JIP-28 criteria
@@ -11,11 +14,12 @@ pub struct BamValidatorEligibility {
     end_epoch: u16,
 
     /// Chain maximum vote credits per epoch
-    chain_max_credits: std::collections::HashMap<u16, u32>,
+    chain_max_credits: HashMap<u16, u32>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum IneligibilityReason {
+    NotBamClient,
     NonZeroCommission {
         epoch: u16,
         commission: u8,
@@ -57,18 +61,17 @@ impl BamValidatorEligibility {
         all_histories: &[ValidatorHistory],
         start_epoch: u16,
         end_epoch: u16,
-    ) -> std::collections::HashMap<u16, u32> {
-        let mut max_credits = std::collections::HashMap::new();
+    ) -> HashMap<u16, u32> {
+        let mut max_credits = HashMap::new();
 
         for epoch in start_epoch..=end_epoch {
             let max = all_histories
                 .iter()
                 .filter_map(|vh| {
                     vh.history
-                        .epoch_range(epoch, epoch)
+                        .epoch_credits_range(epoch, epoch)
                         .into_iter()
                         .flatten()
-                        .map(|entry| entry.epoch_credits)
                         .next()
                 })
                 .max()
@@ -87,50 +90,74 @@ impl BamValidatorEligibility {
         &self,
         validator_history: &ValidatorHistory,
     ) -> Result<(), IneligibilityReason> {
-        let entries: Vec<_> = validator_history
+        let client_types = validator_history
             .history
-            .epoch_range(self.start_epoch, self.end_epoch)
-            .into_iter()
-            .flatten()
-            .collect();
+            .client_type_range(self.start_epoch, self.end_epoch);
+        let commissions = validator_history
+            .history
+            .commission_range(self.start_epoch, self.end_epoch);
+        let mev_commissions = validator_history
+            .history
+            .mev_commission_range(self.start_epoch, self.end_epoch);
+        let superminority = validator_history
+            .history
+            .superminority_range(self.start_epoch, self.end_epoch);
+        let epoch_credits = validator_history
+            .history
+            .epoch_credits_range(self.start_epoch, self.end_epoch);
+
+        // Count how many epochs have data
+        let epochs_with_data = commissions.iter().filter(|c| c.is_some()).count();
 
         // Must have history for all 3 epochs (continuous operation requirement)
-        if entries.len() < 3 {
+        if epochs_with_data < 3 {
             return Err(IneligibilityReason::InsufficientHistory);
         }
 
-        for entry in entries {
+        for (i, epoch) in (self.start_epoch..=self.end_epoch).enumerate() {
+            // BAM clients
+            if let Some(client_type) = client_types[i] {
+                if !matches!(ClientType::from_u8(client_type), ClientType::Bam) {
+                    return Err(IneligibilityReason::NotBamClient);
+                }
+            }
+
             // 0% inflation commission
-            if entry.commission != 0 {
-                return Err(IneligibilityReason::NonZeroCommission {
-                    epoch: entry.epoch,
-                    commission: entry.commission,
-                });
+            if let Some(commission) = commissions[i] {
+                if commission != 0 {
+                    return Err(IneligibilityReason::NonZeroCommission { epoch, commission });
+                }
             }
 
             // ≤10% MEV commission
-            if entry.mev_commission > 10 {
-                return Err(IneligibilityReason::HighMevCommission {
-                    epoch: entry.epoch,
-                    mev_commission: entry.mev_commission,
-                });
+            if let Some(mev_commission) = mev_commissions[i] {
+                if mev_commission > 10 {
+                    return Err(IneligibilityReason::HighMevCommission {
+                        epoch,
+                        mev_commission,
+                    });
+                }
             }
 
             // Non-superminority
-            if entry.is_superminority != 0 {
-                return Err(IneligibilityReason::InSuperminority { epoch: entry.epoch });
+            if let Some(is_superminority) = superminority[i] {
+                if is_superminority != 0 {
+                    return Err(IneligibilityReason::InSuperminority { epoch });
+                }
             }
 
-            // JIP-28 Requirement: Within 3% of chain maximum vote credits
-            if let Some(&max_credits) = self.chain_max_credits.get(&entry.epoch) {
-                let min_required = (max_credits as f64 * 0.97) as u32;
+            // Within 3% of chain maximum vote credits
+            if let Some(credits) = epoch_credits[i] {
+                if let Some(&max_credits) = self.chain_max_credits.get(&epoch) {
+                    let min_required = (max_credits as f64 * 0.97) as u32;
 
-                if entry.epoch_credits < min_required {
-                    return Err(IneligibilityReason::LowVoteCredits {
-                        epoch: entry.epoch,
-                        credits: entry.epoch_credits,
-                        min_required,
-                    });
+                    if credits < min_required {
+                        return Err(IneligibilityReason::LowVoteCredits {
+                            epoch,
+                            credits,
+                            min_required,
+                        });
+                    }
                 }
             }
         }
@@ -148,6 +175,7 @@ mod tests {
     // Helper to create a mock validator history entry
     fn create_entry(
         epoch: u16,
+        client_type: u8,
         commission: u8,
         mev_commission: u16,
         is_superminority: u8,
@@ -159,6 +187,7 @@ mod tests {
             mev_commission,
             is_superminority,
             epoch_credits,
+            client_type,
             ..Default::default()
         }
     }
@@ -188,10 +217,10 @@ mod tests {
     #[test]
     fn test_eligible_validator_passes() {
         let vh1 = create_validator_history(vec![
-            create_entry(97, 0, 10, 0, 10000),
-            create_entry(98, 0, 10, 0, 10000),
-            create_entry(99, 0, 10, 0, 10000),
-            create_entry(100, 0, 10, 0, 10000),
+            create_entry(97, 6, 0, 10, 0, 10000),
+            create_entry(98, 6, 0, 10, 0, 10000),
+            create_entry(99, 6, 0, 10, 0, 10000),
+            create_entry(100, 6, 0, 10, 0, 10000),
         ]);
 
         let checker = BamValidatorEligibility::new(100, &[vh1.clone()]);
@@ -200,12 +229,29 @@ mod tests {
     }
 
     #[test]
+    fn test_not_bam_client_fails() {
+        let vh = create_validator_history(vec![
+            create_entry(97, 2, 0, 10, 0, 10000), // Firedancer
+            create_entry(98, 6, 5, 10, 0, 10000),
+            create_entry(99, 6, 0, 10, 0, 10000),
+            create_entry(100, 6, 0, 10, 0, 10000),
+        ]);
+
+        let checker = BamValidatorEligibility::new(100, &[vh.clone()]);
+
+        assert_eq!(
+            checker.check_eligibility(&vh),
+            Err(IneligibilityReason::NotBamClient)
+        );
+    }
+
+    #[test]
     fn test_non_zero_commission_fails() {
         let vh = create_validator_history(vec![
-            create_entry(97, 0, 10, 0, 10000),
-            create_entry(98, 5, 10, 0, 10000), // ❌ 5% commission
-            create_entry(99, 0, 10, 0, 10000),
-            create_entry(100, 0, 10, 0, 10000),
+            create_entry(97, 6, 0, 10, 0, 10000),
+            create_entry(98, 6, 5, 10, 0, 10000), // 5% commission
+            create_entry(99, 6, 0, 10, 0, 10000),
+            create_entry(100, 6, 0, 10, 0, 10000),
         ]);
 
         let checker = BamValidatorEligibility::new(100, &[vh.clone()]);
@@ -222,10 +268,10 @@ mod tests {
     #[test]
     fn test_high_mev_commission_fails() {
         let vh = create_validator_history(vec![
-            create_entry(97, 0, 10, 0, 10000),
-            create_entry(98, 0, 15, 0, 10000), // ❌ 15% MEV commission
-            create_entry(99, 0, 10, 0, 10000),
-            create_entry(100, 0, 10, 0, 10000),
+            create_entry(97, 6, 0, 10, 0, 10000),
+            create_entry(98, 6, 0, 15, 0, 10000), // 15% MEV commission
+            create_entry(99, 6, 0, 10, 0, 10000),
+            create_entry(100, 6, 0, 10, 0, 10000),
         ]);
 
         let checker = BamValidatorEligibility::new(100, &[vh.clone()]);
@@ -242,10 +288,10 @@ mod tests {
     #[test]
     fn test_superminority_fails() {
         let vh = create_validator_history(vec![
-            create_entry(97, 0, 10, 0, 10000),
-            create_entry(98, 0, 10, 1, 10000), // ❌ In superminority
-            create_entry(99, 0, 10, 0, 10000),
-            create_entry(100, 0, 10, 0, 10000),
+            create_entry(97, 6, 0, 10, 0, 10000),
+            create_entry(98, 6, 0, 10, 1, 10000), // In superminority
+            create_entry(99, 6, 0, 10, 0, 10000),
+            create_entry(100, 6, 0, 10, 0, 10000),
         ]);
 
         let checker = BamValidatorEligibility::new(100, &[vh.clone()]);
@@ -259,17 +305,17 @@ mod tests {
     #[test]
     fn test_low_vote_credits_fails() {
         let vh_good = create_validator_history(vec![
-            create_entry(97, 0, 10, 0, 10000),
-            create_entry(98, 0, 10, 0, 10000),
-            create_entry(99, 0, 10, 0, 10000),
-            create_entry(100, 0, 10, 0, 10000),
+            create_entry(97, 6, 0, 10, 0, 10000),
+            create_entry(98, 6, 0, 10, 0, 10000),
+            create_entry(99, 6, 0, 10, 0, 10000),
+            create_entry(100, 6, 0, 10, 0, 10000),
         ]);
 
         let vh_bad = create_validator_history(vec![
-            create_entry(97, 0, 10, 0, 10000),
-            create_entry(98, 0, 10, 0, 9600), // ❌ 96% of max (below 97%)
-            create_entry(99, 0, 10, 0, 10000),
-            create_entry(100, 0, 10, 0, 10000),
+            create_entry(97, 6, 0, 10, 0, 10000),
+            create_entry(98, 6, 0, 10, 0, 9600), // 96% of max (below 97%)
+            create_entry(99, 6, 0, 10, 0, 10000),
+            create_entry(100, 6, 0, 10, 0, 10000),
         ]);
 
         let checker = BamValidatorEligibility::new(100, &[vh_good, vh_bad.clone()]);
@@ -288,8 +334,8 @@ mod tests {
     fn test_insufficient_history_fails() {
         // Only 2 epochs instead of required 3
         let vh = create_validator_history(vec![
-            create_entry(99, 0, 10, 0, 10000),
-            create_entry(100, 0, 10, 0, 10000),
+            create_entry(99, 6, 0, 10, 0, 10000),
+            create_entry(100, 6, 0, 10, 0, 10000),
         ]);
 
         let checker = BamValidatorEligibility::new(100, &[vh.clone()]);
@@ -303,17 +349,17 @@ mod tests {
     #[test]
     fn test_exactly_97_percent_passes() {
         let vh_max = create_validator_history(vec![
-            create_entry(97, 0, 10, 0, 10000),
-            create_entry(98, 0, 10, 0, 10000),
-            create_entry(99, 0, 10, 0, 10000),
-            create_entry(100, 0, 10, 0, 10000),
+            create_entry(97, 6, 0, 10, 0, 10000),
+            create_entry(98, 6, 0, 10, 0, 10000),
+            create_entry(99, 6, 0, 10, 0, 10000),
+            create_entry(100, 6, 0, 10, 0, 10000),
         ]);
 
         let vh_97 = create_validator_history(vec![
-            create_entry(97, 0, 10, 0, 9700), // Exactly 97%
-            create_entry(98, 0, 10, 0, 9700),
-            create_entry(99, 0, 10, 0, 9700),
-            create_entry(100, 0, 10, 0, 9700),
+            create_entry(97, 6, 0, 10, 0, 9700), // Exactly 97%
+            create_entry(98, 6, 0, 10, 0, 9700),
+            create_entry(99, 6, 0, 10, 0, 9700),
+            create_entry(100, 6, 0, 10, 0, 9700),
         ]);
 
         let checker = BamValidatorEligibility::new(100, &[vh_max, vh_97.clone()]);
@@ -325,18 +371,18 @@ mod tests {
     fn test_mev_commission_boundary() {
         // Exactly 10% MEV commission should pass
         let vh_10 = create_validator_history(vec![
-            create_entry(97, 0, 10, 0, 10000),
-            create_entry(98, 0, 10, 0, 10000),
-            create_entry(99, 0, 10, 0, 10000),
-            create_entry(100, 0, 10, 0, 10000),
+            create_entry(97, 6, 0, 10, 0, 10000),
+            create_entry(98, 6, 0, 10, 0, 10000),
+            create_entry(99, 6, 0, 10, 0, 10000),
+            create_entry(100, 6, 0, 10, 0, 10000),
         ]);
 
         // 11% should fail
         let vh_11 = create_validator_history(vec![
-            create_entry(97, 0, 11, 0, 10000),
-            create_entry(98, 0, 11, 0, 10000),
-            create_entry(99, 0, 11, 0, 10000),
-            create_entry(100, 0, 11, 0, 10000),
+            create_entry(97, 6, 0, 11, 0, 10000),
+            create_entry(98, 6, 0, 11, 0, 10000),
+            create_entry(99, 6, 0, 11, 0, 10000),
+            create_entry(100, 6, 0, 11, 0, 10000),
         ]);
 
         let checker = BamValidatorEligibility::new(100, &[vh_10.clone(), vh_11.clone()]);

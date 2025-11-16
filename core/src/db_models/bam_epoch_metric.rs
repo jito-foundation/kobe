@@ -24,11 +24,14 @@ pub struct BamEpochMetric {
     /// Epoch number
     epoch: u64,
 
+    /// Totoal JitoSOL TVL in lamports
+    jitosol_stake: u64,
+
     /// Timestamp
     #[serde(with = "ts_seconds")]
     timestamp: DateTime<Utc>,
 
-    /// Total stake amount of all validaotors in lamports
+    /// Total stake amount of all validators in lamports
     total_stake: u64,
 }
 
@@ -37,6 +40,7 @@ impl BamEpochMetric {
         epoch: u64,
         bam_stake: u64,
         total_stake: u64,
+        jitosol_stake: u64,
         eligible_bam_validator_count: u64,
     ) -> Self {
         let timestamp = Utc::now();
@@ -47,6 +51,7 @@ impl BamEpochMetric {
             bam_stake,
             eligible_bam_validator_count,
             epoch,
+            jitosol_stake,
             timestamp,
             total_stake,
         }
@@ -72,14 +77,24 @@ impl BamEpochMetric {
         self.bam_stake
     }
 
-    /// Get total stake amount in lamports
-    pub fn get_total_stake(&self) -> u64 {
-        self.total_stake
-    }
-
     /// Get epoch number
     pub fn get_epoch(&self) -> u64 {
         self.epoch
+    }
+
+    /// Get JitoSOL stake
+    pub fn get_jitosol_stake(&self) -> u64 {
+        self.jitosol_stake
+    }
+
+    /// Set JitoSOL stake
+    pub fn set_jitosol_stake(&mut self, jitosol_stake: u64) {
+        self.jitosol_stake = jitosol_stake;
+    }
+
+    /// Get total stake amount in lamports
+    pub fn get_total_stake(&self) -> u64 {
+        self.total_stake
     }
 }
 

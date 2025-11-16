@@ -79,7 +79,8 @@ impl BamWriterService {
         let epoch_info = self.rpc_client.get_epoch_info().await?;
         let epoch = epoch_info.epoch;
 
-        let jitosol_stake = get_stake_pool_account(&self.rpc_client, &self.stake_pool).await?;
+        let jitosol_pool = get_stake_pool_account(&self.rpc_client, &self.stake_pool).await?;
+        let jitosol_stake = jitosol_pool.total_lamports;
 
         let bam_node_validators = self.bam_api_client.get_validators().await?;
 
@@ -143,10 +144,21 @@ impl BamWriterService {
         let eligible_bam_validator_count = bam_validators.len() as u64;
         let bam_stake = bam_validators.iter().map(|v| v.get_active_stake()).sum();
 
-        let mut current_epoch_metric =
-            BamEpochMetric::new(epoch, bam_stake, total_stake, eligible_bam_validator_count);
+        let mut current_epoch_metric = BamEpochMetric::new(
+            epoch,
+            bam_stake,
+            total_stake,
+            jitosol_stake,
+            eligible_bam_validator_count,
+        );
 
-        let previous_epoch_metric = self.bam_epoch_metric_store.find_by_epoch(epoch - 1).await?;
+        let previous_epoch_metric = if let Some(prev_epoch) = epoch.checked_sub(1) {
+            self.bam_epoch_metric_store
+                .find_by_epoch(prev_epoch)
+                .await?
+        } else {
+            None
+        };
 
         let allocation_percentage = self
             .bam_delegation_criteria
@@ -154,7 +166,7 @@ impl BamWriterService {
 
         let available_delegation = self
             .bam_delegation_criteria
-            .calculate_available_delegation(allocation_percentage, jitosol_stake.total_lamports);
+            .calculate_available_delegation(allocation_percentage, jitosol_stake);
 
         current_epoch_metric.set_allocation_bps(allocation_percentage);
         current_epoch_metric.set_available_bam_delegation_stake(available_delegation);

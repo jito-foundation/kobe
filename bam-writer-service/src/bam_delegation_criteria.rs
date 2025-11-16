@@ -113,6 +113,7 @@ mod tests {
             100,
             100_000_000, // 25% stakeweight
             400_000_000,
+            200_000_000,
             10,
         );
 
@@ -128,6 +129,7 @@ mod tests {
             99,
             100_000_000, // 25% stakeweight
             400_000_000,
+            200_000_000,
             10,
         );
 
@@ -135,6 +137,7 @@ mod tests {
             100,
             100_000_000, // 25% stakeweight (same as previous)
             400_000_000,
+            200_000_000,
             10,
         );
 
@@ -153,6 +156,7 @@ mod tests {
             99,
             80_000_000, // 20% stakeweight (below 25% threshold)
             400_000_000,
+            200_000_000,
             10,
         );
 
@@ -160,6 +164,7 @@ mod tests {
             100,
             100_000_000, // 25% stakeweight
             400_000_000,
+            200_000_000,
             10,
         );
 
@@ -179,6 +184,7 @@ mod tests {
             99,
             100_000_000, // 25% stakeweight
             400_000_000,
+            200_000_000,
             10,
         );
 
@@ -186,6 +192,7 @@ mod tests {
             100,
             80_000_000, // 20% stakeweight (dropped below threshold)
             400_000_000,
+            200_000_000,
             10,
         );
 
@@ -202,10 +209,10 @@ mod tests {
         let criteria = BamDelegationCriteria::new();
 
         // Epoch N-1: 24% (just below 25% threshold)
-        let previous = BamEpochMetric::new(99, 96_000_000, 400_000_000, 10);
+        let previous = BamEpochMetric::new(99, 96_000_000, 400_000_000, 200_000_000, 10);
 
         // Epoch N: 26% (just above 25% threshold)
-        let current = BamEpochMetric::new(100, 104_000_000, 400_000_000, 10);
+        let current = BamEpochMetric::new(100, 104_000_000, 400_000_000, 200_000_000, 10);
 
         // Even though current is above 25%, previous wasn't
         // Should stay at 30% (20% tier) not jump to 40% (25% tier)
@@ -223,6 +230,7 @@ mod tests {
             99,
             160_000_000, // 40% stakeweight
             400_000_000,
+            200_000_000,
             10,
         );
 
@@ -230,6 +238,7 @@ mod tests {
             100,
             180_000_000, // 45% stakeweight
             400_000_000,
+            200_000_000,
             10,
         );
 
@@ -245,10 +254,10 @@ mod tests {
         let criteria = BamDelegationCriteria::new();
 
         // Previous: 15% stakeweight
-        let previous = BamEpochMetric::new(99, 60_000_000, 400_000_000, 10);
+        let previous = BamEpochMetric::new(99, 60_000_000, 400_000_000, 200_000_000, 10);
 
         // Current: 35% stakeweight (jumped 20 percentage points!)
-        let current = BamEpochMetric::new(100, 140_000_000, 400_000_000, 10);
+        let current = BamEpochMetric::new(100, 140_000_000, 400_000_000, 200_000_000, 10);
 
         // Can't skip tiers - previous only qualified for initial 20%
         // Should get 20% allocation, not 70%
@@ -265,21 +274,21 @@ mod tests {
         // Simulate progression through tiers
 
         // Epoch 1: Both at 20% -> 30% allocation
-        let epoch_1 = BamEpochMetric::new(100, 80_000_000, 400_000_000, 10);
-        let epoch_2 = BamEpochMetric::new(101, 80_000_000, 400_000_000, 10);
+        let epoch_1 = BamEpochMetric::new(100, 80_000_000, 400_000_000, 200_000_000, 10);
+        let epoch_2 = BamEpochMetric::new(101, 80_000_000, 400_000_000, 200_000_000, 10);
         assert_eq!(
             criteria.calculate_current_allocation(&epoch_2, Some(&epoch_1)),
             3000
         );
 
         // Epoch 3: Both at 25% -> 40% allocation
-        let epoch_3 = BamEpochMetric::new(102, 100_000_000, 400_000_000, 10);
+        let epoch_3 = BamEpochMetric::new(102, 100_000_000, 400_000_000, 200_000_000, 10);
         assert_eq!(
             criteria.calculate_current_allocation(&epoch_3, Some(&epoch_2)),
             3000
         );
 
-        let epoch_4 = BamEpochMetric::new(103, 100_000_000, 400_000_000, 10);
+        let epoch_4 = BamEpochMetric::new(103, 100_000_000, 400_000_000, 200_000_000, 10);
         assert_eq!(
             criteria.calculate_current_allocation(&epoch_4, Some(&epoch_3)),
             4000
@@ -294,6 +303,7 @@ mod tests {
             99,
             0, // No BAM stake
             400_000_000,
+            200_000_000,
             0,
         );
 
@@ -301,6 +311,7 @@ mod tests {
             100,
             100_000_000, // Suddenly 25% stake
             400_000_000,
+            200_000_000,
             10,
         );
 

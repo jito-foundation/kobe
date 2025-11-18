@@ -9,10 +9,13 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BamEpochMetric {
-    /// Allocation tier in BPS
+    /// Allocation tier based on JIP-28 in BPS
     allocation_bps: u64,
 
-    /// Available BAM delegation stake amount in lamports
+    /// Total JitoSOL stake available for BAM delegation in lamports.
+    /// This is calculated as: (current_tier_allocation_bps / 10000) * total_jitosol_stake
+    /// Represents the portion of JitoSOL that will be delegated to validators based on
+    /// their percentage of active stake currently running BAM (eligible validators only).
     available_bam_delegation_stake: u64,
 
     /// Total stake amount of BAM eligible validators in lamports
@@ -24,7 +27,7 @@ pub struct BamEpochMetric {
     /// Epoch number
     epoch: u64,
 
-    /// Totoal JitoSOL TVL in lamports
+    /// Total JitoSOL TVL in lamports
     jitosol_stake: u64,
 
     /// Timestamp

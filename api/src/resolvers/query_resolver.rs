@@ -542,6 +542,7 @@ impl QueryResolver {
                         running_jito: v.running_jito,
                         running_bam: v.running_bam,
                         jito_directed_stake_target: v.jito_directed_stake_target,
+                        jito_directed_stake_lamports: v.jito_directed_stake_lamports,
                         jito_sol_active_lamports: None,
                     }
                 })
@@ -623,6 +624,7 @@ impl QueryResolver {
                         running_jito: v.running_jito,
                         running_bam: v.running_bam,
                         jito_directed_stake_target: v.jito_directed_stake_target,
+                        jito_directed_stake_lamports: v.jito_directed_stake_lamports,
                         jito_sol_active_lamports: Some(v.target_pool_active_lamports),
                     }
                 })

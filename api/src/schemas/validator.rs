@@ -35,6 +35,9 @@ pub struct ValidatorEntry {
     /// Whether or not this is a jito directed stake target validator
     pub jito_directed_stake_target: Option<bool>,
 
+    /// Total stake amount in lamports for Jito directed stake
+    pub jito_directed_stake_lamports: Option<u64>,
+
     /// Active stake lamports delegated to this validator from the JitoSOL stake-pool
     #[serde(skip_serializing_if = "Option::is_none")]
     pub jito_sol_active_lamports: Option<u64>,

@@ -69,6 +69,9 @@ pub struct ChainData {
 
     /// Jito Directed Stake Target
     pub jito_directed_stake_target: bool,
+
+    /// Total stake amount in lamports for Jito directed stake
+    pub jito_directed_stake_lamports: u64,
 }
 
 pub fn get_tip_distribution_program_id(cluster: &Cluster) -> Pubkey {
@@ -229,10 +232,12 @@ pub async fn fetch_chain_data(
         let inflation_rewards_lamports =
             inflation_rate / epochs_per_year * staked_amount * vote_credit_proportion;
 
-        let jito_directed_stake_target = directed_stake_meta
+        let (jito_directed_stake_target, jito_directed_stake_lamports) = directed_stake_meta
             .targets
             .iter()
-            .any(|target| target.vote_pubkey.eq(&v.vote_account));
+            .find(|target| target.vote_pubkey.eq(&v.vote_account))
+            .map(|target| (true, target.staked_last_updated_epoch))
+            .unwrap_or_default();
 
         let data = ChainData {
             mev_commission_bps,
@@ -246,6 +251,7 @@ pub async fn fetch_chain_data(
             priority_fee_commission_bps,
             priority_fee_revenue_lamports,
             jito_directed_stake_target,
+            jito_directed_stake_lamports,
         };
 
         (vote_account, data)

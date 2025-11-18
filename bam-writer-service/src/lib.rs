@@ -2,7 +2,7 @@ use std::{collections::HashMap, str::FromStr, sync::Arc};
 
 use bam_api_client::client::BamApiClient;
 use kobe_core::db_models::{
-    bam_epoch_metric::{BamEpochMetric, BamEpochMetricStore},
+    bam_epoch_metrics::{BamEpochMetrics, BamEpochMetricsStore},
     bam_validators::{BamValidator, BamValidatorStore},
 };
 use mongodb::Collection;
@@ -31,8 +31,8 @@ pub struct BamWriterService {
     /// Bam validators store
     bam_validators_store: BamValidatorStore,
 
-    /// Bam epoch metric store
-    bam_epoch_metric_store: BamEpochMetricStore,
+    /// Bam epoch metrics store
+    bam_epoch_metrics_store: BamEpochMetricsStore,
 
     /// BAM Delegation Criteria
     bam_delegation_criteria: BamDelegationCriteria,
@@ -55,9 +55,9 @@ impl BamWriterService {
             db.collection(BamValidatorStore::COLLECTION);
         let bam_validators_store = BamValidatorStore::new(bam_validators_collection);
 
-        let bam_epoch_metric_collection: Collection<BamEpochMetric> =
-            db.collection(BamEpochMetricStore::COLLECTION);
-        let bam_epoch_metric_store = BamEpochMetricStore::new(bam_epoch_metric_collection);
+        let bam_epoch_metrics_collection: Collection<BamEpochMetrics> =
+            db.collection(BamEpochMetricsStore::COLLECTION);
+        let bam_epoch_metrics_store = BamEpochMetricsStore::new(bam_epoch_metrics_collection);
 
         let bam_api_config = bam_api_client::config::Config::custom(bam_api_base_url);
         let bam_api_client = BamApiClient::new(bam_api_config);
@@ -69,7 +69,7 @@ impl BamWriterService {
             rpc_client,
             bam_api_client,
             bam_validators_store,
-            bam_epoch_metric_store,
+            bam_epoch_metrics_store,
             bam_delegation_criteria,
         })
     }
@@ -179,7 +179,7 @@ impl BamWriterService {
             .map(|v| v.get_active_stake())
             .sum();
 
-        let mut current_epoch_metric = BamEpochMetric::new(
+        let mut current_epoch_metrics = BamEpochMetrics::new(
             epoch,
             bam_stake,
             total_stake,
@@ -187,8 +187,8 @@ impl BamWriterService {
             eligible_bam_validators.len() as u64,
         );
 
-        let previous_epoch_metric = if let Some(prev_epoch) = epoch.checked_sub(1) {
-            self.bam_epoch_metric_store
+        let previous_epoch_metrics = if let Some(prev_epoch) = epoch.checked_sub(1) {
+            self.bam_epoch_metrics_store
                 .find_by_epoch(prev_epoch)
                 .await?
         } else {
@@ -197,17 +197,17 @@ impl BamWriterService {
 
         let allocation_percentage = self
             .bam_delegation_criteria
-            .calculate_current_allocation(&current_epoch_metric, previous_epoch_metric.as_ref());
+            .calculate_current_allocation(&current_epoch_metrics, previous_epoch_metrics.as_ref());
 
         let available_delegation = self
             .bam_delegation_criteria
             .calculate_available_delegation(allocation_percentage, jitosol_stake);
 
-        current_epoch_metric.set_allocation_bps(allocation_percentage);
-        current_epoch_metric.set_available_bam_delegation_stake(available_delegation);
+        current_epoch_metrics.set_allocation_bps(allocation_percentage);
+        current_epoch_metrics.set_available_bam_delegation_stake(available_delegation);
 
-        self.bam_epoch_metric_store
-            .upsert(current_epoch_metric)
+        self.bam_epoch_metrics_store
+            .upsert(current_epoch_metrics)
             .await?;
 
         Ok(())

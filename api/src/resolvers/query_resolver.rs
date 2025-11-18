@@ -11,7 +11,7 @@ use jito_steward::constants::MAX_VALIDATORS;
 use kobe_core::{
     constants::{JITOSOL_VALIDATOR_LIST_MAINNET, JITOSOL_VALIDATOR_LIST_TESTNET},
     db_models::{
-        bam_epoch_metric::BamEpochMetricStore,
+        bam_epoch_metrics::BamEpochMetricsStore,
         bam_validators::BamValidatorStore,
         mev_rewards::{StakerRewardsStore, ValidatorRewardsStore},
         stake_pool_stats::{StakePoolStats, StakePoolStatsStore},
@@ -34,7 +34,7 @@ use validator_history::ValidatorHistory;
 use crate::{
     resolvers::error::{QueryResolverError, Result},
     schemas::{
-        bam_epoch_metric::BamEpochMetricResponse,
+        bam_epoch_metrics::BamEpochMetricsResponse,
         bam_validator::BamValidatorsResponse,
         jitosol_ratio::{JitoSolRatioRequest, JitoSolRatioResponse},
         mev_rewards::{
@@ -64,8 +64,8 @@ pub struct QueryResolver {
     staker_rewards_store: StakerRewardsStore,
     steward_events_store: StewardEventsStore,
 
-    /// BAM epoch metric store
-    bam_epoch_metric_store: BamEpochMetricStore,
+    /// BAM epoch metrics store
+    bam_epoch_metrics_store: BamEpochMetricsStore,
 
     /// BAM validators store
     bam_validators_store: BamValidatorStore,
@@ -388,21 +388,21 @@ pub async fn get_validator_histories_wrapper(
 }
 
 #[cached(
-    type = "TimedCache<String, (StatusCode, Json<BamEpochMetricResponse>)>",
+    type = "TimedCache<String, (StatusCode, Json<BamEpochMetricsResponse>)>",
     create = "{ TimedCache::with_lifespan_and_capacity(60, 1000) }",
     key = "String",
-    convert = r#"{ format!("bam-epoch-metric-{}", epoch.to_string()) }"#
+    convert = r#"{ format!("bam-epoch-metrics-{}", epoch.to_string()) }"#
 )]
-pub async fn get_bam_epoch_metric_wrapper(
+pub async fn get_bam_epoch_metrics_wrapper(
     resolver: Extension<QueryResolver>,
     epoch: u64,
-) -> (StatusCode, Json<BamEpochMetricResponse>) {
-    if let Ok(res) = resolver.get_bam_epoch_metric(epoch).await {
+) -> (StatusCode, Json<BamEpochMetricsResponse>) {
+    if let Ok(res) = resolver.get_bam_epoch_metrics(epoch).await {
         (StatusCode::OK, Json(res))
     } else {
         (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(BamEpochMetricResponse::default()),
+            Json(BamEpochMetricsResponse::default()),
         )
     }
 }
@@ -495,8 +495,8 @@ impl QueryResolver {
             steward_events_store: StewardEventsStore::new(
                 database.collection(StewardEventsStore::COLLECTION),
             ),
-            bam_epoch_metric_store: BamEpochMetricStore::new(
-                database.collection(BamEpochMetricStore::COLLECTION),
+            bam_epoch_metrics_store: BamEpochMetricsStore::new(
+                database.collection(BamEpochMetricsStore::COLLECTION),
             ),
             bam_validators_store: BamValidatorStore::new(
                 database.collection(BamValidatorStore::COLLECTION),
@@ -968,20 +968,20 @@ impl QueryResolver {
         Ok(history)
     }
 
-    /// Retrieves the bam epoch metric, based on the provided epoch filter.
+    /// Retrieves the bam epoch metrics, based on the provided epoch filter.
     ///
     /// # Example
     ///
     /// This endpoint can be used to fetch the bam metric for a specific epoch:
     ///
     /// ```ignore
-    /// GET /bam_epoch_metric?epoch=800
+    /// GET /bam_epoch_metrics?epoch=800
     /// ```
-    /// This request retrieves the BAM epoch metric for epoch 800.
-    pub async fn get_bam_epoch_metric(&self, epoch: u64) -> Result<BamEpochMetricResponse> {
-        let bam_epoch_metric = self.bam_epoch_metric_store.find_by_epoch(epoch).await?;
+    /// This request retrieves the BAM epoch metrics for epoch 800.
+    pub async fn get_bam_epoch_metrics(&self, epoch: u64) -> Result<BamEpochMetricsResponse> {
+        let bam_epoch_metrics = self.bam_epoch_metrics_store.find_by_epoch(epoch).await?;
 
-        Ok(BamEpochMetricResponse { bam_epoch_metric })
+        Ok(BamEpochMetricsResponse { bam_epoch_metrics })
     }
 
     /// Retrieves the bam validators, based on the provided epoch filter.

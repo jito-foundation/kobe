@@ -1,4 +1,4 @@
-//! DB model for a BAM epoch metric.
+//! DB model for a BAM epoch metrics.
 
 use chrono::{serde::ts_seconds, DateTime, Utc};
 use mongodb::{
@@ -8,7 +8,7 @@ use mongodb::{
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BamEpochMetric {
+pub struct BamEpochMetrics {
     /// Allocation tier based on JIP-28 in BPS
     allocation_bps: u64,
 
@@ -38,7 +38,7 @@ pub struct BamEpochMetric {
     total_stake: u64,
 }
 
-impl BamEpochMetric {
+impl BamEpochMetrics {
     pub fn new(
         epoch: u64,
         bam_stake: u64,
@@ -102,35 +102,35 @@ impl BamEpochMetric {
 }
 
 #[derive(Clone)]
-pub struct BamEpochMetricStore {
+pub struct BamEpochMetricsStore {
     /// Collection of BamEpochMetrics
-    collection: Collection<BamEpochMetric>,
+    collection: Collection<BamEpochMetrics>,
 }
 
-impl BamEpochMetricStore {
+impl BamEpochMetricsStore {
     pub const COLLECTION: &'static str = "bam_epoch_metrics";
 
     /// Initialize a [`BamEpochMetricStore`]
-    pub fn new(collection: Collection<BamEpochMetric>) -> Self {
+    pub fn new(collection: Collection<BamEpochMetrics>) -> Self {
         Self { collection }
     }
 
-    /// Insert a [`BamEpochMetric`] record
+    /// Insert a [`BamEpochMetrics`] record
     pub async fn insert(
         &self,
-        bam_epoch_metric: BamEpochMetric,
+        bam_epoch_metrics: BamEpochMetrics,
     ) -> Result<(), mongodb::error::Error> {
-        self.collection.insert_one(bam_epoch_metric, None).await?;
+        self.collection.insert_one(bam_epoch_metrics, None).await?;
         Ok(())
     }
 
-    /// Upsert a [`BamEpochMetric`] record
+    /// Upsert a [`BamEpochMetrics`] record
     pub async fn upsert(
         &self,
-        bam_epoch_metric: BamEpochMetric,
+        bam_epoch_metrics: BamEpochMetrics,
     ) -> Result<(), mongodb::error::Error> {
-        let update = doc! { "$set": bson::to_document(&bam_epoch_metric)? };
-        let filter = doc! { "epoch": bam_epoch_metric.epoch as u32 };
+        let update = doc! { "$set": bson::to_document(&bam_epoch_metrics)? };
+        let filter = doc! { "epoch": bam_epoch_metrics.epoch as u32 };
         let options = mongodb::options::UpdateOptions::builder()
             .upsert(true)
             .build();
@@ -138,11 +138,11 @@ impl BamEpochMetricStore {
         Ok(())
     }
 
-    /// Find a [`BamEpochMetric`] record by epoch
+    /// Find a [`BamEpochMetrics`] record by epoch
     pub async fn find_by_epoch(
         &self,
         epoch: u64,
-    ) -> Result<Option<BamEpochMetric>, mongodb::error::Error> {
+    ) -> Result<Option<BamEpochMetrics>, mongodb::error::Error> {
         self.collection
             .find_one(doc! {"epoch": epoch as u32}, None)
             .await

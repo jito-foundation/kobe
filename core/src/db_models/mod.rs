@@ -1,4 +1,4 @@
-pub mod bam_epoch_metric;
+pub mod bam_epoch_metrics;
 pub mod bam_validators;
 pub mod error;
 pub mod mev_rewards;

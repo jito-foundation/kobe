@@ -1,5 +1,5 @@
 use jito_steward::constants::BASIS_POINTS_MAX;
-use kobe_core::db_models::bam_epoch_metric::BamEpochMetric;
+use kobe_core::db_models::bam_epoch_metrics::BamEpochMetrics;
 
 /// Criteria for BAM delegation amount based on JIP-28 specification
 pub(crate) struct BamDelegationCriteria {
@@ -41,18 +41,18 @@ impl BamDelegationCriteria {
     /// Calculate current tier level with two-epoch validation
     pub fn calculate_current_allocation(
         &self,
-        current_epoch_metric: &BamEpochMetric,
-        previous_epoch_metric: Option<&BamEpochMetric>,
+        current_epoch_metrics: &BamEpochMetrics,
+        previous_epoch_metrics: Option<&BamEpochMetrics>,
     ) -> u64 {
         let current_stakeweight_bps = self
             .calculate_bam_stakeweight(
-                current_epoch_metric.get_bam_stake(),
-                current_epoch_metric.get_total_stake(),
+                current_epoch_metrics.get_bam_stake(),
+                current_epoch_metrics.get_total_stake(),
             )
             .unwrap_or(0);
 
         // If no previous epoch, return initial 20% (2000 BPS)
-        let Some(prev_metric) = previous_epoch_metric else {
+        let Some(prev_metric) = previous_epoch_metrics else {
             return 2_000;
         };
 
@@ -109,7 +109,7 @@ mod tests {
         let criteria = BamDelegationCriteria::new();
 
         // First epoch ever - no previous data
-        let current = BamEpochMetric::new(
+        let current = BamEpochMetrics::new(
             100,
             100_000_000, // 25% stakeweight
             400_000_000,
@@ -125,7 +125,7 @@ mod tests {
     fn test_two_epoch_validation_tier_advancement() {
         let criteria = BamDelegationCriteria::new();
 
-        let previous = BamEpochMetric::new(
+        let previous = BamEpochMetrics::new(
             99,
             100_000_000, // 25% stakeweight
             400_000_000,
@@ -133,7 +133,7 @@ mod tests {
             10,
         );
 
-        let current = BamEpochMetric::new(
+        let current = BamEpochMetrics::new(
             100,
             100_000_000, // 25% stakeweight (same as previous)
             400_000_000,
@@ -152,7 +152,7 @@ mod tests {
     fn test_two_epoch_validation_insufficient_previous_epoch() {
         let criteria = BamDelegationCriteria::new();
 
-        let previous = BamEpochMetric::new(
+        let previous = BamEpochMetrics::new(
             99,
             80_000_000, // 20% stakeweight (below 25% threshold)
             400_000_000,
@@ -160,7 +160,7 @@ mod tests {
             10,
         );
 
-        let current = BamEpochMetric::new(
+        let current = BamEpochMetrics::new(
             100,
             100_000_000, // 25% stakeweight
             400_000_000,
@@ -180,7 +180,7 @@ mod tests {
     fn test_two_epoch_validation_insufficient_current_epoch() {
         let criteria = BamDelegationCriteria::new();
 
-        let previous = BamEpochMetric::new(
+        let previous = BamEpochMetrics::new(
             99,
             100_000_000, // 25% stakeweight
             400_000_000,
@@ -188,7 +188,7 @@ mod tests {
             10,
         );
 
-        let current = BamEpochMetric::new(
+        let current = BamEpochMetrics::new(
             100,
             80_000_000, // 20% stakeweight (dropped below threshold)
             400_000_000,
@@ -209,10 +209,10 @@ mod tests {
         let criteria = BamDelegationCriteria::new();
 
         // Epoch N-1: 24% (just below 25% threshold)
-        let previous = BamEpochMetric::new(99, 96_000_000, 400_000_000, 200_000_000, 10);
+        let previous = BamEpochMetrics::new(99, 96_000_000, 400_000_000, 200_000_000, 10);
 
         // Epoch N: 26% (just above 25% threshold)
-        let current = BamEpochMetric::new(100, 104_000_000, 400_000_000, 200_000_000, 10);
+        let current = BamEpochMetrics::new(100, 104_000_000, 400_000_000, 200_000_000, 10);
 
         // Even though current is above 25%, previous wasn't
         // Should stay at 30% (20% tier) not jump to 40% (25% tier)
@@ -226,7 +226,7 @@ mod tests {
     fn test_two_epoch_validation_highest_tier() {
         let criteria = BamDelegationCriteria::new();
 
-        let previous = BamEpochMetric::new(
+        let previous = BamEpochMetrics::new(
             99,
             160_000_000, // 40% stakeweight
             400_000_000,
@@ -234,7 +234,7 @@ mod tests {
             10,
         );
 
-        let current = BamEpochMetric::new(
+        let current = BamEpochMetrics::new(
             100,
             180_000_000, // 45% stakeweight
             400_000_000,
@@ -254,10 +254,10 @@ mod tests {
         let criteria = BamDelegationCriteria::new();
 
         // Previous: 15% stakeweight
-        let previous = BamEpochMetric::new(99, 60_000_000, 400_000_000, 200_000_000, 10);
+        let previous = BamEpochMetrics::new(99, 60_000_000, 400_000_000, 200_000_000, 10);
 
         // Current: 35% stakeweight (jumped 20 percentage points!)
-        let current = BamEpochMetric::new(100, 140_000_000, 400_000_000, 200_000_000, 10);
+        let current = BamEpochMetrics::new(100, 140_000_000, 400_000_000, 200_000_000, 10);
 
         // Can't skip tiers - previous only qualified for initial 20%
         // Should get 20% allocation, not 70%
@@ -274,21 +274,21 @@ mod tests {
         // Simulate progression through tiers
 
         // Epoch 1: Both at 20% -> 30% allocation
-        let epoch_1 = BamEpochMetric::new(100, 80_000_000, 400_000_000, 200_000_000, 10);
-        let epoch_2 = BamEpochMetric::new(101, 80_000_000, 400_000_000, 200_000_000, 10);
+        let epoch_1 = BamEpochMetrics::new(100, 80_000_000, 400_000_000, 200_000_000, 10);
+        let epoch_2 = BamEpochMetrics::new(101, 80_000_000, 400_000_000, 200_000_000, 10);
         assert_eq!(
             criteria.calculate_current_allocation(&epoch_2, Some(&epoch_1)),
             3000
         );
 
         // Epoch 3: Both at 25% -> 40% allocation
-        let epoch_3 = BamEpochMetric::new(102, 100_000_000, 400_000_000, 200_000_000, 10);
+        let epoch_3 = BamEpochMetrics::new(102, 100_000_000, 400_000_000, 200_000_000, 10);
         assert_eq!(
             criteria.calculate_current_allocation(&epoch_3, Some(&epoch_2)),
             3000
         );
 
-        let epoch_4 = BamEpochMetric::new(103, 100_000_000, 400_000_000, 200_000_000, 10);
+        let epoch_4 = BamEpochMetrics::new(103, 100_000_000, 400_000_000, 200_000_000, 10);
         assert_eq!(
             criteria.calculate_current_allocation(&epoch_4, Some(&epoch_3)),
             4000
@@ -299,7 +299,7 @@ mod tests {
     fn test_two_epoch_validation_edge_case_zero_stake() {
         let criteria = BamDelegationCriteria::new();
 
-        let previous = BamEpochMetric::new(
+        let previous = BamEpochMetrics::new(
             99,
             0, // No BAM stake
             400_000_000,
@@ -307,7 +307,7 @@ mod tests {
             0,
         );
 
-        let current = BamEpochMetric::new(
+        let current = BamEpochMetrics::new(
             100,
             100_000_000, // Suddenly 25% stake
             400_000_000,

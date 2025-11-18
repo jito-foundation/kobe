@@ -16,7 +16,7 @@ use env_logger::{Builder, Target};
 use kobe_api::{
     error::{handle_error, ApiError},
     resolvers::query_resolver::{
-        daily_mev_rewards_cacheable_wrapper, get_bam_epoch_metric_wrapper,
+        daily_mev_rewards_cacheable_wrapper, get_bam_epoch_metrics_wrapper,
         get_bam_validators_wrapper, get_validator_histories_wrapper,
         jito_stake_over_time_ratio_cacheable_wrapper, jitosol_ratio_cacheable_wrapper,
         jitosol_validators_cacheable_wrapper, mev_commission_average_over_time_cacheable_wrapper,
@@ -26,7 +26,7 @@ use kobe_api::{
         validator_rewards_cacheable_wrapper, validators_cacheable_wrapper, QueryResolver,
     },
     schemas::{
-        bam_epoch_metric::BamEpochMetricRequest,
+        bam_epoch_metrics::BamEpochMetricsRequest,
         bam_validator::BamValidatorsRequest,
         jitosol_ratio::JitoSolRatioRequest,
         mev_rewards::{MevRewardsRequest, StakerRewardsRequest, ValidatorRewardsRequest},
@@ -199,11 +199,11 @@ async fn get_validator_histories(
     get_validator_histories_wrapper(resolver, vote_account, epoch_query).await
 }
 
-async fn get_bam_epoch_metric_handler(
+async fn get_bam_epoch_metrics_handler(
     resolver: Extension<QueryResolver>,
-    Query(epoch_query): Query<BamEpochMetricRequest>,
+    Query(epoch_query): Query<BamEpochMetricsRequest>,
 ) -> impl IntoResponse {
-    get_bam_epoch_metric_wrapper(resolver, epoch_query.epoch).await
+    get_bam_epoch_metrics_wrapper(resolver, epoch_query.epoch).await
 }
 
 async fn get_bam_validators_handler(
@@ -366,8 +366,8 @@ async fn run_server(args: &Args) {
             get(get_validator_histories),
         )
         .route(
-            "/api/v1/bam_epoch_metric",
-            get(get_bam_epoch_metric_handler),
+            "/api/v1/bam_epoch_metrics",
+            get(get_bam_epoch_metrics_handler),
         )
         .route("/api/v1/bam_validators", get(get_bam_validators_handler))
         .route(

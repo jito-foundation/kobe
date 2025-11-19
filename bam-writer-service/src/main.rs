@@ -1,4 +1,4 @@
-use std::{sync::Arc, time::Duration};
+use std::{collections::HashSet, sync::Arc, time::Duration};
 
 use clap::{Parser, Subcommand};
 use kobe_bam_writer_service::BamWriterService;
@@ -42,9 +42,9 @@ struct Args {
     #[clap(long, env, default_value = "mainnet")]
     cluster_name: String,
 
-    /// Epoch progress threshold to trigger (0.0-1.0, default 0.9 for 90%)
-    #[clap(long, env, default_value = "0.9")]
-    epoch_progress_threshold: f64,
+    /// Epoch progress thresholds to trigger (0.0-1.0, default 50%, 75%, 90%)
+    #[clap(long, env, value_delimiter = ',', default_value = "0.5,0.75,0.9")]
+    epoch_progress_thresholds: Vec<f64>,
 
     /// Poll interval in seconds
     #[clap(long, env, default_value = "60")]
@@ -55,36 +55,6 @@ struct Args {
 enum Commands {
     /// Run bam writer service
     Run,
-}
-
-async fn wait_for_epoch_threshold(
-    rpc_client: &RpcClient,
-    threshold: f64,
-    poll_interval: Duration,
-) -> anyhow::Result<u64> {
-    loop {
-        let epoch_info = rpc_client.get_epoch_info().await?;
-        let progress = epoch_info.slot_index as f64 / epoch_info.slots_in_epoch as f64;
-
-        info!(
-            "Epoch: {}, Progress: {:.2}% ({}/{})",
-            epoch_info.epoch,
-            progress * 100.0,
-            epoch_info.slot_index,
-            epoch_info.slots_in_epoch
-        );
-
-        if progress >= threshold {
-            info!(
-                "Reached {}% of epoch {}",
-                threshold * 100.0,
-                epoch_info.epoch
-            );
-            return Ok(epoch_info.epoch);
-        }
-
-        tokio::time::sleep(poll_interval).await;
-    }
 }
 
 #[tokio::main]
@@ -102,6 +72,7 @@ async fn main() -> anyhow::Result<()> {
     let poll_interval = Duration::from_secs(args.poll_interval_secs);
 
     let bam_writer_service = BamWriterService::new(
+        &args.cluster_name,
         &args.mongo_connection_uri,
         &args.mongo_db_name,
         args.stake_pool,
@@ -114,54 +85,54 @@ async fn main() -> anyhow::Result<()> {
         Commands::Run => {
             info!("Running BAM writer service");
             let mut last_processed_epoch: Option<u64> = None;
+            let mut thresholds_hit = HashSet::new();
 
             loop {
-                match wait_for_epoch_threshold(
-                    &rpc_client,
-                    args.epoch_progress_threshold,
-                    poll_interval,
-                )
-                .await
-                {
-                    Ok(current_epoch) => {
-                        // Only run if we haven't processed this epoch yet
-                        if last_processed_epoch != Some(current_epoch) {
-                            info!("Processing epoch {current_epoch}");
+                let epoch_info = rpc_client.get_epoch_info().await?;
+                let current_epoch = epoch_info.epoch;
+                let progress = epoch_info.slot_index as f64 / epoch_info.slots_in_epoch as f64;
 
-                            match bam_writer_service.run().await {
-                                Ok(()) => {
-                                    info!("Successfully processed epoch {current_epoch}");
-                                    last_processed_epoch = Some(current_epoch);
+                if last_processed_epoch != Some(current_epoch) {
+                    thresholds_hit.clear();
+                    last_processed_epoch = Some(current_epoch);
+                }
 
-                                    datapoint_info!(
-                                        "bam-writer-service-stats",
-                                        ("epoch", current_epoch, i64),
-                                        ("success", 1, i64),
-                                        "cluster" => args.cluster_name,
-                                    );
-                                }
-                                Err(e) => {
-                                    error!("Error processing epoch {current_epoch}: {e}");
+                for (idx, &threshold) in args.epoch_progress_thresholds.iter().enumerate() {
+                    if progress >= threshold && !thresholds_hit.contains(&idx) {
+                        let threshold_pct = threshold * 100.0;
 
-                                    datapoint_info!(
-                                        "bam-writer-service-stats",
-                                        ("epoch", current_epoch, i64),
-                                        ("success", 0, i64),
-                                        "cluster" => args.cluster_name,
-                                    );
-                                }
+                        info!("Reached {threshold_pct:.0}% threshold for epoch {current_epoch}");
+
+                        match bam_writer_service.run().await {
+                            Ok(()) => {
+                                info!("Successfully processed at {threshold_pct:.0}% of epoch {current_epoch}");
+                                thresholds_hit.insert(idx);
+
+                                datapoint_info!(
+                                    "bam-writer-service-stats",
+                                    ("epoch", current_epoch, i64),
+                                    ("threshold_pct", threshold_pct as i64, i64),
+                                    ("success", 1, i64),
+                                    "cluster" => args.cluster_name,
+                                );
+                            }
+                            Err(e) => {
+                                error!(
+                                    "Error processing at {threshold_pct:.0}% of epoch {current_epoch}: {e}"
+                                );
+
+                                datapoint_info!(
+                                    "bam-writer-service-stats",
+                                    ("epoch", current_epoch, i64),
+                                    ("success", 0, i64),
+                                    "cluster" => args.cluster_name,
+                                );
                             }
                         }
-
-                        // Sleep a bit before checking again
-                        tokio::time::sleep(poll_interval).await;
-                    }
-                    Err(e) => {
-                        error!("Error checking epoch info: {}", e);
-
-                        tokio::time::sleep(poll_interval).await;
                     }
                 }
+
+                tokio::time::sleep(poll_interval).await;
             }
         }
     }

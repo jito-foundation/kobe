@@ -356,9 +356,10 @@ RUST_LOG=info cargo r -p kobe-steward-writer-service -- \
 RUST_LOG=info cargo r -p kobe-bam-writer-service -- \
     --mongo-connection-uri "mongodb://localhost:27017/kobe" \
     --mongo-db-name "validators" \
-    --rpc-url "https://api.mainnet-beta.solana.com/" \
+    --rpc-url "https://api.testnet.solana.com/" \
     --bam-api-base-url "" \
-    --epoch-progress-threshold "0.8" \
+    --cluster-name "testnet" \
+    --epoch-progress-thresholds "0.5,0.75,0.9" \
     --poll-interval-secs "60" \
     run
 ```

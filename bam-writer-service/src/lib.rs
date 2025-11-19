@@ -1,6 +1,8 @@
 use std::{collections::HashMap, str::FromStr, sync::Arc};
 
-use bam_api_client::client::BamApiClient;
+use anyhow::anyhow;
+use bam_api_client::{client::BamApiClient, types::ValidatorsResponse};
+use clap::ValueEnum;
 use kobe_core::db_models::{
     bam_epoch_metrics::{BamEpochMetrics, BamEpochMetricsStore},
     bam_validators::{BamValidator, BamValidatorStore},
@@ -8,7 +10,10 @@ use kobe_core::db_models::{
 use mongodb::Collection;
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_pubkey::Pubkey;
-use stakenet_sdk::utils::accounts::{get_all_validator_history_accounts, get_stake_pool_account};
+use stakenet_sdk::{
+    models::cluster::Cluster,
+    utils::accounts::{get_all_validator_history_accounts, get_stake_pool_account},
+};
 
 use crate::{
     bam_delegation_criteria::BamDelegationCriteria,
@@ -19,14 +24,17 @@ mod bam_delegation_criteria;
 mod bam_validator_eligibility;
 
 pub struct BamWriterService {
+    /// Cluster name (mainnet-beta, testnet)
+    cluster: Cluster,
+
     /// Stake pool address
     stake_pool: Pubkey,
 
     /// RPC Client
     rpc_client: Arc<RpcClient>,
 
-    /// BAM API client
-    bam_api_client: BamApiClient,
+    /// BAM API base url
+    bam_api_base_url: String,
 
     /// Bam validators store
     bam_validators_store: BamValidatorStore,
@@ -41,12 +49,16 @@ pub struct BamWriterService {
 impl BamWriterService {
     /// Initialize [`BamWriterService`]
     pub async fn new(
+        cluster: &str,
         mongo_connection_uri: &str,
         mongo_db_name: &str,
         stake_pool: Pubkey,
         rpc_client: Arc<RpcClient>,
         bam_api_base_url: &str,
     ) -> anyhow::Result<Self> {
+        let cluster = Cluster::from_str(cluster, false)
+            .map_err(|e| anyhow!("Failed to read cluster: {e}"))?;
+
         // Connect to MongoDB
         let client = mongodb::Client::with_uri_str(mongo_connection_uri).await?;
         let db = client.database(mongo_db_name);
@@ -59,19 +71,60 @@ impl BamWriterService {
             db.collection(BamEpochMetricsStore::COLLECTION);
         let bam_epoch_metrics_store = BamEpochMetricsStore::new(bam_epoch_metrics_collection);
 
-        let bam_api_config = bam_api_client::config::Config::custom(bam_api_base_url);
-        let bam_api_client = BamApiClient::new(bam_api_config);
-
         let bam_delegation_criteria = BamDelegationCriteria::new();
 
         Ok(Self {
+            cluster,
             stake_pool,
             rpc_client,
-            bam_api_client,
+            bam_api_base_url: bam_api_base_url.to_string(),
             bam_validators_store,
             bam_epoch_metrics_store,
             bam_delegation_criteria,
         })
+    }
+
+    /// Retrieves the list of BAM (Block Auction Mechanism) validators based on the cluster configuration.
+    ///
+    /// # Behavior
+    ///
+    /// - **Localnet/Testnet**: Returns a static list of mock validators for testing purposes.
+    ///   The mock data includes two validators with equal stake distribution (50% each).
+    ///
+    /// - **Mainnet**: Fetches the live validator list from the BAM API endpoint.
+    async fn get_bam_validators(&self) -> anyhow::Result<Vec<ValidatorsResponse>> {
+        match self.cluster {
+            Cluster::Localnet | Cluster::Testnet => {
+                let res = vec![
+                    ValidatorsResponse {
+                        validator_pubkey: "FT9QgTVo375TgDAQusTgpsfXqTosCJLfrBpoVdcbnhtS"
+                            .to_string(),
+                        bam_node_connection: "testnet-bam-1".to_string(),
+                        stake: 1500000.0,
+                        stake_percentage: 0.50,
+                    },
+                    ValidatorsResponse {
+                        validator_pubkey: "141vSYKGRPNGieSrGJy8EeDVBcbjSr6aWkimNgrNZ6xN"
+                            .to_string(),
+                        bam_node_connection: "testnet-bam-1".to_string(),
+                        stake: 1500000.0,
+                        stake_percentage: 0.50,
+                    },
+                ];
+
+                Ok(res)
+            }
+            Cluster::Mainnet => {
+                let bam_api_config =
+                    bam_api_client::config::Config::custom(self.bam_api_base_url.clone());
+                let bam_api_client = BamApiClient::new(bam_api_config);
+
+                bam_api_client
+                    .get_validators()
+                    .await
+                    .map_err(|e| anyhow!("Failed to get bam validators: {e}"))
+            }
+        }
     }
 
     /// Run [`BamWriterService`]
@@ -82,7 +135,7 @@ impl BamWriterService {
         let jitosol_pool = get_stake_pool_account(&self.rpc_client, &self.stake_pool).await?;
         let jitosol_stake = jitosol_pool.total_lamports;
 
-        let bam_node_validators = self.bam_api_client.get_validators().await?;
+        let bam_node_validators = self.get_bam_validators().await?;
 
         let vote_accounts = self.rpc_client.get_vote_accounts().await?;
         let vote_account_by_node: HashMap<_, _> = vote_accounts
@@ -161,7 +214,7 @@ impl BamWriterService {
         }
 
         self.bam_validators_store
-            .insert_many(&bam_validators)
+            .upsert(&bam_validators, epoch)
             .await?;
 
         let total_stake = vote_accounts

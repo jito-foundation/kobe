@@ -4,7 +4,7 @@ use std::{str::FromStr, time::Instant};
 
 use chrono::{serde::ts_seconds, DateTime, Utc};
 use futures::TryStreamExt;
-use mongodb::{bson::doc, Collection};
+use mongodb::{bson::doc, options::ReplaceOptions, Collection};
 use serde::{Deserialize, Serialize};
 use solana_pubkey::{ParsePubkeyError, Pubkey};
 
@@ -157,6 +157,38 @@ impl BamValidatorStore {
             items.len(),
             start.elapsed().as_millis()
         );
+
+        Ok(())
+    }
+
+    /// Upsert a [`BamEpochMetrics`] record
+    pub async fn upsert(
+        &self,
+        items: &[BamValidator],
+        epoch: u64,
+    ) -> Result<(), mongodb::error::Error> {
+        let batch_size = 100;
+
+        let mut replace_options = ReplaceOptions::default();
+        replace_options.upsert = Some(true);
+
+        for chunk in items.chunks(batch_size) {
+            for item in chunk {
+                self.collection
+                    .replace_one(
+                        doc! {
+                            "epoch": epoch as u32,
+                            "vote_account": &item.vote_account
+                        },
+                        item,
+                        replace_options.clone(),
+                    )
+                    .await?;
+            }
+
+            // Small delay between batches to avoid overwhelming the server
+            tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
+        }
 
         Ok(())
     }

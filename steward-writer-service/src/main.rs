@@ -4,8 +4,9 @@ use anchor_client::handle_program_log;
 use clap::{Parser, Subcommand};
 use jito_steward::{
     events::{
-        AutoAddValidatorEvent, AutoRemoveValidatorEvent, DecreaseComponents, EpochMaintenanceEvent,
-        InstantUnstakeComponents, RebalanceEvent, ScoreComponents, StateTransition,
+        AutoAddValidatorEvent, AutoRemoveValidatorEvent, DecreaseComponents,
+        DirectedRebalanceEvent, EpochMaintenanceEvent, InstantUnstakeComponents, RebalanceEvent,
+        ScoreComponents, StateTransition,
     },
     score::{InstantUnstakeComponentsV3, ScoreComponentsV4},
 };
@@ -528,6 +529,21 @@ async fn parse_log(
     // RebalanceEvent
     if let Ok((Some(event), _, _)) = handle_program_log::<RebalanceEvent>(&program, &log) {
         let steward_event = StewardEvent::from_rebalance_event(
+            event,
+            signature,
+            instruction_idx,
+            tx_error,
+            signer,
+            stake_pool,
+            timestamp,
+            slot,
+        );
+        return Ok(Some(steward_event));
+    }
+
+    // DirectedRebalanceEvent
+    if let Ok((Some(event), _, _)) = handle_program_log::<DirectedRebalanceEvent>(&program, &log) {
+        let steward_event = StewardEvent::from_directed_rebalance_event(
             event,
             signature,
             instruction_idx,

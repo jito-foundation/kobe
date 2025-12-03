@@ -3,9 +3,9 @@ use std::str::FromStr;
 use futures::TryStreamExt;
 use jito_steward::{
     events::{
-        AutoAddValidatorEvent, AutoRemoveValidatorEvent, DecreaseComponents, EpochMaintenanceEvent,
-        InstantUnstakeComponents, RebalanceEvent, RebalanceTypeTag, ScoreComponents,
-        StateTransition,
+        AutoAddValidatorEvent, AutoRemoveValidatorEvent, DecreaseComponents,
+        DirectedRebalanceEvent, EpochMaintenanceEvent, InstantUnstakeComponents, RebalanceEvent,
+        RebalanceTypeTag, ScoreComponents, StateTransition,
     },
     score::{InstantUnstakeComponentsV3, ScoreComponentsV4},
 };
@@ -97,6 +97,43 @@ impl StewardEvent {
             signature,
             instruction_idx,
             &"RebalanceEvent".to_string(),
+            Some(event.vote_account),
+            Some(metadata),
+            tx_error,
+            signer,
+            stake_pool,
+            event.epoch as u64,
+            timestamp,
+            slot,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn from_directed_rebalance_event(
+        event: DirectedRebalanceEvent,
+        signature: &Signature,
+        instruction_idx: u32,
+        tx_error: Option<String>,
+        signer: &Pubkey,
+        stake_pool: &Pubkey,
+        timestamp: Option<i64>,
+        slot: u64,
+    ) -> Self {
+        let rebalance_string = match event.rebalance_type_tag {
+            RebalanceTypeTag::None => "None".to_string(),
+            RebalanceTypeTag::Increase => "Increase".to_string(),
+            RebalanceTypeTag::Decrease => "Decrease".to_string(),
+        };
+        let metadata = doc! {
+            "rebalance_type_tag": rebalance_string,
+            "increase_lamports": event.increase_lamports as i64,
+            "decrease_lamports": event.decrease_lamports as i64,
+        };
+
+        Self::new(
+            signature,
+            instruction_idx,
+            &"DirectedRebalanceEvent".to_string(),
             Some(event.vote_account),
             Some(metadata),
             tx_error,

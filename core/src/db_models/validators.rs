@@ -27,6 +27,13 @@ pub struct Validator {
     pub epoch: u64,
     pub epoch_credits: Option<u64>,
     pub identity_account: Option<String>,
+
+    /// Whether or not this is a jito directed stake target validator
+    pub jito_directed_stake_target: Option<bool>,
+
+    /// Total stake amount in lamports for Jito directed stake
+    pub jito_directed_stake_lamports: Option<u64>,
+
     pub mev_commission_bps: Option<u16>,
     pub mev_revenue_lamports: u64,
     pub priority_fee_commission_bps: Option<u16>,
@@ -82,6 +89,8 @@ impl Validator {
             epoch: validators_app_entry.epoch.unwrap_or_default(),
             epoch_credits: validators_app_entry.epoch_credits,
             identity_account: validators_app_entry.account.clone(),
+            jito_directed_stake_target: Some(on_chain_data.jito_directed_stake_target),
+            jito_directed_stake_lamports: Some(on_chain_data.jito_directed_stake_lamports),
             mev_commission_bps: on_chain_data.mev_commission_bps,
             mev_revenue_lamports: on_chain_data.mev_revenue_lamports,
             priority_fee_commission_bps: Some(on_chain_data.priority_fee_commission_bps),

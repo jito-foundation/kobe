@@ -310,7 +310,13 @@ RUST_LOG=info cargo r -p kobe-cranker -- \
 #### Start Data Collection
 
 ```bash
-cargo r --bin kobe-writer-service -- live
+RUST_LOG=info cargo r --bin kobe-writer-service -- \
+   --rpc-url "" \
+   --mongo-connection-uri "mongodb://localhost:27017/kobe" \
+   --mongo-db-name "validators" \
+   --solana-cluster "testnet" \
+   --steward-config-pubkey "5pZmpk3ktweGZW9xFknpEHhQoWeAKTzSGwnCUyVdiye" \
+   live
 ```
 
 #### Start Steward Monitoring

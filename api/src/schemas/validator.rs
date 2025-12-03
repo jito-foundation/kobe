@@ -18,6 +18,10 @@ pub struct ValidatorsResponse {
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct ValidatorEntry {
+    /// Identity account pubkey
+    pub identity_account: Option<String>,
+
+    /// Vote account pubkey
     pub vote_account: String,
     pub mev_commission_bps: Option<u16>,
     pub mev_rewards: Option<u64>,

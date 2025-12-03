@@ -39,7 +39,7 @@ http = { version = "0.2.1" }
 itertools = "0.5.9"
 jito-priority-fee-distribution = { features = ["no-entrypoint"], git = "https://github.com/jito-foundation/jito-programs", branch = "master" }
 jito-priority-fee-distribution-sdk = { git = "https://github.com/jito-foundation/jito-programs", branch = "master" }
-jito-steward = { package = "jito-steward", git = "https://github.com/jito-foundation/stakenet", rev = "6d35e58013cf7442dce287a1f45013085cb24967", features = ["no-entrypoint"] }
+jito-steward = { package = "jito-steward", features = ["no-entrypoint"], git = "https://github.com/jito-foundation/stakenet", rev = "4f98f941b153737665b1eb65e77737616b3cd070" }
 jito-tip-distribution = { features = ["no-entrypoint"], git = "https://github.com/jito-foundation/jito-programs", branch = "master" }
 jito-tip-distribution-sdk = { git = "https://github.com/jito-foundation/jito-programs", branch = "master" }
 kobe-core = { path = "core", version = "1.0.0" }
@@ -83,7 +83,7 @@ spl-pod = "0.5.1"
 spl-stake-pool = { features = ["no-entrypoint"], version = "2.0.2" }
 spl-stake-pool-cli = { path = "cranker/cli", version = "1.0.0" }
 spl-token = { version = "4.0", features = ["no-entrypoint"] }
-stakenet-sdk = { package = "stakenet-sdk", git = "https://github.com/jito-foundation/stakenet", rev = "6d35e58013cf7442dce287a1f45013085cb24967" }
+stakenet-sdk = { package = "stakenet-sdk", git = "https://github.com/jito-foundation/stakenet", rev = "4f98f941b153737665b1eb65e77737616b3cd070" }
 thiserror = "1.0.37"
 tokio = { version = "1.36.0", features = ["full"] }
 tokio-retry = "0.3.0"
@@ -92,4 +92,4 @@ tower-http = { version = "0.4.0", features = ["cors", "trace"] }
 tracing = { version = "0.1.37" }
 tracing-core = "0.1.32"
 tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
-validator-history = { package = "validator-history", git = "https://github.com/jito-foundation/stakenet", rev = "6d35e58013cf7442dce287a1f45013085cb24967", features = ["no-entrypoint"] }
+validator-history = { package = "validator-history", git = "https://github.com/jito-foundation/stakenet", rev = "4f98f941b153737665b1eb65e77737616b3cd070", features = ["no-entrypoint"] }

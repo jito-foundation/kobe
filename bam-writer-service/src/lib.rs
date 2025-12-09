@@ -1,4 +1,4 @@
-use std::{collections::HashMap, str::FromStr, sync::Arc};
+use std::{collections::HashMap, path::PathBuf, str::FromStr, sync::Arc};
 
 use anyhow::anyhow;
 use bam_api_client::{client::BamApiClient, types::ValidatorsResponse};
@@ -49,10 +49,14 @@ pub struct BamWriterService {
 
     /// BAM Delegation Criteria
     bam_delegation_criteria: BamDelegationCriteria,
+
+    /// Blacklist configuration file
+    blacklist_file_path: PathBuf,
 }
 
 impl BamWriterService {
     /// Initialize [`BamWriterService`]
+    #[allow(clippy::too_many_arguments)]
     pub async fn new(
         cluster: &str,
         mongo_connection_uri: &str,
@@ -61,6 +65,7 @@ impl BamWriterService {
         steward_config: Pubkey,
         rpc_client: Arc<RpcClient>,
         bam_api_base_url: &str,
+        blacklist_file_path: PathBuf,
     ) -> anyhow::Result<Self> {
         let cluster = Cluster::from_str(cluster, false)
             .map_err(|e| anyhow!("Failed to read cluster: {e}"))?;
@@ -88,6 +93,7 @@ impl BamWriterService {
             bam_validators_store,
             bam_epoch_metrics_store,
             bam_delegation_criteria,
+            blacklist_file_path,
         })
     }
 
@@ -134,6 +140,16 @@ impl BamWriterService {
         }
     }
 
+    /// Read blacklist configuration file
+    fn read_blacklist_file(&self) -> anyhow::Result<Vec<Pubkey>> {
+        let content = std::fs::read_to_string(&self.blacklist_file_path)?;
+        content
+            .lines()
+            .filter(|line| !line.trim().is_empty() && !line.trim().starts_with('#'))
+            .map(|line| Pubkey::from_str(line.trim()).map_err(|e| anyhow!("Invalid pubkey: {e}")))
+            .collect()
+    }
+
     /// Run [`BamWriterService`]
     pub async fn run(&self) -> anyhow::Result<()> {
         let epoch_info = self.rpc_client.get_epoch_info().await?;
@@ -161,6 +177,8 @@ impl BamWriterService {
             }
         }
 
+        let blacklist_validators = self.read_blacklist_file()?;
+
         let steward_all_accounts = get_all_steward_accounts(
             &self.rpc_client.clone(),
             &jito_steward::id(),
@@ -186,9 +204,11 @@ impl BamWriterService {
                     vote_pubkey,
                 );
 
-                match eligibility_checker
-                    .check_eligibility(&steward_all_accounts.config_account, validator_history)
-                {
+                match eligibility_checker.check_eligibility(
+                    &blacklist_validators,
+                    &steward_all_accounts.config_account,
+                    validator_history,
+                ) {
                     Ok(()) => {
                         bam_validator.set_is_eligible(true);
                     }
@@ -220,8 +240,11 @@ impl BamWriterService {
                             IneligibilityReason::InsufficientHistory => {
                                 "InsufficientHistory: Less than 3 epochs".to_string()
                             }
-                            IneligibilityReason::Blacklist => {
-                                format!("Blacklist in epoch {epoch}")
+                            IneligibilityReason::OnChainBlacklist => {
+                                format!("Blacklist on-chain in epoch {epoch}")
+                            }
+                            IneligibilityReason::OffChainBlacklist => {
+                                format!("Blacklist off-chain in epoch {epoch}")
                             }
                         };
                         bam_validator.set_ineligibility_reason(Some(reason_string));

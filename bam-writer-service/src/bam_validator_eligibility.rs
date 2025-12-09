@@ -4,6 +4,7 @@ use std::collections::HashMap;
 
 use jito_steward::Config;
 use kobe_core::client_type::ClientType;
+use solana_pubkey::Pubkey;
 use validator_history::ValidatorHistory;
 
 /// Validates validator eligibility for BAM delegation according to JIP-28 criteria
@@ -38,7 +39,8 @@ pub enum IneligibilityReason {
         min_required: u32,
     },
     InsufficientHistory,
-    Blacklist,
+    OnChainBlacklist,
+    OffChainBlacklist,
 }
 
 impl BamValidatorEligibility {
@@ -90,6 +92,7 @@ impl BamValidatorEligibility {
     /// Returns `Ok(())` if eligible, or `Err(IneligibilityReason)` with the first failure
     pub fn check_eligibility(
         &self,
+        blacklist_validators: &[Pubkey],
         steward_config: &Config,
         validator_history: &ValidatorHistory,
     ) -> Result<(), IneligibilityReason> {
@@ -169,7 +172,11 @@ impl BamValidatorEligibility {
             .validator_history_blacklist
             .get(validator_history.index as usize)
         {
-            return Err(IneligibilityReason::Blacklist);
+            return Err(IneligibilityReason::OnChainBlacklist);
+        }
+
+        if blacklist_validators.contains(&validator_history.vote_account) {
+            return Err(IneligibilityReason::OffChainBlacklist);
         }
 
         Ok(())
@@ -178,6 +185,8 @@ impl BamValidatorEligibility {
 
 #[cfg(test)]
 mod tests {
+    use std::str::FromStr;
+
     use super::*;
     use jito_steward::{utils::U8Bool, LargeBitMask, Parameters};
     use solana_pubkey::Pubkey;
@@ -226,7 +235,7 @@ mod tests {
     fn create_validator_history(entries: Vec<ValidatorHistoryEntry>) -> ValidatorHistory {
         let mut history = ValidatorHistory {
             struct_version: 1,
-            vote_account: Pubkey::new_unique(),
+            vote_account: Pubkey::from_str("CcaHc2L43ZWjwCHART3oZoJvHLAe9hzT2DJNUpBzoTN2").unwrap(),
             index: 0,
             bump: 0,
             _padding0: [0; 7],
@@ -246,6 +255,7 @@ mod tests {
 
     #[test]
     fn test_eligible_validator_passes() {
+        let blacklist_validators = vec![];
         let steward_config = create_steward_config();
         let vh1 = create_validator_history(vec![
             create_entry(97, 6, 0, 10, 0, 10000),
@@ -256,11 +266,14 @@ mod tests {
 
         let checker = BamValidatorEligibility::new(100, &[vh1.clone()]);
 
-        assert!(checker.check_eligibility(&steward_config, &vh1).is_ok());
+        assert!(checker
+            .check_eligibility(&blacklist_validators, &steward_config, &vh1)
+            .is_ok());
     }
 
     #[test]
     fn test_not_bam_client_fails() {
+        let blacklist_validators = vec![];
         let steward_config = create_steward_config();
         let vh = create_validator_history(vec![
             create_entry(97, 2, 0, 10, 0, 10000), // Firedancer
@@ -272,13 +285,14 @@ mod tests {
         let checker = BamValidatorEligibility::new(100, &[vh.clone()]);
 
         assert_eq!(
-            checker.check_eligibility(&steward_config, &vh),
+            checker.check_eligibility(&blacklist_validators, &steward_config, &vh),
             Err(IneligibilityReason::NotBamClient)
         );
     }
 
     #[test]
     fn test_non_zero_commission_fails() {
+        let blacklist_validators = vec![];
         let steward_config = create_steward_config();
         let vh = create_validator_history(vec![
             create_entry(97, 6, 0, 10, 0, 10000),
@@ -290,7 +304,7 @@ mod tests {
         let checker = BamValidatorEligibility::new(100, &[vh.clone()]);
 
         assert_eq!(
-            checker.check_eligibility(&steward_config, &vh),
+            checker.check_eligibility(&blacklist_validators, &steward_config, &vh),
             Err(IneligibilityReason::NonZeroCommission {
                 epoch: 98,
                 commission: 5
@@ -300,6 +314,7 @@ mod tests {
 
     #[test]
     fn test_high_mev_commission_fails() {
+        let blacklist_validators = vec![];
         let steward_config = create_steward_config();
         let vh = create_validator_history(vec![
             create_entry(97, 6, 0, 10, 0, 10000),
@@ -311,7 +326,7 @@ mod tests {
         let checker = BamValidatorEligibility::new(100, &[vh.clone()]);
 
         assert_eq!(
-            checker.check_eligibility(&steward_config, &vh),
+            checker.check_eligibility(&blacklist_validators, &steward_config, &vh),
             Err(IneligibilityReason::HighMevCommission {
                 epoch: 98,
                 mev_commission: 15
@@ -321,6 +336,7 @@ mod tests {
 
     #[test]
     fn test_superminority_fails() {
+        let blacklist_validators = vec![];
         let steward_config = create_steward_config();
         let vh = create_validator_history(vec![
             create_entry(97, 6, 0, 10, 0, 10000),
@@ -332,13 +348,14 @@ mod tests {
         let checker = BamValidatorEligibility::new(100, &[vh.clone()]);
 
         assert_eq!(
-            checker.check_eligibility(&steward_config, &vh),
+            checker.check_eligibility(&blacklist_validators, &steward_config, &vh),
             Err(IneligibilityReason::InSuperminority { epoch: 98 })
         );
     }
 
     #[test]
     fn test_low_vote_credits_fails() {
+        let blacklist_validators = vec![];
         let steward_config = create_steward_config();
         let vh_good = create_validator_history(vec![
             create_entry(97, 6, 0, 10, 0, 10000),
@@ -357,7 +374,7 @@ mod tests {
         let checker = BamValidatorEligibility::new(100, &[vh_good, vh_bad.clone()]);
 
         assert_eq!(
-            checker.check_eligibility(&steward_config, &vh_bad),
+            checker.check_eligibility(&blacklist_validators, &steward_config, &vh_bad),
             Err(IneligibilityReason::LowVoteCredits {
                 epoch: 98,
                 credits: 9600,
@@ -368,6 +385,7 @@ mod tests {
 
     #[test]
     fn test_insufficient_history_fails() {
+        let blacklist_validators = vec![];
         let steward_config = create_steward_config();
         // Only 2 epochs instead of required 3
         let vh = create_validator_history(vec![
@@ -378,13 +396,14 @@ mod tests {
         let checker = BamValidatorEligibility::new(100, &[vh.clone()]);
 
         assert_eq!(
-            checker.check_eligibility(&steward_config, &vh),
+            checker.check_eligibility(&blacklist_validators, &steward_config, &vh),
             Err(IneligibilityReason::InsufficientHistory)
         );
     }
 
     #[test]
     fn test_exactly_97_percent_passes() {
+        let blacklist_validators = vec![];
         let steward_config = create_steward_config();
         let vh_max = create_validator_history(vec![
             create_entry(97, 6, 0, 10, 0, 10000),
@@ -402,11 +421,14 @@ mod tests {
 
         let checker = BamValidatorEligibility::new(100, &[vh_max, vh_97.clone()]);
 
-        assert!(checker.check_eligibility(&steward_config, &vh_97).is_ok());
+        assert!(checker
+            .check_eligibility(&blacklist_validators, &steward_config, &vh_97)
+            .is_ok());
     }
 
     #[test]
     fn test_mev_commission_boundary() {
+        let blacklist_validators = vec![];
         let steward_config = create_steward_config();
         // Exactly 10% MEV commission should pass
         let vh_10 = create_validator_history(vec![
@@ -426,12 +448,17 @@ mod tests {
 
         let checker = BamValidatorEligibility::new(100, &[vh_10.clone(), vh_11.clone()]);
 
-        assert!(checker.check_eligibility(&steward_config, &vh_10).is_ok());
-        assert!(checker.check_eligibility(&steward_config, &vh_11).is_err());
+        assert!(checker
+            .check_eligibility(&blacklist_validators, &steward_config, &vh_10)
+            .is_ok());
+        assert!(checker
+            .check_eligibility(&blacklist_validators, &steward_config, &vh_11)
+            .is_err());
     }
 
     #[test]
-    fn test_blacklist() {
+    fn test_on_chain_blacklist() {
+        let blacklist_validators = vec![];
         let mut steward_config = create_steward_config();
         steward_config
             .validator_history_blacklist
@@ -448,8 +475,29 @@ mod tests {
         let checker = BamValidatorEligibility::new(100, &[vh.clone()]);
 
         assert_eq!(
-            checker.check_eligibility(&steward_config, &vh),
-            Err(IneligibilityReason::Blacklist)
+            checker.check_eligibility(&blacklist_validators, &steward_config, &vh),
+            Err(IneligibilityReason::OnChainBlacklist)
+        );
+    }
+
+    #[test]
+    fn test_off_chain_blacklist() {
+        let blacklist_validators =
+            vec![Pubkey::from_str("CcaHc2L43ZWjwCHART3oZoJvHLAe9hzT2DJNUpBzoTN2").unwrap()];
+        let steward_config = create_steward_config();
+
+        let vh = create_validator_history(vec![
+            create_entry(97, 6, 0, 10, 0, 10000),
+            create_entry(98, 6, 0, 10, 0, 10000),
+            create_entry(99, 6, 0, 10, 0, 10000),
+            create_entry(100, 6, 0, 10, 0, 10000),
+        ]);
+
+        let checker = BamValidatorEligibility::new(100, &[vh.clone()]);
+
+        assert_eq!(
+            checker.check_eligibility(&blacklist_validators, &steward_config, &vh),
+            Err(IneligibilityReason::OffChainBlacklist)
         );
     }
 }

@@ -1,4 +1,4 @@
-use std::{collections::HashSet, sync::Arc, time::Duration};
+use std::{collections::HashSet, path::PathBuf, sync::Arc, time::Duration};
 
 use clap::{Parser, Subcommand};
 use kobe_bam_writer_service::BamWriterService;
@@ -46,6 +46,10 @@ struct Args {
     )]
     steward_config: Pubkey,
 
+    /// Blacklist file path
+    #[clap(long, env)]
+    blacklist_file_path: PathBuf,
+
     /// Cluster name for metrics
     #[clap(long, env, default_value = "mainnet")]
     cluster_name: String,
@@ -87,6 +91,7 @@ async fn main() -> anyhow::Result<()> {
         args.steward_config,
         rpc_client.clone(),
         &args.bam_api_base_url,
+        args.blacklist_file_path,
     )
     .await?;
 

@@ -1,5 +1,6 @@
 use std::{collections::HashSet, path::PathBuf, sync::Arc, time::Duration};
 
+use anyhow::anyhow;
 use clap::{Parser, Subcommand};
 use kobe_bam_writer_service::BamWriterService;
 use log::{error, info};
@@ -94,6 +95,10 @@ async fn main() -> anyhow::Result<()> {
         args.blacklist_file_path,
     )
     .await?;
+
+    if let Err(e) = bam_writer_service.read_blacklist_file() {
+        return Err(anyhow!("Failed to read blacklist file: {e}"));
+    }
 
     match args.command {
         Commands::Run => {

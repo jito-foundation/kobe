@@ -141,7 +141,7 @@ impl BamWriterService {
     }
 
     /// Read blacklist configuration file
-    fn read_blacklist_file(&self) -> anyhow::Result<Vec<Pubkey>> {
+    pub fn read_blacklist_file(&self) -> anyhow::Result<Vec<Pubkey>> {
         let content = std::fs::read_to_string(&self.blacklist_file_path)?;
         content
             .lines()

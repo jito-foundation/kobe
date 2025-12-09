@@ -12,7 +12,9 @@ use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_pubkey::Pubkey;
 use stakenet_sdk::{
     models::cluster::Cluster,
-    utils::accounts::{get_all_validator_history_accounts, get_stake_pool_account},
+    utils::accounts::{
+        get_all_steward_accounts, get_all_validator_history_accounts, get_stake_pool_account,
+    },
 };
 
 use crate::{
@@ -29,6 +31,9 @@ pub struct BamWriterService {
 
     /// Stake pool address
     stake_pool: Pubkey,
+
+    /// Steward config
+    steward_config: Pubkey,
 
     /// RPC Client
     rpc_client: Arc<RpcClient>,
@@ -53,6 +58,7 @@ impl BamWriterService {
         mongo_connection_uri: &str,
         mongo_db_name: &str,
         stake_pool: Pubkey,
+        steward_config: Pubkey,
         rpc_client: Arc<RpcClient>,
         bam_api_base_url: &str,
     ) -> anyhow::Result<Self> {
@@ -76,6 +82,7 @@ impl BamWriterService {
         Ok(Self {
             cluster,
             stake_pool,
+            steward_config,
             rpc_client,
             bam_api_base_url: bam_api_base_url.to_string(),
             bam_validators_store,
@@ -154,6 +161,13 @@ impl BamWriterService {
             }
         }
 
+        let steward_all_accounts = get_all_steward_accounts(
+            &self.rpc_client.clone(),
+            &jito_steward::id(),
+            &self.steward_config,
+        )
+        .await?;
+
         let validator_histories =
             get_all_validator_history_accounts(&self.rpc_client.clone(), validator_history::id())
                 .await?;
@@ -172,7 +186,9 @@ impl BamWriterService {
                     vote_pubkey,
                 );
 
-                match eligibility_checker.check_eligibility(validator_history) {
+                match eligibility_checker
+                    .check_eligibility(&steward_all_accounts.config_account, validator_history)
+                {
                     Ok(()) => {
                         bam_validator.set_is_eligible(true);
                     }
@@ -203,6 +219,9 @@ impl BamWriterService {
                             }
                             IneligibilityReason::InsufficientHistory => {
                                 "InsufficientHistory: Less than 3 epochs".to_string()
+                            }
+                            IneligibilityReason::Blacklist => {
+                                format!("Blacklist in epoch {epoch}")
                             }
                         };
                         bam_validator.set_ineligibility_reason(Some(reason_string));

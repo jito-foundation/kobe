@@ -38,6 +38,14 @@ struct Args {
     )]
     stake_pool: Pubkey,
 
+    /// Steward config account address
+    #[clap(
+        long,
+        env,
+        default_value = "jitoVjT9jRUyeXHzvCwzPgHj7yWNRhLcUoXtes4wtjv"
+    )]
+    steward_config: Pubkey,
+
     /// Cluster name for metrics
     #[clap(long, env, default_value = "mainnet")]
     cluster_name: String,
@@ -76,6 +84,7 @@ async fn main() -> anyhow::Result<()> {
         &args.mongo_connection_uri,
         &args.mongo_db_name,
         args.stake_pool,
+        args.steward_config,
         rpc_client.clone(),
         &args.bam_api_base_url,
     )

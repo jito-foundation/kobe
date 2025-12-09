@@ -47,10 +47,6 @@ struct Args {
     )]
     steward_config: Pubkey,
 
-    /// Blacklist file path
-    #[clap(long, env)]
-    blacklist_file_path: PathBuf,
-
     /// Cluster name for metrics
     #[clap(long, env, default_value = "mainnet")]
     cluster_name: String,
@@ -92,13 +88,8 @@ async fn main() -> anyhow::Result<()> {
         args.steward_config,
         rpc_client.clone(),
         &args.bam_api_base_url,
-        args.blacklist_file_path,
     )
     .await?;
-
-    if let Err(e) = bam_writer_service.read_blacklist_file() {
-        return Err(anyhow!("Failed to read blacklist file: {e}"));
-    }
 
     match args.command {
         Commands::Run => {

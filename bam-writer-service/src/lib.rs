@@ -1,4 +1,4 @@
-use std::{collections::HashMap, path::PathBuf, str::FromStr, sync::Arc};
+use std::{collections::HashMap, str::FromStr, sync::Arc};
 
 use anyhow::anyhow;
 use bam_api_client::{client::BamApiClient, types::ValidatorsResponse};
@@ -49,14 +49,10 @@ pub struct BamWriterService {
 
     /// BAM Delegation Criteria
     bam_delegation_criteria: BamDelegationCriteria,
-
-    /// Blacklist configuration file
-    blacklist_file_path: PathBuf,
 }
 
 impl BamWriterService {
     /// Initialize [`BamWriterService`]
-    #[allow(clippy::too_many_arguments)]
     pub async fn new(
         cluster: &str,
         mongo_connection_uri: &str,
@@ -65,7 +61,6 @@ impl BamWriterService {
         steward_config: Pubkey,
         rpc_client: Arc<RpcClient>,
         bam_api_base_url: &str,
-        blacklist_file_path: PathBuf,
     ) -> anyhow::Result<Self> {
         let cluster = Cluster::from_str(cluster, false)
             .map_err(|e| anyhow!("Failed to read cluster: {e}"))?;
@@ -93,7 +88,6 @@ impl BamWriterService {
             bam_validators_store,
             bam_epoch_metrics_store,
             bam_delegation_criteria,
-            blacklist_file_path,
         })
     }
 
@@ -138,16 +132,6 @@ impl BamWriterService {
                     .map_err(|e| anyhow!("Failed to get bam validators: {e}"))
             }
         }
-    }
-
-    /// Read blacklist configuration file
-    pub fn read_blacklist_file(&self) -> anyhow::Result<Vec<Pubkey>> {
-        let content = std::fs::read_to_string(&self.blacklist_file_path)?;
-        content
-            .lines()
-            .filter(|line| !line.trim().is_empty() && !line.trim().starts_with('#'))
-            .map(|line| Pubkey::from_str(line.trim()).map_err(|e| anyhow!("Invalid pubkey: {e}")))
-            .collect()
     }
 
     /// Run [`BamWriterService`]

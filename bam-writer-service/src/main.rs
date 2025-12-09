@@ -1,6 +1,5 @@
-use std::{collections::HashSet, path::PathBuf, sync::Arc, time::Duration};
+use std::{collections::HashSet, sync::Arc, time::Duration};
 
-use anyhow::anyhow;
 use clap::{Parser, Subcommand};
 use kobe_bam_writer_service::BamWriterService;
 use log::{error, info};

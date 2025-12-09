@@ -3,6 +3,7 @@ use std::{collections::HashMap, str::FromStr, sync::Arc};
 use anyhow::anyhow;
 use bam_api_client::{client::BamApiClient, types::ValidatorsResponse};
 use clap::ValueEnum;
+use kobe_client::client::KobeClient;
 use kobe_core::db_models::{
     bam_epoch_metrics::{BamEpochMetrics, BamEpochMetricsStore},
     bam_validators::{BamValidator, BamValidatorStore},
@@ -28,6 +29,9 @@ mod bam_validator_eligibility;
 pub struct BamWriterService {
     /// Cluster name (mainnet-beta, testnet)
     cluster: Cluster,
+
+    /// Kobe api client
+    kobe_api_client: KobeClient,
 
     /// Stake pool address
     stake_pool: Pubkey,
@@ -65,6 +69,11 @@ impl BamWriterService {
         let cluster = Cluster::from_str(cluster, false)
             .map_err(|e| anyhow!("Failed to read cluster: {e}"))?;
 
+        let kobe_api_client = match cluster {
+            Cluster::Localnet | Cluster::Testnet => KobeClient::testnet(),
+            Cluster::Mainnet => KobeClient::mainnet(),
+        };
+
         // Connect to MongoDB
         let client = mongodb::Client::with_uri_str(mongo_connection_uri).await?;
         let db = client.database(mongo_db_name);
@@ -81,6 +90,7 @@ impl BamWriterService {
 
         Ok(Self {
             cluster,
+            kobe_api_client,
             stake_pool,
             steward_config,
             rpc_client,
@@ -161,7 +171,11 @@ impl BamWriterService {
             }
         }
 
-        let blacklist_validators = self.read_blacklist_file()?;
+        let bam_delegation_blacklist = self.kobe_api_client.get_bam_delegation_blacklist().await?;
+        let blacklist_validators: Vec<Pubkey> = bam_delegation_blacklist
+            .into_iter()
+            .filter_map(|entry| Pubkey::from_str(&entry.vote_account).ok())
+            .collect();
 
         let steward_all_accounts = get_all_steward_accounts(
             &self.rpc_client.clone(),

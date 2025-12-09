@@ -15,6 +15,7 @@ clap = { workspace = true }
 env_logger = { workspace = true }
 jito-steward = { workspace = true }
 kobe-core = { workspace = true }
+kobe-client = { workspace = true }
 log = { workspace = true }
 mongodb = { workspace = true }
 reqwest = { workspace = true }

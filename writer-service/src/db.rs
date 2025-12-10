@@ -89,7 +89,7 @@ pub async fn upsert_to_db(
 ///
 /// This function attempts to download merkle tree and stake metadata files from multiple
 /// GCP servers, trying each server in sequence until one successfully provides valid,
-/// parseable files. This fallback mechanism handles cases where files may be corrupted
+/// parsable files. This fallback mechanism handles cases where files may be corrupted
 /// or unavailable on specific servers.
 pub async fn write_mev_claims_info(
     db: &Database,
@@ -108,6 +108,10 @@ pub async fn write_mev_claims_info(
         return Ok(());
     }
 
+    let client = ReqwestClient::builder()
+        .timeout(CoreDuration::from_secs(600))
+        .build()?;
+
     for mainnet_gcp_server_name in mainnet_gcp_server_names {
         info!("Trying to fetch files from {mainnet_gcp_server_name} for epoch {target_epoch}");
 
@@ -120,9 +124,6 @@ pub async fn write_mev_claims_info(
                 }
             };
 
-        let client = ReqwestClient::builder()
-            .timeout(CoreDuration::from_secs(600))
-            .build()?;
         let backoff = ExponentialBackoff::default();
 
         let stake_meta_collection = match retry(backoff.clone(), || async {
@@ -186,7 +187,7 @@ pub async fn write_mev_claims_info(
         }
     }
 
-    Err(AppError::FileNotFound(format!(
+    Err(AppError::WriteMevInfoClaims(format!(
         "Failed to process valid files for epoch {target_epoch} from any server"
     )))
 }

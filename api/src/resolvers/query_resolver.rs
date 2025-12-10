@@ -11,9 +11,9 @@ use jito_steward::constants::MAX_VALIDATORS;
 use kobe_core::{
     constants::{JITOSOL_VALIDATOR_LIST_MAINNET, JITOSOL_VALIDATOR_LIST_TESTNET},
     db_models::{
+        bam_delegation_blacklist::{BamDelegationBlacklistEntry, BamDelegationBlacklistStore},
         bam_epoch_metrics::BamEpochMetricsStore,
         bam_validators::BamValidatorStore,
-        bam_delegation_blacklist::{BamDelegationBlacklistEntry, BamDelegationBlacklistStore},
         mev_rewards::{StakerRewardsStore, ValidatorRewardsStore},
         stake_pool_stats::{StakePoolStats, StakePoolStatsStore},
         steward_events::StewardEventsStore,
@@ -70,7 +70,7 @@ pub struct QueryResolver {
 
     /// BAM validators store
     bam_validators_store: BamValidatorStore,
-    
+
     /// BAM Delegation Blacklist Store
     bam_delegation_blacklist_store: BamDelegationBlacklistStore,
 

@@ -13,6 +13,7 @@ use kobe_core::{
     db_models::{
         bam_epoch_metrics::BamEpochMetricsStore,
         bam_validators::BamValidatorStore,
+        bam_delegation_blacklist::{BamDelegationBlacklistEntry, BamDelegationBlacklistStore},
         mev_rewards::{StakerRewardsStore, ValidatorRewardsStore},
         stake_pool_stats::{StakePoolStats, StakePoolStatsStore},
         steward_events::StewardEventsStore,
@@ -69,6 +70,9 @@ pub struct QueryResolver {
 
     /// BAM validators store
     bam_validators_store: BamValidatorStore,
+    
+    /// BAM Delegation Blacklist Store
+    bam_delegation_blacklist_store: BamDelegationBlacklistStore,
 
     /// RPC Client URL
     rpc_client: Arc<RpcClient>,
@@ -472,6 +476,22 @@ pub async fn preferred_withdraw_validator_list_cacheable_wrapper(
     (StatusCode::OK, Json(list))
 }
 
+#[cached(
+    type = "TimedCache<String, (StatusCode, Json<Vec<BamDelegationBlacklistEntry>>)>",
+    create = "{ TimedCache::with_lifespan_and_capacity(60, 1000) }",
+    key = "String",
+    convert = r#"{ format!("bam-delegation-blacklist") }"#
+)]
+pub async fn get_bam_delegation_blacklist_wrapper(
+    resolver: Extension<QueryResolver>,
+) -> (StatusCode, Json<Vec<BamDelegationBlacklistEntry>>) {
+    if let Ok(res) = resolver.get_bam_delegation_blacklist().await {
+        (StatusCode::OK, Json(res))
+    } else {
+        (StatusCode::INTERNAL_SERVER_ERROR, Json(vec![]))
+    }
+}
+
 impl QueryResolver {
     pub fn new(
         database: &Database,
@@ -500,6 +520,9 @@ impl QueryResolver {
             ),
             bam_validators_store: BamValidatorStore::new(
                 database.collection(BamValidatorStore::COLLECTION),
+            ),
+            bam_delegation_blacklist_store: BamDelegationBlacklistStore::new(
+                database.collection(BamDelegationBlacklistStore::COLLECTION),
             ),
             rpc_client: Arc::new(client),
             cluster,
@@ -1071,6 +1094,12 @@ impl QueryResolver {
         }
 
         Ok(preferred_withdraw_list)
+    }
+
+    /// Retrieves the blacklist for bam delegation
+    pub async fn get_bam_delegation_blacklist(&self) -> Result<Vec<BamDelegationBlacklistEntry>> {
+        let entries = self.bam_delegation_blacklist_store.find().await?;
+        Ok(entries)
     }
 }
 

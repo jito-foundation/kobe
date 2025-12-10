@@ -3,7 +3,7 @@ use std::{collections::HashMap, str::FromStr, sync::Arc};
 use anyhow::anyhow;
 use bam_api_client::{client::BamApiClient, types::ValidatorsResponse};
 use clap::ValueEnum;
-use kobe_client::client::KobeClient;
+use kobe_client::{client::KobeClient, client_builder::KobeApiClientBuilder};
 use kobe_core::db_models::{
     bam_epoch_metrics::{BamEpochMetrics, BamEpochMetricsStore},
     bam_validators::{BamValidator, BamValidatorStore},
@@ -70,7 +70,10 @@ impl BamWriterService {
             .map_err(|e| anyhow!("Failed to read cluster: {e}"))?;
 
         let kobe_api_client = match cluster {
-            Cluster::Localnet | Cluster::Testnet => KobeClient::testnet(),
+            Cluster::Localnet => KobeApiClientBuilder::new()
+                .base_url("http://localhost:8080")
+                .build(),
+            Cluster::Testnet => KobeClient::testnet(),
             Cluster::Mainnet => KobeClient::mainnet(),
         };
 

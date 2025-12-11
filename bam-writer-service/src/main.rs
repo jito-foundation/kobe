@@ -30,6 +30,10 @@ struct Args {
     #[clap(long, env)]
     bam_api_base_url: String,
 
+    /// Kobe api base url
+    #[clap(long, env)]
+    kobe_api_base_url: String,
+
     /// Stake pool address
     #[clap(
         long,
@@ -87,6 +91,7 @@ async fn main() -> anyhow::Result<()> {
         args.steward_config,
         rpc_client.clone(),
         &args.bam_api_base_url,
+        &args.kobe_api_base_url,
     )
     .await?;
 
@@ -114,7 +119,9 @@ async fn main() -> anyhow::Result<()> {
 
                         match bam_writer_service.run().await {
                             Ok(()) => {
-                                info!("Successfully processed at {threshold_pct:.0}% of epoch {current_epoch}");
+                                info!(
+                                    "Successfully processed at {threshold_pct:.0}% of epoch {current_epoch}"
+                                );
                                 thresholds_hit.insert(idx);
 
                                 datapoint_info!(

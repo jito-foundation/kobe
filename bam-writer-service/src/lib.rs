@@ -57,6 +57,7 @@ pub struct BamWriterService {
 
 impl BamWriterService {
     /// Initialize [`BamWriterService`]
+    #[allow(clippy::too_many_arguments)]
     pub async fn new(
         cluster: &str,
         mongo_connection_uri: &str,

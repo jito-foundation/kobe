@@ -8,6 +8,7 @@ use solana_pubkey::Pubkey;
 use validator_history::ValidatorHistory;
 
 /// Validates validator eligibility for BAM delegation according to JIP-28 criteria
+#[derive(Debug)]
 pub struct BamValidatorEligibility {
     /// Start epoch for lookback window
     validator_commission_start_epoch: u16,
@@ -178,7 +179,7 @@ impl BamValidatorEligibility {
             return Err(IneligibilityReason::InsufficientHistory);
         }
 
-        for i in self.running_bam_start_epoch..=self.running_bam_end_epoch {
+        for (i, _) in (self.running_bam_start_epoch..=self.running_bam_end_epoch).enumerate() {
             // BAM clients
             if let Some(client_type) = client_types[i as usize] {
                 if !matches!(ClientType::from_u8(client_type), ClientType::Bam) {
@@ -332,14 +333,15 @@ mod tests {
     fn test_eligible_validator_passes() {
         let blacklist_validators = vec![];
         let steward_config = create_steward_config();
-        let vh1 = create_validator_history(vec![
-            create_entry(97, 6, 0, 10, 0, 10000),
-            create_entry(98, 6, 0, 10, 0, 10000),
-            create_entry(99, 6, 0, 10, 0, 10000),
-            create_entry(100, 6, 0, 10, 0, 10000),
-        ]);
 
-        let checker = BamValidatorEligibility::new(100, &[vh1.clone()]);
+        let mut entries = Vec::new();
+        for i in 0..=30 {
+            let entry = create_entry(i, 6, 0, 10, 0, 10000);
+            entries.push(entry);
+        }
+        let vh1 = create_validator_history(entries);
+
+        let checker = BamValidatorEligibility::new(31, &[vh1.clone()]);
 
         assert!(checker
             .check_eligibility(&blacklist_validators, &steward_config, &vh1)
@@ -369,19 +371,22 @@ mod tests {
     fn test_non_zero_commission_fails() {
         let blacklist_validators = vec![];
         let steward_config = create_steward_config();
-        let vh = create_validator_history(vec![
-            create_entry(97, 6, 0, 10, 0, 10000),
-            create_entry(98, 6, 5, 10, 0, 10000), // 5% commission
-            create_entry(99, 6, 0, 10, 0, 10000),
-            create_entry(100, 6, 0, 10, 0, 10000),
-        ]);
 
-        let checker = BamValidatorEligibility::new(100, &[vh.clone()]);
+        let mut entries = Vec::new();
+        for i in 0..=29 {
+            let entry = create_entry(i, 6, 0, 10, 0, 10000);
+            entries.push(entry);
+        }
+        entries.push(create_entry(30, 6, 5, 10, 0, 10000)); // 5% commission
+
+        let vh = create_validator_history(entries);
+
+        let checker = BamValidatorEligibility::new(31, &[vh.clone()]);
 
         assert_eq!(
             checker.check_eligibility(&blacklist_validators, &steward_config, &vh),
             Err(IneligibilityReason::NonZeroCommission {
-                epoch: 98,
+                epoch: 30,
                 commission: 5
             })
         );
@@ -391,19 +396,22 @@ mod tests {
     fn test_high_mev_commission_fails() {
         let blacklist_validators = vec![];
         let steward_config = create_steward_config();
-        let vh = create_validator_history(vec![
-            create_entry(97, 6, 0, 10, 0, 10000),
-            create_entry(98, 6, 0, 15, 0, 10000), // 15% MEV commission
-            create_entry(99, 6, 0, 10, 0, 10000),
-            create_entry(100, 6, 0, 10, 0, 10000),
-        ]);
 
-        let checker = BamValidatorEligibility::new(100, &[vh.clone()]);
+        let mut entries = Vec::new();
+        for i in 0..=29 {
+            let entry = create_entry(i, 6, 0, 10, 0, 10000);
+            entries.push(entry);
+        }
+        entries.push(create_entry(30, 6, 0, 15, 0, 10000)); // 15% MEV commission
+
+        let vh = create_validator_history(entries);
+
+        let checker = BamValidatorEligibility::new(31, &[vh.clone()]);
 
         assert_eq!(
             checker.check_eligibility(&blacklist_validators, &steward_config, &vh),
             Err(IneligibilityReason::HighMevCommission {
-                epoch: 98,
+                epoch: 30,
                 mev_commission: 15
             })
         );

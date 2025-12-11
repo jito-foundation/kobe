@@ -181,7 +181,7 @@ impl BamValidatorEligibility {
 
         for (i, _) in (self.running_bam_start_epoch..=self.running_bam_end_epoch).enumerate() {
             // BAM clients
-            if let Some(client_type) = client_types[i as usize] {
+            if let Some(client_type) = client_types[i] {
                 if !matches!(ClientType::from_u8(client_type), ClientType::Bam) {
                     return Err(IneligibilityReason::NotBamClient);
                 }

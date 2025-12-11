@@ -38,6 +38,3 @@ thiserror = { workspace = true }
 tokio = { workspace = true }
 tokio-retry = { workspace = true }
 validator-history = { workspace = true }
-
-[dev-dependencies]
-env_logger = { workspace = true }

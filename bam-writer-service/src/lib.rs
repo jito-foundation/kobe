@@ -65,17 +65,14 @@ impl BamWriterService {
         steward_config: Pubkey,
         rpc_client: Arc<RpcClient>,
         bam_api_base_url: &str,
+        kobe_api_base_url: &str,
     ) -> anyhow::Result<Self> {
         let cluster = Cluster::from_str(cluster, false)
             .map_err(|e| anyhow!("Failed to read cluster: {e}"))?;
 
-        let kobe_api_client = match cluster {
-            Cluster::Localnet => KobeApiClientBuilder::new()
-                .base_url("http://localhost:8080")
-                .build(),
-            Cluster::Testnet => KobeClient::testnet(),
-            Cluster::Mainnet => KobeClient::mainnet(),
-        };
+        let kobe_api_client = KobeApiClientBuilder::new()
+            .base_url(kobe_api_base_url)
+            .build();
 
         // Connect to MongoDB
         let client = mongodb::Client::with_uri_str(mongo_connection_uri).await?;

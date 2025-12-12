@@ -3,15 +3,16 @@ on:
   workflow_dispatch:
     inputs:
       service_config:
-        description: 'Service configuration'
+        description: "Service configuration"
         required: true
-        default: 'api'
+        default: "api"
         type: choice
         options:
           - api
           - cranker
           - writer-service
           - steward-writer-service
+          - bam-writer-service
 
 env:
   REGISTRY: ghcr.io
@@ -56,6 +57,11 @@ jobs:
               echo "target=steward-writer-service" >> $GITHUB_OUTPUT
               echo "service=steward-writer-service" >> $GITHUB_OUTPUT
               echo "image_name=${{ github.repository }}/kobe-steward-writer-service" >> $GITHUB_OUTPUT
+              ;;
+            "bam-writer-service")
+              echo "target=bam-writer-service" >> $GITHUB_OUTPUT
+              echo "service=bam-writer-service" >> $GITHUB_OUTPUT
+              echo "image_name=${{ github.repository }}/kobe-bam-writer-service" >> $GITHUB_OUTPUT
               ;;
           esac
 

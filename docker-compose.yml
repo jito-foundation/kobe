@@ -174,6 +174,42 @@ services:
       com.datadoghq.ad.tags: '["network:$SOLANA_CLUSTER"]'
     restart: on-failure:5
 
+  bam-writer-service-mainnet:
+    container_name: bam-writer-service-mainnet
+    environment:
+      - MONGO_CONNECTION_URI=$MONGO_CONNECTION_URI
+      - MONGO_DB_NAME=$MONGO_DB_NAME
+      - RPC_URL=$RPC_URL
+      - BAM_API_BASE_URL=$BAM_API_BASE_URL
+      - STAKE_POOL=$STAKE_POOL
+      - STEWARD_CONFIG=$STEWARD_CONFIG
+      - CLUSTER_NAME=$CLUSTER_NAME
+      - RUST_LOG=info
+      - SOLANA_METRICS_CONFIG=$SOLANA_METRICS_CONFIG
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: bam-writer-service
+    restart: on-failure:5
+
+  bam-writer-service-testnet:
+    container_name: bam-writer-service-testnet
+    environment:
+      - MONGO_CONNECTION_URI=$MONGO_CONNECTION_URI
+      - MONGO_DB_NAME=$MONGO_DB_NAME
+      - RPC_URL=$RPC_URL
+      - BAM_API_BASE_URL=$BAM_API_BASE_URL
+      - STAKE_POOL=$STAKE_POOL
+      - STEWARD_CONFIG=$STEWARD_CONFIG
+      - CLUSTER_NAME=$CLUSTER_NAME
+      - RUST_LOG=info
+      - SOLANA_METRICS_CONFIG=$SOLANA_METRICS_CONFIG
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: bam-writer-service
+    restart: on-failure:5
+
   mongodb:
     image: mongo:latest
     container_name: mongodb

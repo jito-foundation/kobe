@@ -70,6 +70,17 @@ pub enum IneligibilityReason {
 
 impl BamValidatorEligibility {
     /// Create a new eligibility checker
+    ///
+    /// # BAM Eligibility Components
+    ///
+    /// | Component | Description |
+    /// |-----------|-------------|
+    /// | `bam_blacklist_component` | Is the validator on the BAM blacklist (includes on-chain blacklist)? Binary component. |
+    /// | `validator_commission_component` | Has the validator maintained an inflation rate of 0% the last 30 epochs? Binary component. |
+    /// | `mev_commission_component` | Has the validator maintained a MEV commission rate of under 10% the last 10 epochs? Binary component. |
+    /// | `running_bam_component` | Has the validator been running the BAM client for the last 3 epochs? Binary component. |
+    /// | `superminority_component` | Has the validator been outside of the superminority for the last 3 epochs? Binary component. |
+    /// | `voting_rate_component` | Has the validator maintained a minimum voting_rate of voting_rate_threshold for the last 3 epochs? Binary component. |
     pub fn new(current_epoch: u64, all_validator_histories: &[ValidatorHistory]) -> Self {
         // Validator Commission
         let validator_commission_start_epoch = (current_epoch - 30) as u16;

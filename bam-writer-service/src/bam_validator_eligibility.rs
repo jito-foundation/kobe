@@ -87,15 +87,15 @@ impl BamValidatorEligibility {
         let superminority_start_epoch = (current_epoch - 3) as u16;
         let superminority_end_epoch = (current_epoch - 1) as u16;
 
-        // Voting rate
-        let voting_rate_start_epoch = (current_epoch - 3) as u16;
-        let voting_rate_end_epoch = (current_epoch - 1) as u16;
+        // Epoch credits
+        let epoch_credits_start_epoch = (current_epoch - 3) as u16;
+        let epoch_credits_end_epoch = (current_epoch - 1) as u16;
 
         // Calculate chain maximum vote credits for each epoch
         let chain_max_credits = Self::calculate_chain_max_credits(
             all_validator_histories,
-            voting_rate_start_epoch,
-            voting_rate_end_epoch,
+            epoch_credits_start_epoch,
+            epoch_credits_end_epoch,
         );
 
         // Epoch credits
@@ -335,13 +335,13 @@ mod tests {
         let steward_config = create_steward_config();
 
         let mut entries = Vec::new();
-        for i in 0..=30 {
+        for i in 0..=29 {
             let entry = create_entry(i, 6, 0, 10, 0, 10000);
             entries.push(entry);
         }
         let vh1 = create_validator_history(entries);
 
-        let checker = BamValidatorEligibility::new(31, &[vh1.clone()]);
+        let checker = BamValidatorEligibility::new(30, &[vh1.clone()]);
 
         assert!(checker
             .check_eligibility(&blacklist_validators, &steward_config, &vh1)

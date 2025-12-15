@@ -15,12 +15,10 @@ impl BamDelegationCriteria {
     pub fn new() -> Self {
         Self {
             tiers: vec![
-                (0, 2_000),      // 0% -> 20%
-                (2_000, 3_000),  // 20% -> 30%
-                (2_500, 4_000),  // 25% -> 40%
-                (3_000, 5_000),  // 30% -> 50%
-                (3_500, 7_000),  // 35% -> 70%
-                (4_000, 10_000), // 40% -> 100%
+                (0, 3_000),      // 0% -> 30%
+                (2_000, 5_000),  // 20% -> 50%
+                (2_500, 7_500),  // 25% -> 75%
+                (3_000, 10_000), // 30% -> 100%
             ],
         }
     }
@@ -53,7 +51,7 @@ impl BamDelegationCriteria {
 
         // If no previous epoch, return initial 20% (2000 BPS)
         let Some(prev_metric) = previous_epoch_metrics else {
-            return 2_000;
+            return 3_000;
         };
 
         let previous_stakeweight_bps = self
@@ -68,7 +66,7 @@ impl BamDelegationCriteria {
                 current_stakeweight_bps >= *threshold && previous_stakeweight_bps >= *threshold
             })
             .map(|(_, allocation)| *allocation)
-            .unwrap_or(2_000)
+            .unwrap_or(3_000)
     }
 
     /// Calculate available delegation amount in lamports
@@ -117,8 +115,8 @@ mod tests {
             10,
         );
 
-        // Should only get initial 20% regardless of current stakeweight
-        assert_eq!(criteria.calculate_current_allocation(&current, None), 2000);
+        // Should only get initial 30% regardless of current stakeweight
+        assert_eq!(criteria.calculate_current_allocation(&current, None), 3000);
     }
 
     #[test]
@@ -141,10 +139,10 @@ mod tests {
             10,
         );
 
-        // Both epochs at 25% -> should advance to 40% allocation
+        // Both epochs at 25% -> should advance to 75% allocation
         assert_eq!(
             criteria.calculate_current_allocation(&current, Some(&previous)),
-            4000
+            7500
         );
     }
 
@@ -169,10 +167,10 @@ mod tests {
         );
 
         // Current is 25% but previous was only 20%
-        // Should stay at 30% tier (20% threshold met in both)
+        // Should stay at 50% tier (20% threshold met in both)
         assert_eq!(
             criteria.calculate_current_allocation(&current, Some(&previous)),
-            3000
+            5000
         );
     }
 
@@ -197,10 +195,10 @@ mod tests {
         );
 
         // Previous was 25% but current dropped to 20%
-        // Should fall back to 30% tier (20% threshold met in both)
+        // Should fall back to 50% tier (20% threshold met in both)
         assert_eq!(
             criteria.calculate_current_allocation(&current, Some(&previous)),
-            3000
+            5000
         );
     }
 
@@ -215,10 +213,10 @@ mod tests {
         let current = BamEpochMetrics::new(100, 104_000_000, 400_000_000, 200_000_000, 10);
 
         // Even though current is above 25%, previous wasn't
-        // Should stay at 30% (20% tier) not jump to 40% (25% tier)
+        // Should stay at 50% (20% tier) not jump to 75% (25% tier)
         assert_eq!(
             criteria.calculate_current_allocation(&current, Some(&previous)),
-            3000
+            5000
         );
     }
 
@@ -242,7 +240,7 @@ mod tests {
             10,
         );
 
-        // Both epochs above 40% threshold -> 100% allocation
+        // Both epochs above 30% threshold -> 100% allocation
         assert_eq!(
             criteria.calculate_current_allocation(&current, Some(&previous)),
             10_000
@@ -259,11 +257,11 @@ mod tests {
         // Current: 35% stakeweight (jumped 20 percentage points!)
         let current = BamEpochMetrics::new(100, 140_000_000, 400_000_000, 200_000_000, 10);
 
-        // Can't skip tiers - previous only qualified for initial 20%
-        // Should get 20% allocation, not 70%
+        // Can't skip tiers - previous only qualified for initial 30%
+        // Should get 30% allocation, not 100%
         assert_eq!(
             criteria.calculate_current_allocation(&current, Some(&previous)),
-            2000
+            3000
         );
     }
 
@@ -273,25 +271,25 @@ mod tests {
 
         // Simulate progression through tiers
 
-        // Epoch 1: Both at 20% -> 30% allocation
+        // Epoch 1: Both at 20% -> 50% allocation
         let epoch_1 = BamEpochMetrics::new(100, 80_000_000, 400_000_000, 200_000_000, 10);
         let epoch_2 = BamEpochMetrics::new(101, 80_000_000, 400_000_000, 200_000_000, 10);
         assert_eq!(
             criteria.calculate_current_allocation(&epoch_2, Some(&epoch_1)),
-            3000
+            5000
         );
 
-        // Epoch 3: Both at 25% -> 40% allocation
+        // Epoch 3: Both at 25% -> 75% allocation
         let epoch_3 = BamEpochMetrics::new(102, 100_000_000, 400_000_000, 200_000_000, 10);
         assert_eq!(
             criteria.calculate_current_allocation(&epoch_3, Some(&epoch_2)),
-            3000
+            5000
         );
 
         let epoch_4 = BamEpochMetrics::new(103, 100_000_000, 400_000_000, 200_000_000, 10);
         assert_eq!(
             criteria.calculate_current_allocation(&epoch_4, Some(&epoch_3)),
-            4000
+            7500
         );
     }
 
@@ -315,10 +313,10 @@ mod tests {
             10,
         );
 
-        // Previous had 0%, so can only get initial 20%
+        // Previous had 0%, so can only get initial 30%
         assert_eq!(
             criteria.calculate_current_allocation(&current, Some(&previous)),
-            2000
+            3000
         );
     }
 }

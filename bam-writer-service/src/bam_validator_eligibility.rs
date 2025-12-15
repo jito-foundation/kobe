@@ -8,12 +8,37 @@ use solana_pubkey::Pubkey;
 use validator_history::ValidatorHistory;
 
 /// Validates validator eligibility for BAM delegation according to JIP-28 criteria
+#[derive(Debug)]
 pub struct BamValidatorEligibility {
     /// Start epoch for lookback window
-    start_epoch: u16,
+    validator_commission_start_epoch: u16,
 
     /// End epoch for lookback window
-    end_epoch: u16,
+    validator_commission_end_epoch: u16,
+
+    /// MEV Commission start epoch
+    mev_commission_start_epoch: u16,
+
+    /// MEV Commission end epoch
+    mev_commission_end_epoch: u16,
+
+    /// Running bam start epoch
+    running_bam_start_epoch: u16,
+
+    /// Running bam end epoch
+    running_bam_end_epoch: u16,
+
+    /// Superminority start epoch
+    superminority_start_epoch: u16,
+
+    /// Superminority end epoch
+    superminority_end_epoch: u16,
+
+    /// Epoch credits start epoch
+    epoch_credits_start_epoch: u16,
+
+    /// Epoch credits end epoch
+    epoch_credits_end_epoch: u16,
 
     /// Chain maximum vote credits per epoch
     chain_max_credits: HashMap<u16, u32>,
@@ -46,16 +71,48 @@ pub enum IneligibilityReason {
 impl BamValidatorEligibility {
     /// Create a new eligibility checker
     pub fn new(current_epoch: u64, all_validator_histories: &[ValidatorHistory]) -> Self {
-        let start_epoch = (current_epoch - 3) as u16;
-        let end_epoch = (current_epoch - 1) as u16;
+        // Validator Commission
+        let validator_commission_start_epoch = (current_epoch - 30) as u16;
+        let validator_commission_end_epoch = (current_epoch - 1) as u16;
+
+        // MEV Commission
+        let mev_commission_start_epoch = (current_epoch - 10) as u16;
+        let mev_commission_end_epoch = (current_epoch - 1) as u16;
+
+        // Running bam
+        let running_bam_start_epoch = (current_epoch - 3) as u16;
+        let running_bam_end_epoch = (current_epoch - 1) as u16;
+
+        // Superminority
+        let superminority_start_epoch = (current_epoch - 3) as u16;
+        let superminority_end_epoch = (current_epoch - 1) as u16;
+
+        // Voting rate
+        let voting_rate_start_epoch = (current_epoch - 3) as u16;
+        let voting_rate_end_epoch = (current_epoch - 1) as u16;
 
         // Calculate chain maximum vote credits for each epoch
-        let chain_max_credits =
-            Self::calculate_chain_max_credits(all_validator_histories, start_epoch, end_epoch);
+        let chain_max_credits = Self::calculate_chain_max_credits(
+            all_validator_histories,
+            voting_rate_start_epoch,
+            voting_rate_end_epoch,
+        );
+
+        // Epoch credits
+        let epoch_credits_start_epoch = (current_epoch - 3) as u16;
+        let epoch_credits_end_epoch = (current_epoch - 1) as u16;
 
         Self {
-            start_epoch,
-            end_epoch,
+            validator_commission_start_epoch,
+            validator_commission_end_epoch,
+            mev_commission_start_epoch,
+            mev_commission_end_epoch,
+            running_bam_start_epoch,
+            running_bam_end_epoch,
+            superminority_start_epoch,
+            superminority_end_epoch,
+            epoch_credits_start_epoch,
+            epoch_credits_end_epoch,
             chain_max_credits,
         }
     }
@@ -98,19 +155,21 @@ impl BamValidatorEligibility {
     ) -> Result<(), IneligibilityReason> {
         let client_types = validator_history
             .history
-            .client_type_range(self.start_epoch, self.end_epoch);
-        let commissions = validator_history
-            .history
-            .commission_range(self.start_epoch, self.end_epoch);
-        let mev_commissions = validator_history
-            .history
-            .mev_commission_range(self.start_epoch, self.end_epoch);
+            .client_type_range(self.running_bam_start_epoch, self.running_bam_end_epoch);
+        let commissions = validator_history.history.commission_range(
+            self.validator_commission_start_epoch,
+            self.validator_commission_end_epoch,
+        );
+        let mev_commissions = validator_history.history.mev_commission_range(
+            self.mev_commission_start_epoch,
+            self.mev_commission_end_epoch,
+        );
         let superminority = validator_history
             .history
-            .superminority_range(self.start_epoch, self.end_epoch);
+            .superminority_range(self.superminority_start_epoch, self.superminority_end_epoch);
         let epoch_credits = validator_history
             .history
-            .epoch_credits_range(self.start_epoch, self.end_epoch);
+            .epoch_credits_range(self.epoch_credits_start_epoch, self.epoch_credits_end_epoch);
 
         // Count how many epochs have data
         let epochs_with_data = commissions.iter().filter(|c| c.is_some()).count();
@@ -120,21 +179,30 @@ impl BamValidatorEligibility {
             return Err(IneligibilityReason::InsufficientHistory);
         }
 
-        for (i, epoch) in (self.start_epoch..=self.end_epoch).enumerate() {
+        for (i, _) in (self.running_bam_start_epoch..=self.running_bam_end_epoch).enumerate() {
             // BAM clients
             if let Some(client_type) = client_types[i] {
                 if !matches!(ClientType::from_u8(client_type), ClientType::Bam) {
                     return Err(IneligibilityReason::NotBamClient);
                 }
             }
+        }
 
+        for (i, epoch) in (self.validator_commission_start_epoch
+            ..=self.validator_commission_end_epoch)
+            .enumerate()
+        {
             // 0% inflation commission
             if let Some(commission) = commissions[i] {
                 if commission != 0 {
                     return Err(IneligibilityReason::NonZeroCommission { epoch, commission });
                 }
             }
+        }
 
+        for (i, epoch) in
+            (self.mev_commission_start_epoch..=self.mev_commission_end_epoch).enumerate()
+        {
             // ≤10% MEV commission
             if let Some(mev_commission) = mev_commissions[i] {
                 if mev_commission > 10 {
@@ -144,14 +212,22 @@ impl BamValidatorEligibility {
                     });
                 }
             }
+        }
 
+        for (i, epoch) in
+            (self.superminority_start_epoch..=self.superminority_end_epoch).enumerate()
+        {
             // Non-superminority
             if let Some(is_superminority) = superminority[i] {
                 if is_superminority != 0 {
                     return Err(IneligibilityReason::InSuperminority { epoch });
                 }
             }
+        }
 
+        for (i, epoch) in
+            (self.epoch_credits_start_epoch..=self.epoch_credits_end_epoch).enumerate()
+        {
             // Within 3% of chain maximum vote credits
             if let Some(credits) = epoch_credits[i] {
                 if let Some(&max_credits) = self.chain_max_credits.get(&epoch) {
@@ -257,14 +333,15 @@ mod tests {
     fn test_eligible_validator_passes() {
         let blacklist_validators = vec![];
         let steward_config = create_steward_config();
-        let vh1 = create_validator_history(vec![
-            create_entry(97, 6, 0, 10, 0, 10000),
-            create_entry(98, 6, 0, 10, 0, 10000),
-            create_entry(99, 6, 0, 10, 0, 10000),
-            create_entry(100, 6, 0, 10, 0, 10000),
-        ]);
 
-        let checker = BamValidatorEligibility::new(100, &[vh1.clone()]);
+        let mut entries = Vec::new();
+        for i in 0..=30 {
+            let entry = create_entry(i, 6, 0, 10, 0, 10000);
+            entries.push(entry);
+        }
+        let vh1 = create_validator_history(entries);
+
+        let checker = BamValidatorEligibility::new(31, &[vh1.clone()]);
 
         assert!(checker
             .check_eligibility(&blacklist_validators, &steward_config, &vh1)
@@ -294,19 +371,22 @@ mod tests {
     fn test_non_zero_commission_fails() {
         let blacklist_validators = vec![];
         let steward_config = create_steward_config();
-        let vh = create_validator_history(vec![
-            create_entry(97, 6, 0, 10, 0, 10000),
-            create_entry(98, 6, 5, 10, 0, 10000), // 5% commission
-            create_entry(99, 6, 0, 10, 0, 10000),
-            create_entry(100, 6, 0, 10, 0, 10000),
-        ]);
 
-        let checker = BamValidatorEligibility::new(100, &[vh.clone()]);
+        let mut entries = Vec::new();
+        for i in 0..=29 {
+            let entry = create_entry(i, 6, 0, 10, 0, 10000);
+            entries.push(entry);
+        }
+        entries.push(create_entry(30, 6, 5, 10, 0, 10000)); // 5% commission
+
+        let vh = create_validator_history(entries);
+
+        let checker = BamValidatorEligibility::new(31, &[vh.clone()]);
 
         assert_eq!(
             checker.check_eligibility(&blacklist_validators, &steward_config, &vh),
             Err(IneligibilityReason::NonZeroCommission {
-                epoch: 98,
+                epoch: 30,
                 commission: 5
             })
         );
@@ -316,19 +396,22 @@ mod tests {
     fn test_high_mev_commission_fails() {
         let blacklist_validators = vec![];
         let steward_config = create_steward_config();
-        let vh = create_validator_history(vec![
-            create_entry(97, 6, 0, 10, 0, 10000),
-            create_entry(98, 6, 0, 15, 0, 10000), // 15% MEV commission
-            create_entry(99, 6, 0, 10, 0, 10000),
-            create_entry(100, 6, 0, 10, 0, 10000),
-        ]);
 
-        let checker = BamValidatorEligibility::new(100, &[vh.clone()]);
+        let mut entries = Vec::new();
+        for i in 0..=29 {
+            let entry = create_entry(i, 6, 0, 10, 0, 10000);
+            entries.push(entry);
+        }
+        entries.push(create_entry(30, 6, 0, 15, 0, 10000)); // 15% MEV commission
+
+        let vh = create_validator_history(entries);
+
+        let checker = BamValidatorEligibility::new(31, &[vh.clone()]);
 
         assert_eq!(
             checker.check_eligibility(&blacklist_validators, &steward_config, &vh),
             Err(IneligibilityReason::HighMevCommission {
-                epoch: 98,
+                epoch: 30,
                 mev_commission: 15
             })
         );

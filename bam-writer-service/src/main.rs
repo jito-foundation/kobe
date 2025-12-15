@@ -119,7 +119,9 @@ async fn main() -> anyhow::Result<()> {
 
                         match bam_writer_service.run().await {
                             Ok(()) => {
-                                info!("Successfully processed at {threshold_pct:.0}% of epoch {current_epoch}");
+                                info!(
+                                    "Successfully processed at {threshold_pct:.0}% of epoch {current_epoch}"
+                                );
                                 thresholds_hit.insert(idx);
 
                                 datapoint_info!(

@@ -98,10 +98,6 @@ impl BamValidatorEligibility {
             epoch_credits_end_epoch,
         );
 
-        // Epoch credits
-        let epoch_credits_start_epoch = (current_epoch - 3) as u16;
-        let epoch_credits_end_epoch = (current_epoch - 1) as u16;
-
         Self {
             validator_commission_start_epoch,
             validator_commission_end_epoch,

@@ -10,6 +10,7 @@ use kobe_core::db_models::{
 };
 use mongodb::Collection;
 use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_metrics::datapoint_info;
 use solana_pubkey::Pubkey;
 use stakenet_sdk::{
     models::cluster::Cluster,
@@ -210,6 +211,13 @@ impl BamWriterService {
                 ) {
                     Ok(()) => {
                         bam_validator.set_is_eligible(true);
+                        datapoint_info!(
+                            "bam-eligible-validators",
+                            ("epoch", epoch, i64),
+                            ("slot_index", epoch_info.slot_index, i64),
+                            ("vote_pubkey", vote_pubkey.to_string(), String),
+                            "cluster" => self.cluster.to_string(),
+                        );
                     }
                     Err(reason) => {
                         let reason_string = match reason {
@@ -268,10 +276,23 @@ impl BamWriterService {
             .into_iter()
             .filter(|bv| bv.is_eligible())
             .collect::<Vec<BamValidator>>();
+
+        let num_eligible_validators = eligible_bam_validators.len();
+
         let bam_stake = eligible_bam_validators
             .iter()
             .map(|v| v.get_active_stake())
             .sum();
+
+        datapoint_info!(
+            "bam-writer-run",
+            ("epoch", epoch, i64),
+            ("slot_index", epoch_info.slot_index, i64),
+            ("bam_validator_count", num_eligible_validators as i64, i64),
+            ("bam_stake", bam_stake as i64, i64),
+            ("total_stake", total_stake as i64, i64),
+            "cluster" => self.cluster.to_string(),
+        );
 
         let mut current_epoch_metrics = BamEpochMetrics::new(
             epoch,

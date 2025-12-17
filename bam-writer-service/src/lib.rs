@@ -201,7 +201,7 @@ impl BamWriterService {
             let mut validators = Vec::new();
             for vote_pubkey in override_validators {
                 if let Some(vote_account) = vote_account_by_pubkey.get(vote_pubkey) {
-                    let mut bam_validator = BamValidator::new(
+                    let bam_validator = BamValidator::new(
                         vote_account.activated_stake,
                         epoch,
                         &vote_account.node_pubkey,

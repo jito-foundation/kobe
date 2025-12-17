@@ -54,6 +54,12 @@ pub struct BamWriterService {
 
     /// BAM Delegation Criteria
     bam_delegation_criteria: BamDelegationCriteria,
+
+    /// Override eligible validators with a hardcoded list (vote account pubkeys)
+    override_eligible_validators: Option<Vec<Pubkey>>,
+
+    /// Override available BAM delegation stake amount (in lamports)
+    override_delegation_lamports: Option<u64>,
 }
 
 impl BamWriterService {
@@ -68,6 +74,8 @@ impl BamWriterService {
         rpc_client: Arc<RpcClient>,
         bam_api_base_url: &str,
         kobe_api_base_url: &str,
+        override_eligible_validators: Option<Vec<Pubkey>>,
+        override_delegation_lamports: Option<u64>,
     ) -> anyhow::Result<Self> {
         let cluster = Cluster::from_str(cluster, false)
             .map_err(|e| anyhow!("Failed to read cluster: {e}"))?;
@@ -90,6 +98,22 @@ impl BamWriterService {
 
         let bam_delegation_criteria = BamDelegationCriteria::new();
 
+        if let Some(ref overrides) = override_eligible_validators {
+            log::info!(
+                "Using override eligible validators ({} pubkeys): {:?}",
+                overrides.len(),
+                overrides
+            );
+        }
+
+        if let Some(delegation) = override_delegation_lamports {
+            log::info!(
+                "Using override delegation amount: {} lamports ({:.2} SOL)",
+                delegation,
+                delegation as f64 / 1_000_000_000.0
+            );
+        }
+
         Ok(Self {
             cluster,
             kobe_api_client,
@@ -100,6 +124,8 @@ impl BamWriterService {
             bam_validators_store,
             bam_epoch_metrics_store,
             bam_delegation_criteria,
+            override_eligible_validators,
+            override_delegation_lamports,
         })
     }
 
@@ -154,113 +180,174 @@ impl BamWriterService {
         let jitosol_pool = get_stake_pool_account(&self.rpc_client, &self.stake_pool).await?;
         let jitosol_stake = jitosol_pool.total_lamports;
 
-        let bam_node_validators = self.get_bam_validators().await?;
-
         let vote_accounts = self.rpc_client.get_vote_accounts().await?;
-        let vote_account_by_node: HashMap<_, _> = vote_accounts
+
+        // Build vote account lookup by vote pubkey
+        let vote_account_by_pubkey: HashMap<_, _> = vote_accounts
             .current
             .iter()
-            .map(|v| (v.node_pubkey.clone(), v))
+            .filter_map(|v| Pubkey::from_str(&v.vote_pubkey).ok().map(|pk| (pk, v)))
             .collect();
 
-        let mut bam_validator_map = HashMap::new();
-        for bam_node_validator in bam_node_validators {
-            if let Some(vote_account) =
-                vote_account_by_node.get(&bam_node_validator.validator_pubkey)
-            {
-                bam_validator_map
-                    .insert(Pubkey::from_str(&vote_account.vote_pubkey)?, vote_account);
-            }
-        }
-
-        let bam_delegation_blacklist = self.kobe_api_client.get_bam_delegation_blacklist().await?;
-        let blacklist_validators: Vec<Pubkey> = bam_delegation_blacklist
-            .into_iter()
-            .filter_map(|entry| Pubkey::from_str(&entry.vote_account).ok())
-            .collect();
-
-        let steward_all_accounts = get_all_steward_accounts(
-            &self.rpc_client.clone(),
-            &jito_steward::id(),
-            &self.steward_config,
-        )
-        .await?;
-
-        let validator_histories =
-            get_all_validator_history_accounts(&self.rpc_client.clone(), validator_history::id())
-                .await?;
-
-        let eligibility_checker = BamValidatorEligibility::new(epoch, &validator_histories);
-        let mut bam_validators: Vec<BamValidator> = Vec::new();
-
-        for validator_history in validator_histories.iter() {
-            if let Some(vote_account) = bam_validator_map.get(&validator_history.vote_account) {
-                let vote_pubkey = &vote_account.vote_pubkey;
-                let mut bam_validator = BamValidator::new(
-                    vote_account.activated_stake,
-                    epoch,
-                    &vote_account.node_pubkey,
-                    false,
-                    vote_pubkey,
+        let bam_validators: Vec<BamValidator> =
+            if let Some(ref override_validators) = self.override_eligible_validators {
+                // Override mode: use hardcoded list of vote account pubkeys
+                log::info!(
+                    "Using override eligible validators ({} pubkeys)",
+                    override_validators.len()
                 );
 
-                match eligibility_checker.check_eligibility(
-                    &blacklist_validators,
-                    &steward_all_accounts.config_account,
-                    validator_history,
-                ) {
-                    Ok(()) => {
+                let mut validators = Vec::new();
+                for vote_pubkey in override_validators {
+                    if let Some(vote_account) = vote_account_by_pubkey.get(vote_pubkey) {
+                        let mut bam_validator = BamValidator::new(
+                            vote_account.activated_stake,
+                            epoch,
+                            &vote_account.node_pubkey,
+                            true, // Mark as eligible
+                            &vote_account.vote_pubkey,
+                        );
                         bam_validator.set_is_eligible(true);
+
                         datapoint_info!(
                             "bam-eligible-validators",
                             ("epoch", epoch, i64),
                             ("slot_index", epoch_info.slot_index, i64),
                             ("vote_pubkey", vote_pubkey.to_string(), String),
+                            ("override", true, bool),
                             "cluster" => self.cluster.to_string(),
                         );
+
+                        validators.push(bam_validator);
+                    } else {
+                        log::warn!(
+                            "Override validator {} not found in current vote accounts",
+                            vote_pubkey
+                        );
                     }
-                    Err(reason) => {
-                        let reason_string = match reason {
-                            IneligibilityReason::NotBamClient => "NotBamClient".to_string(),
-                            IneligibilityReason::NonZeroCommission { epoch, commission } => {
-                                format!("NonZeroCommission: {} in epoch {}", commission, epoch)
-                            }
-                            IneligibilityReason::HighMevCommission {
-                                epoch,
-                                mev_commission,
-                            } => {
-                                format!("HighMevCommission: {} in epoch {}", mev_commission, epoch)
-                            }
-                            IneligibilityReason::InSuperminority { epoch } => {
-                                format!("InSuperminority in epoch {}", epoch)
-                            }
-                            IneligibilityReason::LowVoteCredits {
-                                epoch,
-                                credits,
-                                min_required,
-                            } => {
-                                format!(
-                                    "LowVoteCredits: {} credits (required: {}) in epoch {}",
-                                    credits, min_required, epoch
-                                )
-                            }
-                            IneligibilityReason::InsufficientHistory => {
-                                "InsufficientHistory: Less than 3 epochs".to_string()
-                            }
-                            IneligibilityReason::OnChainBlacklist => {
-                                format!("Blacklist on-chain in epoch {epoch}")
-                            }
-                            IneligibilityReason::OffChainBlacklist => {
-                                format!("Blacklist off-chain in epoch {epoch}")
-                            }
-                        };
-                        bam_validator.set_ineligibility_reason(Some(reason_string));
+                }
+                validators
+            } else {
+                // Normal mode: query BAM API and check eligibility
+                let bam_node_validators = self.get_bam_validators().await?;
+
+                let vote_account_by_node: HashMap<_, _> = vote_accounts
+                    .current
+                    .iter()
+                    .map(|v| (v.node_pubkey.clone(), v))
+                    .collect();
+
+                let mut bam_validator_map = HashMap::new();
+                for bam_node_validator in bam_node_validators {
+                    if let Some(vote_account) =
+                        vote_account_by_node.get(&bam_node_validator.validator_pubkey)
+                    {
+                        bam_validator_map
+                            .insert(Pubkey::from_str(&vote_account.vote_pubkey)?, vote_account);
                     }
                 }
 
-                bam_validators.push(bam_validator);
-            }
-        }
+                let bam_delegation_blacklist =
+                    self.kobe_api_client.get_bam_delegation_blacklist().await?;
+                let blacklist_validators: Vec<Pubkey> = bam_delegation_blacklist
+                    .into_iter()
+                    .filter_map(|entry| Pubkey::from_str(&entry.vote_account).ok())
+                    .collect();
+
+                let steward_all_accounts = get_all_steward_accounts(
+                    &self.rpc_client.clone(),
+                    &jito_steward::id(),
+                    &self.steward_config,
+                )
+                .await?;
+
+                let validator_histories = get_all_validator_history_accounts(
+                    &self.rpc_client.clone(),
+                    validator_history::id(),
+                )
+                .await?;
+
+                let eligibility_checker = BamValidatorEligibility::new(epoch, &validator_histories);
+                let mut validators: Vec<BamValidator> = Vec::new();
+
+                for validator_history in validator_histories.iter() {
+                    if let Some(vote_account) =
+                        bam_validator_map.get(&validator_history.vote_account)
+                    {
+                        let vote_pubkey = &vote_account.vote_pubkey;
+                        let mut bam_validator = BamValidator::new(
+                            vote_account.activated_stake,
+                            epoch,
+                            &vote_account.node_pubkey,
+                            false,
+                            vote_pubkey,
+                        );
+
+                        match eligibility_checker.check_eligibility(
+                            &blacklist_validators,
+                            &steward_all_accounts.config_account,
+                            validator_history,
+                        ) {
+                            Ok(()) => {
+                                bam_validator.set_is_eligible(true);
+                                datapoint_info!(
+                                    "bam-eligible-validators",
+                                    ("epoch", epoch, i64),
+                                    ("slot_index", epoch_info.slot_index, i64),
+                                    ("vote_pubkey", vote_pubkey.to_string(), String),
+                                    "cluster" => self.cluster.to_string(),
+                                );
+                            }
+                            Err(reason) => {
+                                let reason_string = match reason {
+                                    IneligibilityReason::NotBamClient => "NotBamClient".to_string(),
+                                    IneligibilityReason::NonZeroCommission { epoch, commission } => {
+                                        format!(
+                                            "NonZeroCommission: {} in epoch {}",
+                                            commission, epoch
+                                        )
+                                    }
+                                    IneligibilityReason::HighMevCommission {
+                                        epoch,
+                                        mev_commission,
+                                    } => {
+                                        format!(
+                                            "HighMevCommission: {} in epoch {}",
+                                            mev_commission, epoch
+                                        )
+                                    }
+                                    IneligibilityReason::InSuperminority { epoch } => {
+                                        format!("InSuperminority in epoch {}", epoch)
+                                    }
+                                    IneligibilityReason::LowVoteCredits {
+                                        epoch,
+                                        credits,
+                                        min_required,
+                                    } => {
+                                        format!(
+                                            "LowVoteCredits: {} credits (required: {}) in epoch {}",
+                                            credits, min_required, epoch
+                                        )
+                                    }
+                                    IneligibilityReason::InsufficientHistory => {
+                                        "InsufficientHistory: Less than 3 epochs".to_string()
+                                    }
+                                    IneligibilityReason::OnChainBlacklist => {
+                                        format!("Blacklist on-chain in epoch {epoch}")
+                                    }
+                                    IneligibilityReason::OffChainBlacklist => {
+                                        format!("Blacklist off-chain in epoch {epoch}")
+                                    }
+                                };
+                                bam_validator.set_ineligibility_reason(Some(reason_string));
+                            }
+                        }
+
+                        validators.push(bam_validator);
+                    }
+                }
+                validators
+            };
 
         self.bam_validators_store
             .upsert(&bam_validators, epoch)
@@ -302,24 +389,51 @@ impl BamWriterService {
             eligible_bam_validators.len() as u64,
         );
 
-        let previous_epoch_metrics = if let Some(prev_epoch) = epoch.checked_sub(1) {
-            self.bam_epoch_metrics_store
-                .find_by_epoch(prev_epoch)
-                .await?
-        } else {
-            None
-        };
+        let (allocation_percentage, available_delegation) =
+            if let Some(override_delegation) = self.override_delegation_lamports {
+                // Override mode: use hardcoded delegation amount
+                log::info!(
+                    "Using override delegation: {} lamports ({:.2} SOL)",
+                    override_delegation,
+                    override_delegation as f64 / 1_000_000_000.0
+                );
 
-        let allocation_percentage = self
-            .bam_delegation_criteria
-            .calculate_current_allocation(&current_epoch_metrics, previous_epoch_metrics.as_ref());
+                (0u64, override_delegation * eligible_bam_validators.len() as u64)
+            } else {
+                // Normal mode: calculate allocation based on criteria
+                let previous_epoch_metrics = if let Some(prev_epoch) = epoch.checked_sub(1) {
+                    self.bam_epoch_metrics_store
+                        .find_by_epoch(prev_epoch)
+                        .await?
+                } else {
+                    None
+                };
 
-        let available_delegation = self
-            .bam_delegation_criteria
-            .calculate_available_delegation(allocation_percentage, jitosol_stake);
+                let allocation_percentage = self
+                    .bam_delegation_criteria
+                    .calculate_current_allocation(&current_epoch_metrics, previous_epoch_metrics.as_ref());
+
+                let available_delegation = self
+                    .bam_delegation_criteria
+                    .calculate_available_delegation(allocation_percentage, jitosol_stake);
+
+                (allocation_percentage, available_delegation)
+            };
 
         current_epoch_metrics.set_allocation_bps(allocation_percentage);
         current_epoch_metrics.set_available_bam_delegation_stake(available_delegation);
+
+        let delegation_per_validator = self.override_delegation_lamports.unwrap_or(available_delegation / eligible_bam_validators.len() as u64);
+
+        datapoint_info!(
+            "bam-writer-run",
+            ("epoch", epoch, i64),
+            ("slot_index", epoch_info.slot_index, i64),
+            ("allocation_bps", allocation_percentage, i64),
+            ("available_delegation", available_delegation, i64),
+            ("delegation_per_validator", delegation_per_validator, i64),
+            "cluster" => self.cluster.to_string(),
+        );
 
         self.bam_epoch_metrics_store
             .upsert(current_epoch_metrics)

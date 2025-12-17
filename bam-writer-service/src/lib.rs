@@ -208,7 +208,6 @@ impl BamWriterService {
                         true, // Mark as eligible
                         &vote_account.vote_pubkey,
                     );
-                    bam_validator.set_is_eligible(true);
 
                     datapoint_info!(
                         "bam-eligible-validators",

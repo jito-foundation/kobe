@@ -70,13 +70,13 @@ pub struct ValidatorHistoryEntryResponse {
     /// Validator commission in points
     pub commission: u8,
 
-    /// Client type ID
-    pub client_type_id: u8,
-
     /// 0 if Solana Labs client, 1 if Jito client, >1 if other
     pub client_type: ClientTypeResponse,
 
-    /// Client version
+    /// Client type ID: 0 if Solana Labs client, 1 if Jito client, >1 if other
+    pub client_type_id: u8,
+
+    /// Enum representation of the validator client type
     pub version: String,
 
     /// IP address

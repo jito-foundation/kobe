@@ -362,6 +362,7 @@ RUST_LOG=info cargo r -p kobe-bam-writer-service -- \
     --epoch-progress-thresholds "0.5,0.75,0.9" \
     --poll-interval-secs "60" \
     --steward-config "5pZmpk3ktweGZW9xFknpEHhQoWeAKTzSGwnCUyVdiye" \
+    --kobe-api-base-url "https://kobe.testnet.jito.network" \
     run
 ```
 

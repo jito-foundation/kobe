@@ -70,8 +70,11 @@ pub struct ValidatorHistoryEntryResponse {
     /// Validator commission in points
     pub commission: u8,
 
-    /// 0 if Solana Labs client, 1 if Jito client, >1 if other
+    /// Enum representation of the validator client type
     pub client_type: ClientTypeResponse,
+
+    /// Client type ID: 0 if Solana Labs client, 1 if Jito client, >1 if other
+    pub client_type_id: u8,
 
     /// Client version
     pub version: String,
@@ -125,6 +128,7 @@ impl ValidatorHistoryEntryResponse {
             mev_commission: entry.mev_commission,
             epoch_credits: entry.epoch_credits,
             commission: entry.commission,
+            client_type_id: entry.client_type,
             client_type: entry.client_type.into(),
             version: format!("{}.{}.{}", version.major, version.minor, version.patch),
             ip: entry.ip.map(|n| n.to_string()).join("."),

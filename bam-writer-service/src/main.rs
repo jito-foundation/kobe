@@ -61,6 +61,17 @@ struct Args {
     /// Poll interval in seconds
     #[clap(long, env, default_value = "60")]
     poll_interval_secs: u64,
+
+    /// Override eligible validators with a hardcoded list of vote account pubkeys.
+    /// When provided, skips BAM API queries and eligibility calculations.
+    /// Comma-separated list of vote account pubkeys.
+    #[clap(long, env, value_delimiter = ',')]
+    override_eligible_validators: Option<Vec<Pubkey>>,
+
+    /// Override the available BAM delegation stake amount (in lamports).
+    /// Only used when --override-eligible-validators is also provided.
+    #[clap(long, env)]
+    override_delegation_lamports: Option<u64>,
 }
 
 #[derive(Subcommand, Debug)]
@@ -92,6 +103,8 @@ async fn main() -> anyhow::Result<()> {
         rpc_client.clone(),
         &args.bam_api_base_url,
         &args.kobe_api_base_url,
+        args.override_eligible_validators,
+        args.override_delegation_lamports,
     )
     .await?;
 
@@ -119,7 +132,9 @@ async fn main() -> anyhow::Result<()> {
 
                         match bam_writer_service.run().await {
                             Ok(()) => {
-                                info!("Successfully processed at {threshold_pct:.0}% of epoch {current_epoch}");
+                                info!(
+                                    "Successfully processed at {threshold_pct:.0}% of epoch {current_epoch}"
+                                );
                                 thresholds_hit.insert(idx);
 
                                 datapoint_info!(

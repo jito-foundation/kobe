@@ -406,7 +406,7 @@ mod tests {
 
         let mut entries = Vec::new();
         for i in 0..=29 {
-            let entry = create_entry(i, 6, 0, 10, 0, 10000);
+            let entry = create_entry(i, 6, 0, 1000, 0, 10000);
             entries.push(entry);
         }
         entries.push(create_entry(30, 6, 0, 1500, 0, 10000)); // 15% MEV commission

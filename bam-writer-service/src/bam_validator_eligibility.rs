@@ -210,9 +210,9 @@ impl BamValidatorEligibility {
         for (i, epoch) in
             (self.mev_commission_start_epoch..=self.mev_commission_end_epoch).enumerate()
         {
-            // ≤10% MEV commission
+            // ≤1000 (10%) MEV commission
             if let Some(mev_commission) = mev_commissions[i] {
-                if mev_commission > 10 {
+                if mev_commission > 1000 {
                     return Err(IneligibilityReason::HighMevCommission {
                         epoch,
                         mev_commission,
@@ -343,7 +343,7 @@ mod tests {
 
         let mut entries = Vec::new();
         for i in 0..=29 {
-            let entry = create_entry(i, 6, 0, 10, 0, 10000);
+            let entry = create_entry(i, 6, 0, 1000, 0, 10000);
             entries.push(entry);
         }
         let vh1 = create_validator_history(entries);
@@ -409,7 +409,7 @@ mod tests {
             let entry = create_entry(i, 6, 0, 10, 0, 10000);
             entries.push(entry);
         }
-        entries.push(create_entry(30, 6, 0, 15, 0, 10000)); // 15% MEV commission
+        entries.push(create_entry(30, 6, 0, 1500, 0, 10000)); // 15% MEV commission
 
         let vh = create_validator_history(entries);
 
@@ -419,7 +419,7 @@ mod tests {
             checker.check_eligibility(&blacklist_validators, &steward_config, &vh),
             Err(IneligibilityReason::HighMevCommission {
                 epoch: 30,
-                mev_commission: 15
+                mev_commission: 1500
             })
         );
     }
@@ -522,18 +522,18 @@ mod tests {
         let steward_config = create_steward_config();
         // Exactly 10% MEV commission should pass
         let vh_10 = create_validator_history(vec![
-            create_entry(97, 6, 0, 10, 0, 10000),
-            create_entry(98, 6, 0, 10, 0, 10000),
-            create_entry(99, 6, 0, 10, 0, 10000),
-            create_entry(100, 6, 0, 10, 0, 10000),
+            create_entry(97, 6, 0, 1000, 0, 10000),
+            create_entry(98, 6, 0, 1000, 0, 10000),
+            create_entry(99, 6, 0, 1000, 0, 10000),
+            create_entry(100, 6, 0, 1000, 0, 10000),
         ]);
 
         // 11% should fail
         let vh_11 = create_validator_history(vec![
-            create_entry(97, 6, 0, 11, 0, 10000),
-            create_entry(98, 6, 0, 11, 0, 10000),
-            create_entry(99, 6, 0, 11, 0, 10000),
-            create_entry(100, 6, 0, 11, 0, 10000),
+            create_entry(97, 6, 0, 1100, 0, 10000),
+            create_entry(98, 6, 0, 1100, 0, 10000),
+            create_entry(99, 6, 0, 1100, 0, 10000),
+            create_entry(100, 6, 0, 1100, 0, 10000),
         ]);
 
         let checker = BamValidatorEligibility::new(100, &[vh_10.clone(), vh_11.clone()]);

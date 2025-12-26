@@ -214,4 +214,19 @@ impl BamValidatorStore {
 
         Ok(validators)
     }
+
+    /// Find a [`BamValidator`] record by epoch and vote_account
+    pub async fn find_by_epoch_and_vote_account(
+        &self,
+        epoch: u64,
+        vote_account: &str,
+    ) -> Result<Option<BamValidator>, DataStoreError> {
+        self.collection
+            .find_one(
+                doc! {"epoch": epoch as u32, "vote_account": vote_account},
+                None,
+            )
+            .await
+            .map_err(|e| DataStoreError::MongoClientError(e))
+    }
 }

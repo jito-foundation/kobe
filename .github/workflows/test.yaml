@@ -29,4 +29,3 @@ jobs:
         with:
           command: test
           args: --lib
-

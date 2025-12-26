@@ -47,3 +47,10 @@ ENV APP="kobe-steward-writer-service"
 WORKDIR /app
 COPY --from=builder /home/root/app/${APP} ./
 ENTRYPOINT ./$APP listen
+
+FROM debian:bookworm-slim as bam-writer-service
+RUN apt-get update && apt-get install -y libssl3 ca-certificates procps && rm -rf /var/lib/apt/lists/*
+ENV APP="kobe-bam-writer-service"
+WORKDIR /app
+COPY --from=builder /home/root/app/${APP} ./
+ENTRYPOINT ./$APP run

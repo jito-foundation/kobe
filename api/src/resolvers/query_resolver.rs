@@ -1055,7 +1055,7 @@ impl QueryResolver {
     /// This endpoint can be used to fetch the bam validator for a specific epoch and vote_account:
     ///
     /// ```ignore
-    /// GET /bam_validator?epoch=800&vote_account=J1to1yufRnoWn81KYg1XkTWzmKjnYSnmE2VY8DGUJ9Qv
+    /// GET /bam_validator_score?epoch=800&vote_account=J1to1yufRnoWn81KYg1XkTWzmKjnYSnmE2VY8DGUJ9Qv
     /// ```
     /// This request retrieves the BAM validator for epoch 800 and vote_account J1to1yufRnoWn81KYg1XkTWzmKjnYSnmE2VY8DGUJ9Qv.
     pub async fn get_bam_validator_score(

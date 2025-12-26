@@ -232,6 +232,6 @@ impl BamValidatorStore {
                 None,
             )
             .await
-            .map_err(|e| DataStoreError::MongoClientError(e))
+            .map_err(DataStoreError::MongoClientError)
     }
 }

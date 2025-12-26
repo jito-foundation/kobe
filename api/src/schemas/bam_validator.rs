@@ -28,7 +28,11 @@ pub struct BamValidatorRequest {
 
 impl std::fmt::Display for BamValidatorRequest {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.epoch)
+        write!(
+            f,
+            "epoch: {}, vote_account: {}",
+            self.epoch, self.vote_account
+        )
     }
 }
 

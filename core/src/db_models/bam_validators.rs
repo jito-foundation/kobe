@@ -24,7 +24,7 @@ pub struct BamValidator {
     /// Is eligible validator
     is_eligible: bool,
 
-    /// The reason of ineligibility
+    /// Reason for ineligibility
     ineligibility_reason: Option<String>,
 
     /// BAM delegation scoring
@@ -74,7 +74,7 @@ impl BamValidator {
             identity_account: identity_account.to_string(),
             is_eligible,
             ineligibility_reason: None,
-            score: Some(0),
+            score: None,
             timestamp,
             vote_account: vote_account.to_string(),
         }

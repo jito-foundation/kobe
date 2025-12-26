@@ -337,6 +337,7 @@ impl BamWriterService {
                                 }
                             };
                             bam_validator.set_ineligibility_reason(Some(reason_string));
+                            bam_validator.set_score(0);
                         }
                     }
 

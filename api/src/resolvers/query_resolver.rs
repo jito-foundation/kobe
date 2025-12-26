@@ -435,7 +435,7 @@ pub async fn get_bam_validators_wrapper(
     type = "TimedCache<String, (StatusCode, Json<BamValidatorScoreResponse>)>",
     create = "{ TimedCache::with_lifespan_and_capacity(60, 1000) }",
     key = "String",
-    convert = r#"{ format!("bam-validator-score-{}-{vote_account}", epoch.to_string()) }"#
+    convert = r#"{ format!("bam-validator-score-{epoch}-{vote_account}") }"#
 )]
 pub async fn get_bam_validator_score_wrapper(
     resolver: Extension<QueryResolver>,
@@ -1048,16 +1048,16 @@ impl QueryResolver {
         Ok(BamValidatorsResponse { bam_validators })
     }
 
-    /// Retrieves the bam validator, based on the provided epoch and vote_account filter.
+    /// Retrieves the BAM validator score for a specific epoch and vote account.
     ///
     /// # Example
     ///
-    /// This endpoint can be used to fetch the bam validator for a specific epoch and vote_account:
+    /// This endpoint can be used to fetch the BAM validator score for a specific epoch and vote account:
     ///
     /// ```ignore
     /// GET /bam_validator_score?epoch=800&vote_account=J1to1yufRnoWn81KYg1XkTWzmKjnYSnmE2VY8DGUJ9Qv
     /// ```
-    /// This request retrieves the BAM validator for epoch 800 and vote_account J1to1yufRnoWn81KYg1XkTWzmKjnYSnmE2VY8DGUJ9Qv.
+    /// This request retrieves the BAM validator score for epoch 800 and vote account J1to1yufRnoWn81KYg1XkTWzmKjnYSnmE2VY8DGUJ9Qv.
     pub async fn get_bam_validator_score(
         &self,
         epoch: u64,

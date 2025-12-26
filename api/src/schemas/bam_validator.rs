@@ -33,6 +33,10 @@ impl std::fmt::Display for BamValidatorRequest {
 }
 
 #[derive(Default, Serialize, Deserialize, Clone)]
-pub struct BamValidatorResponse {
-    pub bam_validator: Option<BamValidator>,
+pub struct BamValidatorScoreResponse {
+    /// Vote account pubkey
+    pub vote_account: Option<String>,
+
+    /// BAM delegation score
+    pub score: Option<u8>,
 }

@@ -125,14 +125,19 @@ impl BamValidator {
         self.identity_account = identity_account;
     }
 
+    /// Get score
+    pub fn get_score(&self) -> Option<u8> {
+        self.score
+    }
+
     /// Set BAM delegation scoring
     pub fn set_score(&mut self, score: u8) {
         self.score = Some(score);
     }
 
     /// Get vote account pubkey
-    pub fn get_vote_account(&self) -> Result<Pubkey, ParsePubkeyError> {
-        Pubkey::from_str(&self.vote_account)
+    pub fn get_vote_account(&self) -> String {
+        self.vote_account.to_owned()
     }
 
     /// Set vote account public key

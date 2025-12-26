@@ -36,7 +36,7 @@ use crate::{
     resolvers::error::{QueryResolverError, Result},
     schemas::{
         bam_epoch_metrics::BamEpochMetricsResponse,
-        bam_validator::{BamValidatorResponse, BamValidatorsResponse},
+        bam_validator::{BamValidatorScoreResponse, BamValidatorsResponse},
         jitosol_ratio::{JitoSolRatioRequest, JitoSolRatioResponse},
         mev_rewards::{
             MevRewards, MevRewardsRequest, StakerRewards, StakerRewardsRequest,
@@ -432,7 +432,7 @@ pub async fn get_bam_validators_wrapper(
 }
 
 #[cached(
-    type = "TimedCache<String, (StatusCode, Json<BamValidatorResponse>)>",
+    type = "TimedCache<String, (StatusCode, Json<BamValidatorScoreResponse>)>",
     create = "{ TimedCache::with_lifespan_and_capacity(60, 1000) }",
     key = "String",
     convert = r#"{ format!("bam-validator-score-{}-{vote_account}", epoch.to_string()) }"#
@@ -441,13 +441,13 @@ pub async fn get_bam_validator_score_wrapper(
     resolver: Extension<QueryResolver>,
     epoch: u64,
     vote_account: &str,
-) -> (StatusCode, Json<BamValidatorResponse>) {
+) -> (StatusCode, Json<BamValidatorScoreResponse>) {
     if let Ok(res) = resolver.get_bam_validator_score(epoch, vote_account).await {
         (StatusCode::OK, Json(res))
     } else {
         (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(BamValidatorResponse::default()),
+            Json(BamValidatorScoreResponse::default()),
         )
     }
 }
@@ -1062,13 +1062,19 @@ impl QueryResolver {
         &self,
         epoch: u64,
         vote_account: &str,
-    ) -> Result<BamValidatorResponse> {
-        let bam_validator = self
+    ) -> Result<BamValidatorScoreResponse> {
+        let mut res = BamValidatorScoreResponse::default();
+
+        if let Some(bam_validator) = self
             .bam_validators_store
             .find_by_epoch_and_vote_account(epoch, vote_account)
-            .await?;
+            .await?
+        {
+            res.vote_account = Some(bam_validator.get_vote_account());
+            res.score = bam_validator.get_score();
+        }
 
-        Ok(BamValidatorResponse { bam_validator })
+        Ok(res)
     }
 
     pub async fn get_preferred_withdraw_validator_list(

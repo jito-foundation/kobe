@@ -24,8 +24,13 @@ pub struct BamValidator {
     /// Is eligible validator
     is_eligible: bool,
 
-    // The reason of ineligibility
+    /// The reason of ineligibility
     ineligibility_reason: Option<String>,
+
+    /// BAM delegation scoring
+    ///
+    /// Validators with a score of 0 will receive a target delegation of 0 lamports when next updating the directed stake meta
+    score: Option<u8>,
 
     /// Timestamp
     #[serde(with = "ts_seconds")]
@@ -45,6 +50,7 @@ impl Default for BamValidator {
             identity_account: String::new(),
             is_eligible: false,
             ineligibility_reason: None,
+            score: None,
             timestamp,
             vote_account: String::new(),
         }
@@ -68,6 +74,7 @@ impl BamValidator {
             identity_account: identity_account.to_string(),
             is_eligible,
             ineligibility_reason: None,
+            score: Some(0),
             timestamp,
             vote_account: vote_account.to_string(),
         }
@@ -116,6 +123,11 @@ impl BamValidator {
     /// Set identity account public key
     pub fn set_identity_account(&mut self, identity_account: String) {
         self.identity_account = identity_account;
+    }
+
+    /// Set BAM delegation scoring
+    pub fn set_score(&mut self, score: u8) {
+        self.score = Some(score);
     }
 
     /// Get vote account pubkey

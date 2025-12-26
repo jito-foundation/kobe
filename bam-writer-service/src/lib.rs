@@ -288,6 +288,7 @@ impl BamWriterService {
                     ) {
                         Ok(()) => {
                             bam_validator.set_is_eligible(true);
+                            bam_validator.set_score(1);
                             datapoint_info!(
                                 "bam-eligible-validators",
                                 ("epoch", epoch, i64),

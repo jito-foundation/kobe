@@ -40,10 +40,7 @@ pub fn filter_file(
         .ok_or(AppError::FileNotFound(name))
 }
 
-pub async fn get_file_uris(
-    epoch: u64,
-    mainnet_gcp_server_names: &[String],
-) -> Result<(String, String)> {
+pub async fn get_file_uris(epoch: u64, mainnet_gcp_server_name: &str) -> Result<(String, String)> {
     let mut all_items = vec![];
     let mut next_page_token = String::from("");
     let items: Vec<GoogleStorageBucketFile> = loop {
@@ -62,35 +59,29 @@ pub async fn get_file_uris(
         }
     };
 
-    let merkle_tree_entry = mainnet_gcp_server_names
-        .iter()
-        .find_map(|gcp_name| {
-            filter_file(
-                &items,
-                String::from("merkle-tree"),
-                epoch,
-                gcp_name.to_owned(),
-            )
-            .ok()
-        })
-        .ok_or_else(|| {
-            AppError::FileNotFound(format!("Failed to find merkle-tree file of epoch {epoch}"))
-        })?;
+    let merkle_tree_entry = filter_file(
+        &items,
+        String::from("merkle-tree"),
+        epoch,
+        mainnet_gcp_server_name.to_string(),
+    )
+    .map_err(|e| {
+        AppError::FileNotFound(format!(
+            "Failed to find merkle-tree file of epoch {epoch}: {e}"
+        ))
+    })?;
 
-    let stake_meta_entry = mainnet_gcp_server_names
-        .iter()
-        .find_map(|gcp_name| {
-            filter_file(
-                &items,
-                String::from("stake-meta"),
-                epoch,
-                gcp_name.to_owned(),
-            )
-            .ok()
-        })
-        .ok_or_else(|| {
-            AppError::FileNotFound(format!("Failed to find stake-meta file of epoch {epoch}"))
-        })?;
+    let stake_meta_entry = filter_file(
+        &items,
+        String::from("stake-meta"),
+        epoch,
+        mainnet_gcp_server_name.to_string(),
+    )
+    .map_err(|e| {
+        AppError::FileNotFound(format!(
+            "Failed to find stake-meta file of epoch {epoch}: {e}"
+        ))
+    })?;
 
     Ok((
         merkle_tree_entry.media_link.to_owned(),

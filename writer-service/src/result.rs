@@ -69,6 +69,9 @@ pub enum AppError {
 
     #[error(transparent)]
     KobeCore(#[from] KobeCoreError),
+
+    #[error("Writing MEV claims error: {0}")]
+    WriteMevInfoClaims(String),
 }
 
 impl From<BackoffError<ClientError>> for AppError {

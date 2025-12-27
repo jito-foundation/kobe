@@ -16,3 +16,31 @@ impl std::fmt::Display for BamValidatorsRequest {
 pub struct BamValidatorsResponse {
     pub bam_validators: Vec<BamValidator>,
 }
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct BamValidatorRequest {
+    /// Epoch number
+    pub epoch: u64,
+
+    /// Vote account
+    pub vote_account: String,
+}
+
+impl std::fmt::Display for BamValidatorRequest {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "epoch: {}, vote_account: {}",
+            self.epoch, self.vote_account
+        )
+    }
+}
+
+#[derive(Default, Serialize, Deserialize, Clone)]
+pub struct BamValidatorScoreResponse {
+    /// Vote account pubkey
+    pub vote_account: Option<String>,
+
+    /// BAM delegation score
+    pub score: Option<u8>,
+}

@@ -24,8 +24,13 @@ pub struct BamValidator {
     /// Is eligible validator
     is_eligible: bool,
 
-    // The reason of ineligibility
+    /// Reason for ineligibility
     ineligibility_reason: Option<String>,
+
+    /// BAM delegation scoring
+    ///
+    /// Validators with a score of 0 will receive a target delegation of 0 lamports when next updating the directed stake meta
+    score: Option<u8>,
 
     /// Timestamp
     #[serde(with = "ts_seconds")]
@@ -45,6 +50,7 @@ impl Default for BamValidator {
             identity_account: String::new(),
             is_eligible: false,
             ineligibility_reason: None,
+            score: None,
             timestamp,
             vote_account: String::new(),
         }
@@ -68,6 +74,7 @@ impl BamValidator {
             identity_account: identity_account.to_string(),
             is_eligible,
             ineligibility_reason: None,
+            score: None,
             timestamp,
             vote_account: vote_account.to_string(),
         }
@@ -118,9 +125,19 @@ impl BamValidator {
         self.identity_account = identity_account;
     }
 
+    /// Get score
+    pub fn get_score(&self) -> Option<u8> {
+        self.score
+    }
+
+    /// Set BAM delegation scoring
+    pub fn set_score(&mut self, score: u8) {
+        self.score = Some(score);
+    }
+
     /// Get vote account pubkey
-    pub fn get_vote_account(&self) -> Result<Pubkey, ParsePubkeyError> {
-        Pubkey::from_str(&self.vote_account)
+    pub fn get_vote_account(&self) -> String {
+        self.vote_account.to_owned()
     }
 
     /// Set vote account public key
@@ -201,5 +218,20 @@ impl BamValidatorStore {
         let validators: Vec<BamValidator> = cursor.try_collect().await?;
 
         Ok(validators)
+    }
+
+    /// Find a [`BamValidator`] record by epoch and vote_account
+    pub async fn find_by_epoch_and_vote_account(
+        &self,
+        epoch: u64,
+        vote_account: &str,
+    ) -> Result<Option<BamValidator>, DataStoreError> {
+        self.collection
+            .find_one(
+                doc! {"epoch": epoch as u32, "vote_account": vote_account},
+                None,
+            )
+            .await
+            .map_err(DataStoreError::MongoClientError)
     }
 }

@@ -36,7 +36,7 @@ use crate::{
     resolvers::error::{QueryResolverError, Result},
     schemas::{
         bam_epoch_metrics::BamEpochMetricsResponse,
-        bam_validator::BamValidatorsResponse,
+        bam_validator::{BamValidatorScoreResponse, BamValidatorsResponse},
         jitosol_ratio::{JitoSolRatioRequest, JitoSolRatioResponse},
         mev_rewards::{
             MevRewards, MevRewardsRequest, StakerRewards, StakerRewardsRequest,
@@ -427,6 +427,27 @@ pub async fn get_bam_validators_wrapper(
         (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(BamValidatorsResponse::default()),
+        )
+    }
+}
+
+#[cached(
+    type = "TimedCache<String, (StatusCode, Json<BamValidatorScoreResponse>)>",
+    create = "{ TimedCache::with_lifespan_and_capacity(60, 1000) }",
+    key = "String",
+    convert = r#"{ format!("bam-validator-score-{epoch}-{vote_account}") }"#
+)]
+pub async fn get_bam_validator_score_wrapper(
+    resolver: Extension<QueryResolver>,
+    epoch: u64,
+    vote_account: &str,
+) -> (StatusCode, Json<BamValidatorScoreResponse>) {
+    if let Ok(res) = resolver.get_bam_validator_score(epoch, vote_account).await {
+        (StatusCode::OK, Json(res))
+    } else {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(BamValidatorScoreResponse::default()),
         )
     }
 }
@@ -1025,6 +1046,35 @@ impl QueryResolver {
         let bam_validators = self.bam_validators_store.find(epoch).await?;
 
         Ok(BamValidatorsResponse { bam_validators })
+    }
+
+    /// Retrieves the BAM validator score for a specific epoch and vote account.
+    ///
+    /// # Example
+    ///
+    /// This endpoint can be used to fetch the BAM validator score for a specific epoch and vote account:
+    ///
+    /// ```ignore
+    /// GET /bam_validator_score?epoch=800&vote_account=J1to1yufRnoWn81KYg1XkTWzmKjnYSnmE2VY8DGUJ9Qv
+    /// ```
+    /// This request retrieves the BAM validator score for epoch 800 and vote account J1to1yufRnoWn81KYg1XkTWzmKjnYSnmE2VY8DGUJ9Qv.
+    pub async fn get_bam_validator_score(
+        &self,
+        epoch: u64,
+        vote_account: &str,
+    ) -> Result<BamValidatorScoreResponse> {
+        let mut res = BamValidatorScoreResponse::default();
+
+        if let Some(bam_validator) = self
+            .bam_validators_store
+            .find_by_epoch_and_vote_account(epoch, vote_account)
+            .await?
+        {
+            res.vote_account = Some(bam_validator.get_vote_account());
+            res.score = bam_validator.get_score();
+        }
+
+        Ok(res)
     }
 
     pub async fn get_preferred_withdraw_validator_list(

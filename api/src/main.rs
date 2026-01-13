@@ -412,7 +412,7 @@ async fn run_server(args: &Args) {
             get(bam_delegation_blacklist_handler),
         )
         .route(
-            "/api/v1/claim/{network}/{epoch}/{validator_id}",
+            "/api/v1/claim/:network/:epoch/:validator_id",
             get(bam_boost_claim_handler),
         )
         .layer(Extension(query_resolver))

@@ -7,9 +7,10 @@ use std::{
 use anchor_lang::AccountDeserialize;
 use axum::{http::StatusCode, Extension, Json};
 use cached::{proc_macro::cached, TimedCache};
+use jito_bam_boost_merkle_tree::airdrop_merkle_tree::AirdropMerkleTree;
 use jito_steward::constants::MAX_VALIDATORS;
 use kobe_core::{
-    constants::{JITOSOL_VALIDATOR_LIST_MAINNET, JITOSOL_VALIDATOR_LIST_TESTNET},
+    constants::{JITOSOL_MINT, JITOSOL_VALIDATOR_LIST_MAINNET, JITOSOL_VALIDATOR_LIST_TESTNET},
     db_models::{
         bam_delegation_blacklist::{BamDelegationBlacklistEntry, BamDelegationBlacklistStore},
         bam_epoch_metrics::BamEpochMetricsStore,
@@ -35,6 +36,7 @@ use validator_history::ValidatorHistory;
 use crate::{
     resolvers::error::{QueryResolverError, Result},
     schemas::{
+        bam_boost::{merkle_distributor_address, BamBoostClaimResponse},
         bam_epoch_metrics::BamEpochMetricsResponse,
         bam_validator::{BamValidatorScoreResponse, BamValidatorsResponse},
         jitosol_ratio::{JitoSolRatioRequest, JitoSolRatioResponse},
@@ -78,8 +80,12 @@ pub struct QueryResolver {
     rpc_client: Arc<RpcClient>,
     /// Solana Cluster
     cluster: Cluster,
+
     /// Steward Config Public Key
     steward_config: Pubkey,
+
+    /// Jito BAM Boost program ID
+    jito_bam_boost_program_id: Pubkey,
 }
 
 fn aggregate_mev_rewards(stats_entries: &[StakePoolStats]) -> u64 {
@@ -513,12 +519,44 @@ pub async fn get_bam_delegation_blacklist_wrapper(
     }
 }
 
+#[cached(
+    type = "TimedCache<String, (StatusCode, Json<BamBoostClaimResponse>)>",
+    create = "{ TimedCache::with_lifespan_and_capacity(60, 1000) }",
+    key = "String",
+    convert = r#"{ format!("bam-boost-claim") }"#
+)]
+pub async fn get_bam_boost_claim_wrapper(
+    resolver: Extension<QueryResolver>,
+    cluster: &str,
+    epoch: u64,
+    validator_id: &str,
+) -> (StatusCode, Json<BamBoostClaimResponse>) {
+    if let Ok(res) = resolver
+        .get_bam_boost_claim(cluster, epoch, validator_id)
+        .await
+    {
+        (StatusCode::OK, Json(res))
+    } else {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(BamBoostClaimResponse {
+                amount: 0,
+                claimant: String::new(),
+                proof: vec![],
+                merkle_root: [0; 32],
+                distributor_address: String::new(),
+            }),
+        )
+    }
+}
+
 impl QueryResolver {
     pub fn new(
         database: &Database,
         rpc_client_url: String,
         cluster: Cluster,
         steward_config: Pubkey,
+        jito_bam_boost_program_id: Pubkey,
     ) -> Self {
         let client = RpcClient::new(rpc_client_url);
 
@@ -548,6 +586,7 @@ impl QueryResolver {
             rpc_client: Arc::new(client),
             cluster,
             steward_config,
+            jito_bam_boost_program_id,
         }
     }
 
@@ -1150,6 +1189,82 @@ impl QueryResolver {
     pub async fn get_bam_delegation_blacklist(&self) -> Result<Vec<BamDelegationBlacklistEntry>> {
         let entries = self.bam_delegation_blacklist_store.find().await?;
         Ok(entries)
+    }
+
+    /// BAM Boost
+    pub async fn get_bam_boost_claim(
+        &self,
+        network: &str,
+        epoch: u64,
+        validator_id: &str,
+    ) -> Result<BamBoostClaimResponse> {
+        let url = format!(
+            "https://storage.googleapis.com/jito-bam-boost/{network}/{epoch}/merkle_tree.json",
+        );
+
+        log::info!("Fetching merkle tree from: {}", url);
+
+        // Download the merkle tree JSON from GCS
+        let response = match reqwest::get(&url).await {
+            Ok(resp) => resp,
+            Err(e) => {
+                error!("Failed to fetch merkle tree: {}", e);
+                return Err(QueryResolverError::CustomError(format!(
+                    "Failed to fetch merkle tree: {e}"
+                )));
+            }
+        };
+
+        if !response.status().is_success() {
+            error!("Merkle tree not found: status {}", response.status());
+            return Err(QueryResolverError::CustomError(format!(
+                "Merkle tree not found for network {network} epoch {epoch}",
+            )));
+        }
+
+        let response_json = response.json().await.unwrap();
+
+        // Parse the merkle tree JSON (amounts are already in lamports, no conversion needed)
+        let merkle_tree: AirdropMerkleTree =
+            match AirdropMerkleTree::new_from_entries_raw(response_json) {
+                Ok(tree) => tree,
+                Err(e) => {
+                    error!("Failed to parse merkle tree: {}", e);
+                    return Err(QueryResolverError::CustomError(format!(
+                        "Failed to parse merkle tree: {e}",
+                    )));
+                }
+            };
+
+        let validator_id = Pubkey::from_str(&validator_id).unwrap();
+
+        // Find the tree node for the requested validator
+        let tree_node = merkle_tree
+            .tree_nodes
+            .iter()
+            .find(|node| node.claimant == validator_id);
+
+        match tree_node {
+            Some(node) => {
+                let proof = node.proof.clone().unwrap_or_default();
+                Ok(BamBoostClaimResponse {
+                    claimant: node.claimant.to_string(),
+                    proof,
+                    amount: node.amount,
+                    merkle_root: merkle_tree.merkle_root,
+                    distributor_address: merkle_distributor_address(
+                        self.jito_bam_boost_program_id,
+                        Pubkey::from_str(JITOSOL_MINT)
+                            .map_err(|e| QueryResolverError::CustomError(e.to_string()))?,
+                        epoch,
+                    )
+                    .to_string(),
+                })
+            }
+            None => Err(QueryResolverError::CustomError(format!(
+                "Validator {validator_id} not found in merkle tree",
+            ))),
+        }
     }
 }
 

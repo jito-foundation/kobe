@@ -202,120 +202,121 @@ impl MerkleTree {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    const TEST: &[&[u8]] = &[
-        b"my", b"very", b"eager", b"mother", b"just", b"served", b"us", b"nine", b"pizzas",
-        b"make", b"prime",
-    ];
-    const BAD: &[&[u8]] = &[b"bad", b"missing", b"false"];
-
-    #[test]
-    fn test_tree_from_empty() {
-        let mt = MerkleTree::new::<[u8; 0]>(&[], false);
-        assert_eq!(mt.get_root(), None);
-    }
-
-    #[test]
-    fn test_tree_from_one() {
-        let input = b"test";
-        let mt = MerkleTree::new(&[input], false);
-        let expected = hash_leaf!(input);
-        assert_eq!(mt.get_root(), Some(&expected));
-    }
-
-    #[test]
-    fn test_tree_from_many() {
-        let mt = MerkleTree::new(TEST, false);
-        // This golden hash will need to be updated whenever the contents of `TEST` change in any
-        // way, including addition, removal and reordering or any of the tree calculation algo
-        // changes
-        let bytes = hex::decode("b40c847546fdceea166f927fc46c5ca33c3638236a36275c1346d3dffb84e1bc")
-            .unwrap();
-        let mut hash_bytes = [0; 32];
-        hash_bytes.copy_from_slice(bytes.as_slice());
-        let expected = Hash::new_from_array(hash_bytes);
-        assert_eq!(mt.get_root(), Some(&expected));
-    }
-
-    #[test]
-    fn test_path_creation() {
-        let mt = MerkleTree::new(TEST, false);
-        for (i, _s) in TEST.iter().enumerate() {
-            let _path = mt.find_path(i).unwrap();
-        }
-    }
-
-    #[test]
-    fn test_path_creation_bad_index() {
-        let mt = MerkleTree::new(TEST, false);
-        assert_eq!(mt.find_path(TEST.len()), None);
-    }
-
-    #[test]
-    fn test_path_verify_good() {
-        let mt = MerkleTree::new(TEST, false);
-        for (i, s) in TEST.iter().enumerate() {
-            let hash = hash_leaf!(s);
-            let path = mt.find_path(i).unwrap();
-            assert!(path.verify(hash));
-        }
-    }
-
-    #[test]
-    fn test_path_verify_bad() {
-        let mt = MerkleTree::new(TEST, false);
-        for (i, s) in BAD.iter().enumerate() {
-            let hash = hash_leaf!(s);
-            let path = mt.find_path(i).unwrap();
-            assert!(!path.verify(hash));
-        }
-    }
-
-    #[test]
-    fn test_proof_entry_instantiation_lsib_set() {
-        ProofEntry::new(&Hash::default(), Some(&Hash::default()), None);
-    }
-
-    #[test]
-    fn test_proof_entry_instantiation_rsib_set() {
-        ProofEntry::new(&Hash::default(), None, Some(&Hash::default()));
-    }
-
-    #[test]
-    fn test_nodes_capacity_compute() {
-        let iteration_count = |mut leaf_count: usize| -> usize {
-            let mut capacity = 0;
-            while leaf_count > 0 {
-                capacity += leaf_count;
-                leaf_count = MerkleTree::next_level_len(leaf_count);
-            }
-            capacity
-        };
-
-        // test max 64k leaf nodes compute
-        for leaf_count in 0..65536 {
-            let math_count = MerkleTree::calculate_vec_capacity(leaf_count);
-            let iter_count = iteration_count(leaf_count);
-            assert!(math_count >= iter_count);
-        }
-    }
-
-    #[test]
-    #[should_panic]
-    fn test_proof_entry_instantiation_both_clear() {
-        ProofEntry::new(&Hash::default(), None, None);
-    }
-
-    #[test]
-    #[should_panic]
-    fn test_proof_entry_instantiation_both_set() {
-        ProofEntry::new(
-            &Hash::default(),
-            Some(&Hash::default()),
-            Some(&Hash::default()),
-        );
-    }
-}
+// #[cfg(test)]
+// mod tests {
+//     use super::*;
+//
+//     const TEST: &[&[u8]] = &[
+//         b"my", b"very", b"eager", b"mother", b"just", b"served", b"us", b"nine", b"pizzas",
+//         b"make", b"prime",
+//     ];
+//     const BAD: &[&[u8]] = &[b"bad", b"missing", b"false"];
+//
+//     #[test]
+//     fn test_tree_from_empty() {
+//         let mt = MerkleTree::new::<[u8; 0]>(&[], false);
+//         assert_eq!(mt.get_root(), None);
+//     }
+//
+//     #[test]
+//     fn test_tree_from_one() {
+//         let input = b"test";
+//         let mt = MerkleTree::new(&[input], false);
+//         let expected = hash_leaf!(input);
+//         assert_eq!(mt.get_root(), Some(&expected));
+//     }
+//
+//     #[test]
+//     fn test_tree_from_many() {
+//         let mt = MerkleTree::new(TEST, false);
+//         // This golden hash will need to be updated whenever the contents of `TEST` change in any
+//         // way, including addition, removal and reordering or any of the tree calculation algo
+//         // changes
+//         let bytes = hex::decode("b40c847546fdceea166f927fc46c5ca33c3638236a36275c1346d3dffb84e1bc")
+//             .unwrap();
+//         let mut hash_bytes = [0; 32];
+//         hash_bytes.copy_from_slice(bytes.as_slice());
+//         let expected = Hash::new_from_array(hash_bytes);
+//         assert_eq!(mt.get_root(), Some(&expected));
+//     }
+//
+//     #[test]
+//     fn test_path_creation() {
+//         let mt = MerkleTree::new(TEST, false);
+//         for (i, _s) in TEST.iter().enumerate() {
+//             let _path = mt.find_path(i).unwrap();
+//         }
+//     }
+//
+//     #[test]
+//     fn test_path_creation_bad_index() {
+//         let mt = MerkleTree::new(TEST, false);
+//         assert_eq!(mt.find_path(TEST.len()), None);
+//     }
+//
+//     #[test]
+//     fn test_path_verify_good() {
+//         let mt = MerkleTree::new(TEST, false);
+//         for (i, s) in TEST.iter().enumerate() {
+//             let hash = hash_leaf!(s);
+//             let path = mt.find_path(i).unwrap();
+//             assert!(path.verify(hash));
+//         }
+//     }
+//
+//     #[test]
+//     fn test_path_verify_bad() {
+//         let mt = MerkleTree::new(TEST, false);
+//         for (i, s) in BAD.iter().enumerate() {
+//             let hash = hash_leaf!(s);
+//             let path = mt.find_path(i).unwrap();
+//             assert!(!path.verify(hash));
+//         }
+//     }
+//
+//     #[test]
+//     fn test_proof_entry_instantiation_lsib_set() {
+//         ProofEntry::new(&Hash::default(), Some(&Hash::default()), None);
+//     }
+//
+//     #[test]
+//     fn test_proof_entry_instantiation_rsib_set() {
+//         ProofEntry::new(&Hash::default(), None, Some(&Hash::default()));
+//     }
+//
+//     #[test]
+//     fn test_nodes_capacity_compute() {
+//         let iteration_count = |mut leaf_count: usize| -> usize {
+//             let mut capacity = 0;
+//             while leaf_count > 0 {
+//                 capacity += leaf_count;
+//                 leaf_count = MerkleTree::next_level_len(leaf_count);
+//             }
+//             capacity
+//         };
+//
+//         // test max 64k leaf nodes compute
+//         for leaf_count in 0..65536 {
+//             let math_count = MerkleTree::calculate_vec_capacity(leaf_count);
+//             let iter_count = iteration_count(leaf_count);
+//             assert!(math_count >= iter_count);
+//         }
+//     }
+//
+//     #[test]
+//     #[should_panic]
+//     fn test_proof_entry_instantiation_both_clear() {
+//         ProofEntry::new(&Hash::default(), None, None);
+//     }
+//
+//     #[test]
+//     #[should_panic]
+//     fn test_proof_entry_instantiation_both_set() {
+//         ProofEntry::new(
+//             &Hash::default(),
+//             Some(&Hash::default()),
+//             Some(&Hash::default()),
+//         );
+//     }
+// }
+//

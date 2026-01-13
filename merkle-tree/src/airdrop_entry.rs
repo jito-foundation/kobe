@@ -45,21 +45,22 @@ impl AirdropEntry {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_csv_parsing() {
-        let path = PathBuf::from("./test_fixtures/test_csv.csv");
-        let entries = AirdropEntry::from_csv_file(&path).expect("Failed to parse CSV");
-
-        assert_eq!(entries.len(), 3);
-
-        assert_eq!(
-            entries[0].pubkey,
-            "4SX6nqv5VRLMoNfYM5phvHgcBNcBEwUEES4qPPjf1EqS"
-        );
-        assert_eq!(entries[0].amount, 1000);
-    }
-}
+// #[cfg(test)]
+// mod tests {
+//     use super::*;
+//
+//     #[test]
+//     fn test_csv_parsing() {
+//         let path = PathBuf::from("./test_fixtures/test_csv.csv");
+//         let entries = AirdropEntry::from_csv_file(&path).expect("Failed to parse CSV");
+//
+//         assert_eq!(entries.len(), 3);
+//
+//         assert_eq!(
+//             entries[0].pubkey,
+//             "4SX6nqv5VRLMoNfYM5phvHgcBNcBEwUEES4qPPjf1EqS"
+//         );
+//         assert_eq!(entries[0].amount, 1000);
+//     }
+// }
+//

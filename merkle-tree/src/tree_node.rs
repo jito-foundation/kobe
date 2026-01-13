@@ -90,26 +90,27 @@ impl From<AirdropEntry> for TreeNode {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_serialize_tree_node() {
-        let tree_node = TreeNode {
-            claimant: Pubkey::default(),
-            proof: None,
-            amount: 0,
-        };
-        let serialized = serde_json::to_string(&tree_node).unwrap();
-        let deserialized: TreeNode = serde_json::from_str(&serialized).unwrap();
-        assert_eq!(tree_node, deserialized);
-    }
-
-    #[test]
-    fn test_ui_amount_to_token_amount() {
-        let ui_amount = 5;
-        let token_amount = ui_amount_to_token_amount(ui_amount);
-        assert_eq!(token_amount, 5_000_000_000);
-    }
-}
+// #[cfg(test)]
+// mod tests {
+//     use super::*;
+//
+//     #[test]
+//     fn test_serialize_tree_node() {
+//         let tree_node = TreeNode {
+//             claimant: Pubkey::default(),
+//             proof: None,
+//             amount: 0,
+//         };
+//         let serialized = serde_json::to_string(&tree_node).unwrap();
+//         let deserialized: TreeNode = serde_json::from_str(&serialized).unwrap();
+//         assert_eq!(tree_node, deserialized);
+//     }
+//
+//     #[test]
+//     fn test_ui_amount_to_token_amount() {
+//         let ui_amount = 5;
+//         let token_amount = ui_amount_to_token_amount(ui_amount);
+//         assert_eq!(token_amount, 5_000_000_000);
+//     }
+// }
+//

@@ -37,8 +37,9 @@ use validator_history::ValidatorHistory;
 use crate::{
     resolvers::error::{QueryResolverError, Result},
     schemas::{
-        bam_boost::{merkle_distributor_address, BamBoostClaimResponse},
-        bam_boost_validator::BamBoostValidatorsResponse,
+        bam_boost_validator::{
+            merkle_distributor_address, BamBoostClaimResponse, BamBoostValidatorsResponse,
+        },
         bam_epoch_metrics::BamEpochMetricsResponse,
         bam_validator::{BamValidatorScoreResponse, BamValidatorsResponse},
         jitosol_ratio::{JitoSolRatioRequest, JitoSolRatioResponse},

@@ -7,7 +7,7 @@ use std::{
 use anchor_lang::AccountDeserialize;
 use axum::{http::StatusCode, Extension, Json};
 use cached::{proc_macro::cached, TimedCache};
-use jito_bam_boost_merkle_tree::airdrop_merkle_tree::AirdropMerkleTree;
+use jito_bam_boost_merkle_tree::bam_boost_merkle_tree::BamBoostMerkleTree;
 use jito_steward::constants::MAX_VALIDATORS;
 use kobe_core::{
     constants::{JITOSOL_MINT, JITOSOL_VALIDATOR_LIST_MAINNET, JITOSOL_VALIDATOR_LIST_TESTNET},
@@ -1225,8 +1225,8 @@ impl QueryResolver {
         let response_json = response.json().await.unwrap();
 
         // Parse the merkle tree JSON (amounts are already in lamports, no conversion needed)
-        let merkle_tree: AirdropMerkleTree =
-            match AirdropMerkleTree::new_from_entries_raw(response_json) {
+        let merkle_tree: BamBoostMerkleTree =
+            match BamBoostMerkleTree::new_from_entries(response_json) {
                 Ok(tree) => tree,
                 Err(e) => {
                     error!("Failed to parse merkle tree: {}", e);

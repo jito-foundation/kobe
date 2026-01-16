@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use solana_program::{hash::hashv, pubkey::Pubkey};
 
 use crate::{
-    airdrop_entry::AirdropEntry,
+    bam_boost_entry::BamBoostEntry,
     error::{MerkleTreeError, MerkleTreeError::MerkleValidationError},
     merkle_tree::MerkleTree,
     tree_node::TreeNode,
@@ -27,7 +27,7 @@ const LEAF_PREFIX: &[u8] = &[0];
 /// Merkle Tree which will be used to distribute tokens to claimants.
 /// Contains all the information necessary to verify claims against the Merkle Tree.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AirdropMerkleTree {
+pub struct BamBoostMerkleTree {
     /// The merkle root, which is uploaded on-chain
     pub merkle_root: [u8; 32],
     pub max_num_nodes: u64,
@@ -37,7 +37,7 @@ pub struct AirdropMerkleTree {
 
 pub type Result<T> = result::Result<T, MerkleTreeError>;
 
-impl AirdropMerkleTree {
+impl BamBoostMerkleTree {
     pub fn new(tree_nodes: Vec<TreeNode>) -> Result<Self> {
         // Combine tree nodes with the same claimant, while retaining original order
         let mut tree_nodes_map: IndexMap<Pubkey, TreeNode> = IndexMap::new();
@@ -46,7 +46,7 @@ impl AirdropMerkleTree {
             tree_nodes_map
                 .entry(claimant)
                 .and_modify(|n| {
-                    log::info!("duplicate claimant {} found, combining", n.claimant);
+                    println!("duplicate claimant {} found, combining", n.claimant);
                     n.amount = n.amount.checked_add(tree_node.amount).unwrap();
                 })
                 .or_insert_with(|| tree_node); // If not exists, insert a new entry
@@ -67,7 +67,7 @@ impl AirdropMerkleTree {
         }
 
         let max_total_claim = get_max_total_claim(tree_nodes.as_ref());
-        let tree = AirdropMerkleTree {
+        let tree = Self {
             merkle_root: tree
                 .get_root()
                 .ok_or(MerkleTreeError::MerkleRootError)?
@@ -77,10 +77,9 @@ impl AirdropMerkleTree {
             tree_nodes,
         };
 
-        log::info!(
+        println!(
             "created merkle tree with {} nodes and max total claim of {}",
-            tree.max_num_nodes,
-            tree.max_total_claim
+            tree.max_num_nodes, tree.max_total_claim
         );
 
         tree.validate()?;
@@ -90,39 +89,8 @@ impl AirdropMerkleTree {
 
     /// Load a merkle tree from a csv path
     pub fn new_from_csv(path: &PathBuf) -> Result<Self> {
-        let csv_entries = AirdropEntry::from_csv_file(path)?;
+        let csv_entries = BamBoostEntry::new_from_file(path)?;
         let tree_nodes: Vec<TreeNode> = csv_entries.into_iter().map(TreeNode::from).collect();
-        let tree = Self::new(tree_nodes)?;
-        Ok(tree)
-    }
-
-    /// Load a merkle tree from a json path
-    pub fn new_from_json(path: &PathBuf) -> Result<Self> {
-        let json_entries = AirdropEntry::from_json_file(path)?;
-        let tree_nodes: Vec<TreeNode> = json_entries.into_iter().map(TreeNode::from).collect();
-        let tree = Self::new(tree_nodes)?;
-        Ok(tree)
-    }
-
-    /// Construct a merkle tree from a vector of airdrop entries (converts UI amounts to token amounts)
-    pub fn new_from_entries(entries: Vec<AirdropEntry>) -> Result<Self> {
-        let tree_nodes: Vec<TreeNode> = entries.into_iter().map(TreeNode::from).collect();
-        let tree = Self::new(tree_nodes)?;
-        Ok(tree)
-    }
-
-    /// Construct a merkle tree from a vector of airdrop entries where amounts are already in lamports
-    /// (no decimal conversion applied)
-    pub fn new_from_entries_raw(entries: Vec<AirdropEntry>) -> Result<Self> {
-        use std::str::FromStr;
-        let tree_nodes: Vec<TreeNode> = entries
-            .into_iter()
-            .map(|entry| TreeNode {
-                claimant: Pubkey::from_str(&entry.pubkey).unwrap(),
-                proof: None,
-                amount: entry.amount, // No conversion - amount is already in lamports
-            })
-            .collect();
         let tree = Self::new(tree_nodes)?;
         Ok(tree)
     }
@@ -131,8 +99,15 @@ impl AirdropMerkleTree {
     pub fn new_from_file(path: &PathBuf) -> Result<Self> {
         let file = File::open(path)?;
         let reader = BufReader::new(file);
-        let tree: AirdropMerkleTree = serde_json::from_reader(reader)?;
+        let tree: BamBoostMerkleTree = serde_json::from_reader(reader)?;
 
+        Ok(tree)
+    }
+
+    /// Construct a merkle tree from a vector of merkle tree entries
+    pub fn new_from_entries(entries: Vec<BamBoostEntry>) -> Result<Self> {
+        let tree_nodes: Vec<TreeNode> = entries.into_iter().map(TreeNode::from).collect();
+        let tree = Self::new(tree_nodes)?;
         Ok(tree)
     }
 
@@ -275,7 +250,7 @@ impl AirdropMerkleTree {
 //             });
 //         }
 //
-//         let merkle_tree = AirdropMerkleTree::new(tree_nodes).unwrap();
+//         let merkle_tree = BamBoostMerkleTree::new(tree_nodes).unwrap();
 //
 //         merkle_tree.write_to_file(path);
 //     }
@@ -287,7 +262,7 @@ impl AirdropMerkleTree {
 //             proof: None,
 //             amount: 2,
 //         }];
-//         let merkle_tree = AirdropMerkleTree::new(tree_nodes).unwrap();
+//         let merkle_tree = BamBoostMerkleTree::new(tree_nodes).unwrap();
 //         assert!(merkle_tree.verify_proof().is_ok(), "verify failed");
 //     }
 //
@@ -312,14 +287,14 @@ impl AirdropMerkleTree {
 //             },
 //         ];
 //
-//         let merkle_distributor_info = AirdropMerkleTree::new(tree_nodes).unwrap();
+//         let merkle_distributor_info = BamBoostMerkleTree::new(tree_nodes).unwrap();
 //         let path = PathBuf::from("merkle_tree.json");
 //
 //         // serialize merkle distributor to file
 //         merkle_distributor_info.write_to_file(&path);
 //         // now test we can successfully read from file
-//         let merkle_distributor_read: AirdropMerkleTree =
-//             AirdropMerkleTree::new_from_file(&path).unwrap();
+//         let merkle_distributor_read: BamBoostMerkleTree =
+//             BamBoostMerkleTree::new_from_file(&path).unwrap();
 //
 //         assert_eq!(merkle_distributor_read.tree_nodes.len(), 3);
 //     }
@@ -351,10 +326,11 @@ impl AirdropMerkleTree {
 //             },
 //         ];
 //
-//         let tree = AirdropMerkleTree::new(tree_nodes).unwrap();
+//         let tree = BamBoostMerkleTree::new(tree_nodes).unwrap();
 //
 //         // Assert that the merkle distributor correctly combines the two tree nodes
 //         assert_eq!(tree.tree_nodes.len(), 2);
 //         assert_eq!(tree.tree_nodes[0].amount(), 11);
 //     }
 // }
+//

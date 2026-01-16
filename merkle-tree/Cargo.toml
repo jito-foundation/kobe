@@ -6,7 +6,6 @@ edition = "2021"
 [dependencies]
 csv.workspace = true
 fast-math.workspace = true
-hex.workspace = true
 indexmap.workspace = true
 jito-bam-boost-merkle-verify.workspace = true
 log.workspace = true
@@ -14,6 +13,5 @@ rand.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 solana-hash.workspace = true
-solana-keypair.workspace = true
 solana-program.workspace = true
 thiserror.workspace = true

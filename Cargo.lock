@@ -2888,7 +2888,6 @@ version = "0.1.0"
 dependencies = [
  "csv",
  "fast-math",
- "hex",
  "indexmap",
  "jito-bam-boost-merkle-verify",
  "log",
@@ -2896,7 +2895,6 @@ dependencies = [
  "serde",
  "serde_json",
  "solana-hash 2.3.0",
- "solana-keypair",
  "solana-program",
  "thiserror 1.0.69",
 ]
@@ -2926,6 +2924,14 @@ source = "git+https://github.com/jito-foundation/jito-programs?branch=master#8f5
 dependencies = [
  "anchor-lang",
  "jito-priority-fee-distribution",
+]
+
+[[package]]
+name = "jito-program-client"
+version = "0.1.0"
+dependencies = [
+ "borsh 1.5.7",
+ "solana-pubkey 2.4.0",
 ]
 
 [[package]]
@@ -3212,10 +3218,13 @@ version = "1.0.0"
 dependencies = [
  "backoff",
  "bam-api-client",
+ "borsh 1.5.7",
  "chrono",
  "clap 4.5.40",
  "dotenvy",
  "env_logger 0.10.2",
+ "jito-bam-boost-merkle-tree",
+ "jito-program-client",
  "jito-tip-distribution",
  "kobe-core",
  "log",

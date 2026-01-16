@@ -17,8 +17,8 @@ use kobe_api::{
     error::{handle_error, ApiError},
     resolvers::query_resolver::{
         daily_mev_rewards_cacheable_wrapper, get_bam_boost_claim_wrapper,
-        get_bam_delegation_blacklist_wrapper, get_bam_epoch_metrics_wrapper,
-        get_bam_validator_score_wrapper, get_bam_validators_wrapper,
+        get_bam_boost_validators_wrapper, get_bam_delegation_blacklist_wrapper,
+        get_bam_epoch_metrics_wrapper, get_bam_validator_score_wrapper, get_bam_validators_wrapper,
         get_validator_histories_wrapper, jito_stake_over_time_ratio_cacheable_wrapper,
         jitosol_ratio_cacheable_wrapper, jitosol_validators_cacheable_wrapper,
         mev_commission_average_over_time_cacheable_wrapper, mev_rewards_cacheable_wrapper,
@@ -28,6 +28,7 @@ use kobe_api::{
         validators_cacheable_wrapper, QueryResolver,
     },
     schemas::{
+        bam_boost_validator::BamBoostValidatorsRequest,
         bam_epoch_metrics::BamEpochMetricsRequest,
         bam_validator::{BamValidatorRequest, BamValidatorsRequest},
         jitosol_ratio::JitoSolRatioRequest,
@@ -240,6 +241,13 @@ async fn bam_boost_claim_handler(
     get_bam_boost_claim_wrapper(resolver, &cluster, epoch, &validator_id).await
 }
 
+async fn bam_boost_validators_handler(
+    resolver: Extension<QueryResolver>,
+    request: Query<BamBoostValidatorsRequest>,
+) -> impl IntoResponse {
+    get_bam_boost_validators_wrapper(resolver, request.epoch).await
+}
+
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
 struct Args {
@@ -414,6 +422,10 @@ async fn run_server(args: &Args) {
         .route(
             "/api/v1/claim/:network/:epoch/:validator_id",
             get(bam_boost_claim_handler),
+        )
+        .route(
+            "/api/v1/bam_boost_validators",
+            get(bam_boost_validators_handler),
         )
         .layer(Extension(query_resolver))
         .layer(middleware)

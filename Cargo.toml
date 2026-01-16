@@ -2,7 +2,7 @@
 resolver = "2"
 members = [
     "api",
-    "bam-writer-service",
+    "bam-writer-service", "client",
     "core",
     "cranker",
     "cranker/cli",
@@ -51,6 +51,7 @@ jito-priority-fee-distribution-sdk = { git = "https://github.com/jito-foundation
 jito-steward = { package = "jito-steward", features = ["no-entrypoint"], git = "https://github.com/jito-foundation/stakenet", rev = "4f98f941b153737665b1eb65e77737616b3cd070" }
 jito-tip-distribution = { features = ["no-entrypoint"], git = "https://github.com/jito-foundation/jito-programs", branch = "master" }
 jito-tip-distribution-sdk = { git = "https://github.com/jito-foundation/jito-programs", branch = "master" }
+jito-program-client = { path = "client" }
 kobe-client = "0.1.8"
 kobe-core = { path = "core", version = "1.0.0" }
 log = "0.4.18"

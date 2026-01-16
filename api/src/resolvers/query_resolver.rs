@@ -12,6 +12,7 @@ use jito_steward::constants::MAX_VALIDATORS;
 use kobe_core::{
     constants::{JITOSOL_MINT, JITOSOL_VALIDATOR_LIST_MAINNET, JITOSOL_VALIDATOR_LIST_TESTNET},
     db_models::{
+        bam_boost_validators::BamBoostValidatorsStore,
         bam_delegation_blacklist::{BamDelegationBlacklistEntry, BamDelegationBlacklistStore},
         bam_epoch_metrics::BamEpochMetricsStore,
         bam_validators::BamValidatorStore,
@@ -37,6 +38,7 @@ use crate::{
     resolvers::error::{QueryResolverError, Result},
     schemas::{
         bam_boost::{merkle_distributor_address, BamBoostClaimResponse},
+        bam_boost_validator::BamBoostValidatorsResponse,
         bam_epoch_metrics::BamEpochMetricsResponse,
         bam_validator::{BamValidatorScoreResponse, BamValidatorsResponse},
         jitosol_ratio::{JitoSolRatioRequest, JitoSolRatioResponse},
@@ -75,6 +77,9 @@ pub struct QueryResolver {
 
     /// BAM Delegation Blacklist Store
     bam_delegation_blacklist_store: BamDelegationBlacklistStore,
+
+    /// BAM Boost Validators Store
+    bam_boost_validators_store: BamBoostValidatorsStore,
 
     /// RPC Client URL
     rpc_client: Arc<RpcClient>,
@@ -523,7 +528,7 @@ pub async fn get_bam_delegation_blacklist_wrapper(
     type = "TimedCache<String, (StatusCode, Json<BamBoostClaimResponse>)>",
     create = "{ TimedCache::with_lifespan_and_capacity(60, 1000) }",
     key = "String",
-    convert = r#"{ format!("bam-boost-claim") }"#
+    convert = r#"{ format!("bam-boost-claim-{epoch}-{validator_id}") }"#
 )]
 pub async fn get_bam_boost_claim_wrapper(
     resolver: Extension<QueryResolver>,
@@ -546,6 +551,26 @@ pub async fn get_bam_boost_claim_wrapper(
                 merkle_root: [0; 32],
                 distributor_address: String::new(),
             }),
+        )
+    }
+}
+
+#[cached(
+    type = "TimedCache<String, (StatusCode, Json<BamBoostValidatorsResponse>)>",
+    create = "{ TimedCache::with_lifespan_and_capacity(60, 1000) }",
+    key = "String",
+    convert = r#"{ format!("bam-boost-validators-{epoch}") }"#
+)]
+pub async fn get_bam_boost_validators_wrapper(
+    resolver: Extension<QueryResolver>,
+    epoch: u64,
+) -> (StatusCode, Json<BamBoostValidatorsResponse>) {
+    if let Ok(res) = resolver.get_bam_boost_validators(epoch).await {
+        (StatusCode::OK, Json(res))
+    } else {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(BamBoostValidatorsResponse::default()),
         )
     }
 }
@@ -582,6 +607,9 @@ impl QueryResolver {
             ),
             bam_delegation_blacklist_store: BamDelegationBlacklistStore::new(
                 database.collection(BamDelegationBlacklistStore::COLLECTION),
+            ),
+            bam_boost_validators_store: BamBoostValidatorsStore::new(
+                database.collection(BamBoostValidatorsStore::COLLECTION),
             ),
             rpc_client: Arc::new(client),
             cluster,
@@ -1191,24 +1219,23 @@ impl QueryResolver {
         Ok(entries)
     }
 
-    /// BAM Boost
-    pub async fn get_bam_boost_claim(
+    /// BAM Boost merkle tree
+    pub async fn get_bam_boost_merkle_tree(
         &self,
         network: &str,
         epoch: u64,
-        validator_id: &str,
-    ) -> Result<BamBoostClaimResponse> {
+    ) -> Result<BamBoostMerkleTree> {
         let url = format!(
             "https://storage.googleapis.com/jito-bam-boost/{network}/{epoch}/merkle_tree.json",
         );
 
-        log::info!("Fetching merkle tree from: {}", url);
+        log::info!("Fetching merkle tree from: {url}");
 
         // Download the merkle tree JSON from GCS
         let response = match reqwest::get(&url).await {
             Ok(resp) => resp,
             Err(e) => {
-                error!("Failed to fetch merkle tree: {}", e);
+                error!("Failed to fetch merkle tree: {e}");
                 return Err(QueryResolverError::CustomError(format!(
                     "Failed to fetch merkle tree: {e}"
                 )));
@@ -1225,16 +1252,25 @@ impl QueryResolver {
         let response_json = response.json().await.unwrap();
 
         // Parse the merkle tree JSON (amounts are already in lamports, no conversion needed)
-        let merkle_tree: BamBoostMerkleTree =
-            match BamBoostMerkleTree::new_from_entries(response_json) {
-                Ok(tree) => tree,
-                Err(e) => {
-                    error!("Failed to parse merkle tree: {}", e);
-                    return Err(QueryResolverError::CustomError(format!(
-                        "Failed to parse merkle tree: {e}",
-                    )));
-                }
-            };
+        match BamBoostMerkleTree::new_from_entries(response_json) {
+            Ok(tree) => Ok(tree),
+            Err(e) => {
+                error!("Failed to parse merkle tree: {e}");
+                Err(QueryResolverError::CustomError(format!(
+                    "Failed to parse merkle tree: {e}",
+                )))
+            }
+        }
+    }
+
+    /// BAM Boost claim
+    pub async fn get_bam_boost_claim(
+        &self,
+        network: &str,
+        epoch: u64,
+        validator_id: &str,
+    ) -> Result<BamBoostClaimResponse> {
+        let merkle_tree = self.get_bam_boost_merkle_tree(network, epoch).await?;
 
         let validator_id = Pubkey::from_str(validator_id).unwrap();
 
@@ -1267,7 +1303,14 @@ impl QueryResolver {
         }
     }
 
-    // pub async fn get_bam_boost_
+    /// BAM Boost validators
+    pub async fn get_bam_boost_validators(&self, epoch: u64) -> Result<BamBoostValidatorsResponse> {
+        let bam_boost_validators = self.bam_boost_validators_store.find(epoch).await?;
+
+        Ok(BamBoostValidatorsResponse {
+            bam_boost_validators,
+        })
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Default)]

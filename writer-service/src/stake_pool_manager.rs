@@ -39,14 +39,14 @@ pub struct StakePoolManager {
 
 impl StakePoolManager {
     pub fn new(
-        rpc_client: RpcClient,
+        rpc_client: Arc<RpcClient>,
         validators_app_client: Client,
         bam_api_base_url: Option<String>,
         cluster: Cluster,
         steward_config: Pubkey,
     ) -> Self {
         let mut manager = Self {
-            rpc_client: Arc::new(rpc_client),
+            rpc_client,
             validators_app_client,
             bam_api_client: None,
             cluster,

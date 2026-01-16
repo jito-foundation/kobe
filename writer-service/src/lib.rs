@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
 use kobe_core::{
     constants::DATABASE_NAME,
@@ -14,11 +14,13 @@ use spl_stake_pool_cli::client::get_stake_pool;
 use tokio::time::{sleep_until, Instant};
 
 use crate::{
+    bam_boost_manager::BamBoostManager,
     db::{write_mev_claims_info, write_stake_pool_info, write_validator_info},
     result::Result,
     stake_pool_manager::StakePoolManager,
 };
 
+pub mod bam_boost_manager;
 pub mod db;
 pub mod google_storage;
 pub mod merkle_tree_parser;
@@ -34,6 +36,9 @@ pub struct KobeWriterService {
 
     /// Stake pool manager
     stake_pool_manager: StakePoolManager,
+
+    /// BAM Boost manager
+    bam_boost_manager: BamBoostManager,
 
     /// Stake pool
     stake_pool: StakePool,
@@ -80,6 +85,7 @@ impl KobeWriterService {
             Duration::from_secs(60),
             CommitmentConfig::confirmed(),
         );
+        let rpc_client = Arc::new(rpc_client);
 
         let stake_pool = get_stake_pool(&rpc_client, &stake_pool_address).await?;
 
@@ -92,16 +98,19 @@ impl KobeWriterService {
         .expect("Failed to initialize Validators App client");
 
         let stake_pool_manager = StakePoolManager::new(
-            rpc_client,
+            rpc_client.clone(),
             validators_app_client,
             bam_api_base_url,
             cluster,
             steward_config,
         );
 
+        let bam_boost_manager = BamBoostManager::new(rpc_client.clone(), cluster);
+
         Ok(Self {
             db,
             stake_pool_manager,
+            bam_boost_manager,
             stake_pool,
             stake_pool_address,
             cluster,
@@ -151,6 +160,17 @@ impl KobeWriterService {
                     Err(e) => {
                         error!("Writing stake pool stats failed. Error: {e:?}");
                         datapoint_info!("stake_pool_stats_written", ("success", 0, i64), "cluster" => self.cluster.to_string());
+                    }
+                }
+
+                match self.bam_boost_manager.write_bam_boost_info(&self.db).await {
+                    Ok(_) => {
+                        info!("BAM Boost stats written successfully");
+                        datapoint_info!("bam_boost_stats_written", ("success", 1, i64), "cluster" => self.cluster.to_string());
+                    }
+                    Err(e) => {
+                        error!("Writing BAM Boost stats failed. Error: {e:?}");
+                        datapoint_info!("bam_boost_stats_written", ("success", 0, i64), "cluster" => self.cluster.to_string());
                     }
                 }
                 next_hourly_update = Instant::now() + Duration::from_secs(3600);

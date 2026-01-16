@@ -1,5 +1,6 @@
 use std::{
     net::{IpAddr, SocketAddr},
+    str::FromStr,
     time::Duration,
 };
 
@@ -282,10 +283,6 @@ struct Args {
     /// Steward config public key
     #[arg(long, env)]
     steward_config: Pubkey,
-
-    /// Jito BAM Boost program ID
-    #[arg(long, env)]
-    jito_bam_boost_program_id: Pubkey,
 }
 
 fn main() {
@@ -327,7 +324,8 @@ async fn run_server(args: &Args) {
         args.rpc_url.to_owned(),
         cluster,
         args.steward_config,
-        args.jito_bam_boost_program_id,
+        Pubkey::from_str("BoostxbPp2ENYHGcTLYt1obpcY13HE4NojdqNWdzqSSb")
+            .expect("Failed to read jito bam boost program ID"),
     );
 
     let cors = CorsLayer::new()

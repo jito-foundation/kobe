@@ -1,3 +1,5 @@
+use solana_pubkey::{pubkey, Pubkey};
+
 pub const DATA_CENTER_CONCENTRATION_WEIGHT: f64 = 10.0;
 pub const PUBLISHED_INFORMATION_WEIGHT: f64 = 10.0;
 pub const SUPERMINORITY_WEIGHT: f64 = 100.0;
@@ -26,4 +28,4 @@ pub const MAINNET_STAKE_POOL_ADDRESS: &str = "Jito4APyf642JPZPx3hGc6WWJ8zPKtRbRs
 pub const MAINNET_SNAPSHOT_BUCKET_URL: &str =
     "https://storage.googleapis.com/storage/v1/b/jito-mainnet/o";
 pub const CRANKER_UPDATE_CHANNEL: &str = "stake-pool-alerts";
-pub const JITOSOL_MINT: &str = "J1toso1uCk3RLmjorhTtrVwY9HJ7X8V9yYac6Y7kGCPn";
+pub const JITOSOL_MINT: Pubkey = pubkey!("J1toso1uCk3RLmjorhTtrVwY9HJ7X8V9yYac6Y7kGCPn");

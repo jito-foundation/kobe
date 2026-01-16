@@ -38,7 +38,8 @@ use crate::{
     resolvers::error::{QueryResolverError, Result},
     schemas::{
         bam_boost_validator::{
-            merkle_distributor_address, BamBoostClaimResponse, BamBoostValidatorsResponse,
+            claim_status_address, merkle_distributor_address, BamBoostClaimResponse,
+            BamBoostValidatorsResponse,
         },
         bam_epoch_metrics::BamEpochMetricsResponse,
         bam_validator::{BamValidatorScoreResponse, BamValidatorsResponse},
@@ -551,6 +552,7 @@ pub async fn get_bam_boost_claim_wrapper(
                 proof: vec![],
                 merkle_root: [0; 32],
                 distributor_address: String::new(),
+                claim_status_address: String::new(),
             }),
         )
     }
@@ -1279,9 +1281,9 @@ impl QueryResolver {
         epoch: u64,
         validator_id: &str,
     ) -> Result<BamBoostClaimResponse> {
+        let validator_id = Pubkey::from_str(validator_id)
+            .map_err(|e| QueryResolverError::CustomError(e.to_string()))?;
         let merkle_tree = self.get_bam_boost_merkle_tree(network, epoch).await?;
-
-        let validator_id = Pubkey::from_str(validator_id).unwrap();
 
         // Find the tree node for the requested validator
         let tree_node = merkle_tree
@@ -1292,16 +1294,18 @@ impl QueryResolver {
         match tree_node {
             Some(node) => {
                 let proof = node.proof.clone().unwrap_or_default();
+                let distributor_address =
+                    merkle_distributor_address(self.jito_bam_boost_program_id, JITOSOL_MINT, epoch);
                 Ok(BamBoostClaimResponse {
                     claimant: node.claimant.to_string(),
                     proof,
                     amount: node.amount,
                     merkle_root: merkle_tree.merkle_root,
-                    distributor_address: merkle_distributor_address(
+                    distributor_address: distributor_address.to_string(),
+                    claim_status_address: claim_status_address(
                         self.jito_bam_boost_program_id,
-                        Pubkey::from_str(JITOSOL_MINT)
-                            .map_err(|e| QueryResolverError::CustomError(e.to_string()))?,
-                        epoch,
+                        node.claimant,
+                        distributor_address,
                     )
                     .to_string(),
                 })

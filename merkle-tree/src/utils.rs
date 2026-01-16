@@ -22,8 +22,3 @@ pub fn get_max_total_claim(nodes: &[TreeNode]) -> u64 {
         .try_fold(0, |acc: u64, n| acc.checked_add(n.amount()))
         .unwrap()
 }
-
-#[derive(Debug)]
-pub struct MerkleValidationError {
-    pub msg: String,
-}

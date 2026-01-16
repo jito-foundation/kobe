@@ -19,6 +19,9 @@ pub struct BamBoostValidator {
 
     /// Whether claimed or not
     pub claimed: bool,
+
+    /// Claim Status pubkey
+    pub claim_status_address: String,
 }
 
 #[derive(Clone)]

@@ -130,8 +130,7 @@ impl BamBoostManager {
             match self.fetch_bam_boost_entries(epoch).await {
                 Ok(epoch_bam_boost_entries) => {
                     for entry in epoch_bam_boost_entries {
-                        let distributor_pda = self
-                            .distributor_address(Pubkey::from_str(JITOSOL_MINT).unwrap(), epoch);
+                        let distributor_pda = self.distributor_address(JITOSOL_MINT, epoch);
 
                         let claim_status_pda = self.claim_status_address(
                             Pubkey::from_str(&entry.pubkey).unwrap(),
@@ -144,6 +143,7 @@ impl BamBoostManager {
                             identity_account: entry.pubkey.to_string(),
                             amount: entry.amount,
                             claimed: claim_status.is_ok(),
+                            claim_status_address: claim_status_pda.to_string(),
                         };
                         bam_boost_validators.push(bam_boost_validator);
                     }

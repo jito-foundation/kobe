@@ -19,6 +19,22 @@ pub(crate) fn merkle_distributor_address(
     .0
 }
 
+pub(crate) fn claim_status_address(
+    bam_boost_program_id: Pubkey,
+    claimant: Pubkey,
+    distributor: Pubkey,
+) -> Pubkey {
+    Pubkey::find_program_address(
+        &[
+            b"claim_status",
+            claimant.to_bytes().as_ref(),
+            distributor.to_bytes().as_ref(),
+        ],
+        &bam_boost_program_id,
+    )
+    .0
+}
+
 /// Response containing the claim proof for a validator
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct BamBoostClaimResponse {
@@ -36,6 +52,9 @@ pub struct BamBoostClaimResponse {
 
     /// Distributor pubkey
     pub distributor_address: String,
+
+    /// Claim Status pubkey
+    pub claim_status_address: String,
 }
 
 #[derive(Serialize, Deserialize, Clone)]

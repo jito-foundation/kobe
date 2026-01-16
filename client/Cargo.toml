@@ -16,4 +16,6 @@ fetch = []
 
 [dependencies]
 borsh.workspace = true
+serde.workspace = true
+serde_with.workspace = true
 solana-pubkey.workspace = true

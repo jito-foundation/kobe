@@ -100,7 +100,12 @@ impl BamBoostManager {
             )));
         }
 
-        let response_json = response.json().await.unwrap();
+        let response_json: Vec<BamBoostEntry> = response.json().await.map_err(|e| {
+            log::error!("Failed to parse merkle tree JSON: {e}");
+            AppError::InvalidOperation(format!(
+                "Failed to parse merkle tree JSON for network {network} epoch {epoch}: {e}",
+            ))
+        })?;
 
         Ok(response_json)
     }
@@ -122,25 +127,30 @@ impl BamBoostManager {
         let mut bam_boost_validators = Vec::new();
 
         for epoch in current_epoch - bam_boost_config.clawback_delay_epochs..current_epoch {
-            let epoch_bam_boost_entries = self.fetch_bam_boost_entries(epoch).await?;
+            match self.fetch_bam_boost_entries(epoch).await {
+                Ok(epoch_bam_boost_entries) => {
+                    for entry in epoch_bam_boost_entries {
+                        let distributor_pda = self
+                            .distributor_address(Pubkey::from_str(JITOSOL_MINT).unwrap(), epoch);
 
-            for entry in epoch_bam_boost_entries {
-                let distributor_pda =
-                    self.distributor_address(Pubkey::from_str(JITOSOL_MINT).unwrap(), epoch);
+                        let claim_status_pda = self.claim_status_address(
+                            Pubkey::from_str(&entry.pubkey).unwrap(),
+                            distributor_pda,
+                        );
+                        let claim_status = self.rpc_client.get_account(&claim_status_pda).await;
 
-                let claim_status_pda = self.claim_status_address(
-                    Pubkey::from_str(&entry.pubkey).unwrap(),
-                    distributor_pda,
-                );
-                let claim_status = self.rpc_client.get_account(&claim_status_pda).await;
-
-                let bam_boost_validator = BamBoostValidator {
-                    epoch: current_epoch,
-                    identity_account: entry.pubkey.to_string(),
-                    amount: entry.amount,
-                    claimed: claim_status.is_ok(),
-                };
-                bam_boost_validators.push(bam_boost_validator);
+                        let bam_boost_validator = BamBoostValidator {
+                            epoch,
+                            identity_account: entry.pubkey.to_string(),
+                            amount: entry.amount,
+                            claimed: claim_status.is_ok(),
+                        };
+                        bam_boost_validators.push(bam_boost_validator);
+                    }
+                }
+                Err(e) => {
+                    log::info!("Skip fetching bam boost merkle tree {epoch}: {e}");
+                }
             }
         }
 

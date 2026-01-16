@@ -43,21 +43,3 @@ impl From<BamBoostEntry> for TreeNode {
         node
     }
 }
-
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-//
-//     #[test]
-//     fn test_serialize_tree_node() {
-//         let tree_node = TreeNode {
-//             claimant: Pubkey::default(),
-//             proof: None,
-//             amount: 0,
-//         };
-//         let serialized = serde_json::to_string(&tree_node).unwrap();
-//         let deserialized: TreeNode = serde_json::from_str(&serialized).unwrap();
-//         assert_eq!(tree_node, deserialized);
-//     }
-// }
-//

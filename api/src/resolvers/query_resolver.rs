@@ -1250,7 +1250,15 @@ impl QueryResolver {
             )));
         }
 
-        let response_json = response.json().await.unwrap();
+        let response_json = match response.json().await {
+            Ok(json) => json,
+            Err(e) => {
+                error!("Failed to parse merkle tree JSON: {e}");
+                return Err(QueryResolverError::CustomError(format!(
+                    "Failed to parse merkle tree JSON: {e}",
+                )));
+            }
+        };
 
         // Parse the merkle tree JSON (amounts are already in lamports, no conversion needed)
         match BamBoostMerkleTree::new_from_entries(response_json) {

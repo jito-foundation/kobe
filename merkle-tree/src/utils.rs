@@ -1,5 +1,3 @@
-use solana_program::pubkey::Pubkey;
-
 use crate::{merkle_tree::MerkleTree, tree_node::TreeNode};
 
 pub fn get_proof(merkle_tree: &MerkleTree, index: usize) -> Vec<[u8; 32]> {
@@ -25,74 +23,7 @@ pub fn get_max_total_claim(nodes: &[TreeNode]) -> u64 {
         .unwrap()
 }
 
-pub fn get_merkle_distributor_pda(
-    program_id: &Pubkey,
-    mint: &Pubkey,
-    version: u64,
-) -> (Pubkey, u8) {
-    Pubkey::find_program_address(
-        &[
-            b"merkle_distributor".as_ref(),
-            mint.as_ref(),
-            version.to_le_bytes().as_ref(),
-        ],
-        program_id,
-    )
-}
-
-// pub fn get_claim_status_pda(
-//     program_id: &Pubkey,
-//     claimant: &Pubkey,
-//     distributor: &Pubkey,
-// ) -> (Pubkey, u8) {
-//     Pubkey::find_program_address(
-//         &[
-//             b"claim_status".as_ref(),
-//             claimant.to_bytes().as_ref(),
-//             distributor.to_bytes().as_ref(),
-//         ],
-//         program_id,
-//     )
-// }
-
 #[derive(Debug)]
 pub struct MerkleValidationError {
     pub msg: String,
 }
-
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-//     // Helper function to create a tree node
-//     fn create_node(claimant: Pubkey, amount: u64) -> TreeNode {
-//         TreeNode {
-//             claimant,
-//             proof: None,
-//             amount,
-//         }
-//     }
-//
-//     #[test]
-//     fn test_get_max_total_claim_no_overflow() {
-//         let nodes = vec![
-//             create_node(Pubkey::new_unique(), 100),
-//             create_node(Pubkey::new_unique(), 300),
-//         ];
-//
-//         let total = get_max_total_claim(&nodes);
-//         assert_eq!(total, 400);
-//     }
-//
-//     #[test]
-//     #[should_panic(expected = "Option::unwrap()` on a `None` value")]
-//     fn test_get_max_total_claim_overflow() {
-//         let large_number = u64::MAX / 2 + 1; // Add 1 to cause overflow
-//         let nodes = vec![
-//             create_node(Pubkey::new_unique(), large_number),
-//             create_node(Pubkey::new_unique(), large_number),
-//         ];
-//
-//         let _ = get_max_total_claim(&nodes);
-//     }
-// }
-//

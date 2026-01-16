@@ -126,7 +126,7 @@ impl BamBoostManager {
 
         let mut bam_boost_validators = Vec::new();
 
-        for epoch in current_epoch - bam_boost_config.clawback_delay_epochs..current_epoch {
+        for epoch in current_epoch - bam_boost_config.clawback_delay_epochs..=current_epoch {
             match self.fetch_bam_boost_entries(epoch).await {
                 Ok(epoch_bam_boost_entries) => {
                     for entry in epoch_bam_boost_entries {

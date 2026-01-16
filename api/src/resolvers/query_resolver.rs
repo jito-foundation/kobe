@@ -1236,7 +1236,7 @@ impl QueryResolver {
                 }
             };
 
-        let validator_id = Pubkey::from_str(&validator_id).unwrap();
+        let validator_id = Pubkey::from_str(validator_id).unwrap();
 
         // Find the tree node for the requested validator
         let tree_node = merkle_tree
@@ -1266,6 +1266,8 @@ impl QueryResolver {
             ))),
         }
     }
+
+    // pub async fn get_bam_boost_
 }
 
 #[derive(Serialize, Deserialize, Debug, Default)]

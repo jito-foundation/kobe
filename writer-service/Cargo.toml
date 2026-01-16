@@ -18,8 +18,8 @@ clap = { workspace = true }
 dotenvy = { workspace = true }
 env_logger = { workspace = true }
 jito-bam-boost-merkle-tree.workspace = true
-jito-tip-distribution = { workspace = true }
 jito-program-client.workspace = true
+jito-tip-distribution = { workspace = true }
 kobe-core = { workspace = true }
 log = { workspace = true }
 mongodb = { workspace = true }

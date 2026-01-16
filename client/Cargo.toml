@@ -1,0 +1,21 @@
+[package]
+name = "jito-program-client"
+version = "0.1.0"
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+license.workspace = true
+edition.workspace = true
+readme.workspace = true
+
+[features]
+serde = []
+anchor = []
+anchor-idl-build = []
+fetch = []
+
+[dependencies]
+borsh.workspace = true
+serde.workspace = true
+serde_with.workspace = true
+solana-pubkey.workspace = true

@@ -1,3 +1,5 @@
+use solana_pubkey::{pubkey, Pubkey};
+
 pub const DATA_CENTER_CONCENTRATION_WEIGHT: f64 = 10.0;
 pub const PUBLISHED_INFORMATION_WEIGHT: f64 = 10.0;
 pub const SUPERMINORITY_WEIGHT: f64 = 100.0;
@@ -19,9 +21,11 @@ pub const STAKE_POOL_STATS_COLLECTION_NAME: &str = "stake_pool_stats";
 pub const VALIDATOR_REWARDS_COLLECTION_NAME: &str = "validator_rewards";
 pub const STAKER_REWARDS_COLLECTION_NAME: &str = "staker_rewards";
 pub const STEWARD_EVENTS_COLLECTION_NAME: &str = "steward_events";
+pub const BAM_BOOST_VALIDATORS_COLLECTION_NAME: &str = "bam_boost_validators";
 pub const DEVNET_STAKE_POOL_ADDRESS: &str = "Jito4APyf642JPZPx3hGc6WWJ8zPKtRbRs4P815Awbb";
 pub const TESTNET_STAKE_POOL_ADDRESS: &str = "Jito4APyf642JPZPx3hGc6WWJ8zPKtRbRs4P815Awbb";
 pub const MAINNET_STAKE_POOL_ADDRESS: &str = "Jito4APyf642JPZPx3hGc6WWJ8zPKtRbRs4P815Awbb";
 pub const MAINNET_SNAPSHOT_BUCKET_URL: &str =
     "https://storage.googleapis.com/storage/v1/b/jito-mainnet/o";
 pub const CRANKER_UPDATE_CHANNEL: &str = "stake-pool-alerts";
+pub const JITOSOL_MINT: Pubkey = pubkey!("J1toso1uCk3RLmjorhTtrVwY9HJ7X8V9yYac6Y7kGCPn");

@@ -3,10 +3,13 @@ resolver = "2"
 members = [
     "api",
     "bam-writer-service",
+    "client",
     "core",
     "cranker",
     "cranker/cli",
+    "merkle-tree",
     "steward-writer-service",
+    "verify",
     "writer-service",
 ]
 
@@ -32,14 +35,21 @@ bs58 = "0.3.1"
 cached = { version = "0.48.1", features = ["async", "proc_macro"] }
 chrono = { version = "0.4.22", features = ["serde"] }
 clap = { version = "4.3.0", features = ["derive", "env"] }
+csv = "1.4.0" # TODO: Will remove
 dotenvy = "0.15.7"
 env_logger = "0.10.0"
+fast-math = "0.1.1" # TODO: Will remove
 futures = "0.3.24"
 futures-util = "0.3.25"
+hex = "0.4.3" # TODO: Will remove
 http = { version = "0.2.1" }
+indexmap = "2.13.0" # TODO: Will remove
 itertools = "0.5.9"
+jito-bam-boost-merkle-tree = { path = "merkle-tree" } # TODO: Will remove
+jito-bam-boost-merkle-verify = { path = "verify" } # TODO: Will remove
 jito-priority-fee-distribution = { features = ["no-entrypoint"], git = "https://github.com/jito-foundation/jito-programs", branch = "master" }
 jito-priority-fee-distribution-sdk = { git = "https://github.com/jito-foundation/jito-programs", branch = "master" }
+jito-program-client = { path = "client" }
 jito-steward = { package = "jito-steward", features = ["no-entrypoint"], git = "https://github.com/jito-foundation/stakenet", rev = "4f98f941b153737665b1eb65e77737616b3cd070" }
 jito-tip-distribution = { features = ["no-entrypoint"], git = "https://github.com/jito-foundation/jito-programs", branch = "master" }
 jito-tip-distribution-sdk = { git = "https://github.com/jito-foundation/jito-programs", branch = "master" }
@@ -47,6 +57,7 @@ kobe-client = "0.1.8"
 kobe-core = { path = "core", version = "1.0.0" }
 log = "0.4.18"
 mongodb = { version = "2.2.2", features = ["bson-chrono-0_4"] }
+rand = "0.8.5"
 reqwest = { version = "0.11.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }
 semver = "1.0.17"
 sentry = "0.29.1"
@@ -54,6 +65,7 @@ sentry-log = "0.29.1"
 serde = "1.0.183"
 serde_derive = "1.0.183"
 serde_json = "1.0.102"
+serde_with = "3.16.1"
 solana-account-decoder = "=2.3.3"
 solana-bincode = "=2.2.1"
 solana-borsh = "=2.2.1"
@@ -65,6 +77,8 @@ solana-clock = "=2.2.2"
 solana-commitment-config = "=2.2.1"
 solana-epoch-rewards = { version = "2.2.1", features = ["serde"] }
 solana-gossip = { git = "https://github.com/gzalz/agave", branch = "gzalz/v2.3.3" }
+solana-hash = "=2.3.0"
+solana-keypair = "2.2.3"
 solana-metrics = "=2.3.3"
 solana-native-token = "=2.2.2"
 solana-net-utils = "=2.3.3"

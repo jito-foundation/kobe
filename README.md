@@ -333,7 +333,6 @@ RUST_LOG=info cargo r --bin kobe-writer-service -- \
    --mongo-connection-uri "mongodb://localhost:27017/kobe" \
    --mongo-db-name "validators" \
    --solana-cluster "testnet" \
-   --jito-steward-program-id "Stewardf95sJbmtcZsyagb2dg4Mo8eVQho8gpECvLx8" \
    --steward-config-pubkey "5pZmpk3ktweGZW9xFknpEHhQoWeAKTzSGwnCUyVdiye" \
    live
 ```

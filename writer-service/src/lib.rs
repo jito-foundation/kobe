@@ -96,16 +96,18 @@ impl KobeWriterService {
         })
         .await
         .expect("Failed to initialize Validators App client");
+        let validators_app_client = Arc::new(validators_app_client);
 
         let stake_pool_manager = StakePoolManager::new(
             rpc_client.clone(),
-            validators_app_client,
+            validators_app_client.clone(),
             bam_api_base_url,
             cluster,
             steward_config,
         );
 
-        let bam_boost_manager = BamBoostManager::new(rpc_client.clone(), cluster);
+        let bam_boost_manager =
+            BamBoostManager::new(rpc_client.clone(), validators_app_client, cluster);
 
         Ok(Self {
             db,

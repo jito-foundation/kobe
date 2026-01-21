@@ -1,4 +1,4 @@
-use std::{str::FromStr, sync::Arc};
+use std::{collections::HashMap, str::FromStr, sync::Arc};
 
 use borsh::BorshDeserialize;
 use jito_bam_boost_merkle_tree::bam_boost_entry::BamBoostEntry;
@@ -6,7 +6,7 @@ use jito_program_client::bam_boost::config::Config;
 use kobe_core::{
     constants::JITOSOL_MINT,
     db_models::bam_boost_validators::{BamBoostValidator, BamBoostValidatorsStore},
-    validators_app::Cluster,
+    validators_app::{Client, Cluster, ValidatorsAppResponseEntry},
 };
 use mongodb::Database;
 use solana_client::nonblocking::rpc_client::RpcClient;
@@ -18,6 +18,9 @@ pub struct BamBoostManager {
     /// RPC client
     pub rpc_client: Arc<RpcClient>,
 
+    /// Validators app client
+    pub validators_app_client: Arc<Client>,
+
     /// Cluster [Mainnet, Testnet, Devnet]
     pub cluster: Cluster,
 
@@ -26,9 +29,14 @@ pub struct BamBoostManager {
 }
 
 impl BamBoostManager {
-    pub fn new(rpc_client: Arc<RpcClient>, cluster: Cluster) -> Self {
+    pub fn new(
+        rpc_client: Arc<RpcClient>,
+        validators_app_client: Arc<Client>,
+        cluster: Cluster,
+    ) -> Self {
         Self {
             rpc_client,
+            validators_app_client,
             cluster,
             jito_bam_boost_program_id: Pubkey::from_str(
                 "BoostxbPp2ENYHGcTLYt1obpcY13HE4NojdqNWdzqSSb",
@@ -113,6 +121,19 @@ impl BamBoostManager {
     pub async fn write_bam_boost_info(&self, db: &Database) -> Result<()> {
         let epoch_info = self.rpc_client.get_epoch_info().await?;
         let current_epoch = epoch_info.epoch;
+
+        let validators_app_client = self.validators_app_client.clone();
+        let network_validators = tokio::task::spawn_blocking(move || {
+            validators_app_client.validators(None, None, current_epoch)
+        })
+        .await??;
+        let network_validators_map: HashMap<Option<String>, &ValidatorsAppResponseEntry> =
+            network_validators
+                .as_ref()
+                .iter()
+                .map(|v| (v.account.clone(), v))
+                .collect();
+
         let bam_boost_collection =
             db.collection::<BamBoostValidator>(BamBoostValidatorsStore::COLLECTION);
         let bam_boost_store = BamBoostValidatorsStore::new(bam_boost_collection);
@@ -130,6 +151,10 @@ impl BamBoostManager {
             match self.fetch_bam_boost_entries(epoch).await {
                 Ok(epoch_bam_boost_entries) => {
                     for entry in epoch_bam_boost_entries {
+                        let name = match network_validators_map.get(&Some(entry.pubkey.clone())) {
+                            Some(entry) => &entry.name,
+                            None => &None,
+                        };
                         let distributor_pda = self.distributor_address(JITOSOL_MINT, epoch);
 
                         let claim_status_pda = self.claim_status_address(
@@ -139,6 +164,7 @@ impl BamBoostManager {
                         let claim_status = self.rpc_client.get_account(&claim_status_pda).await;
 
                         let bam_boost_validator = BamBoostValidator {
+                            name: name.clone(),
                             epoch,
                             identity_account: entry.pubkey.to_string(),
                             amount: entry.amount,

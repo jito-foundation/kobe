@@ -8,6 +8,9 @@ use crate::{constants::BAM_BOOST_VALIDATORS_COLLECTION_NAME, db_models::error::D
 
 #[derive(Clone, Serialize, Deserialize, Default, Debug, PartialOrd, PartialEq)]
 pub struct BamBoostValidator {
+    /// Validator name
+    pub name: Option<String>,
+
     /// Epoch
     pub epoch: u64,
 

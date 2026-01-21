@@ -25,7 +25,7 @@ pub struct StakePoolManager {
     pub rpc_client: Arc<RpcClient>,
 
     /// Validators app client
-    pub validators_app_client: Client,
+    pub validators_app_client: Arc<Client>,
 
     /// BAM API client
     pub bam_api_client: Option<BamApiClient>,
@@ -40,7 +40,7 @@ pub struct StakePoolManager {
 impl StakePoolManager {
     pub fn new(
         rpc_client: Arc<RpcClient>,
-        validators_app_client: Client,
+        validators_app_client: Arc<Client>,
         bam_api_base_url: Option<String>,
         cluster: Cluster,
         steward_config: Pubkey,

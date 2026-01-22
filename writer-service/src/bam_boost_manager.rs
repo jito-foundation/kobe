@@ -152,7 +152,7 @@ impl BamBoostManager {
                 Ok(epoch_bam_boost_entries) => {
                     for entry in epoch_bam_boost_entries {
                         let name = match network_validators_map.get(&Some(entry.pubkey.clone())) {
-                            Some(entry) => &entry.name,
+                            Some(validator_entry) => &validator_entry.name,
                             None => &None,
                         };
                         let distributor_pda = self.distributor_address(JITOSOL_MINT, epoch);

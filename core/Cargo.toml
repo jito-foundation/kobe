@@ -40,4 +40,9 @@ tokio-retry = { workspace = true }
 validator-history = { workspace = true }
 
 [dev-dependencies]
+clap.workspace = true
 env_logger = { workspace = true }
+
+[[example]]
+name = "fetch_tip_distribution_accounts"
+path = "examples/fetch_tip_distribution_accounts.rs"

@@ -41,3 +41,8 @@ validator-history = { workspace = true }
 
 [dev-dependencies]
 env_logger = { workspace = true }
+clap.workspace = true
+
+[[example]]
+name = "fetch_tip_distribution_accounts"
+path = "examples/fetch_tip_distribution_accounts.rs"

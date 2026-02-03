@@ -13,7 +13,7 @@ struct Args {
     #[arg(long)]
     rpc_url: String,
 
-    /// Dune API key (can also be set via DUNE_API_KEY env var)
+    /// Solana cluster (e.g. mainnet, testnet, devnet)
     #[arg(long)]
     cluster: String,
 

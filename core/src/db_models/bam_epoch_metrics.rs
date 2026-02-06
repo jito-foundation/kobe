@@ -15,10 +15,10 @@ pub struct BamEpochMetrics {
     /// Total JitoSOL stake available for BAM delegation in lamports.
     /// This is calculated as: (current_tier_allocation_bps / 10000) * total_jitosol_stake
     /// Represents the portion of JitoSOL that will be delegated to validators based on
-    /// their percentage of active stake currently running BAM (eligible validators only).
+    /// their percentage of active stake currently running BAM.
     available_bam_delegation_stake: u64,
 
-    /// Total stake amount of BAM eligible validators in lamports
+    /// Total stake amount of BAM-running validators in lamports
     bam_stake: u64,
 
     /// Eligible BAM validator count

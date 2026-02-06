@@ -357,6 +357,13 @@ impl BamWriterService {
             .map(|v| v.activated_stake)
             .sum();
 
+        // JIP-28 BAM stakeweight should use all BAM-running stake, not only eligible stake.
+        let bam_stake = bam_validators
+            .iter()
+            .map(|v| v.get_active_stake())
+            .sum();
+        let bam_validator_count = bam_validators.len();
+
         let eligible_bam_validators = bam_validators
             .into_iter()
             .filter(|bv| bv.is_eligible())
@@ -364,16 +371,12 @@ impl BamWriterService {
 
         let num_eligible_validators = eligible_bam_validators.len();
 
-        let bam_stake = eligible_bam_validators
-            .iter()
-            .map(|v| v.get_active_stake())
-            .sum();
-
         datapoint_info!(
             "bam-writer-run",
             ("epoch", epoch, i64),
             ("slot_index", epoch_info.slot_index, i64),
             ("bam_validator_count", num_eligible_validators as i64, i64),
+            ("tracked_bam_validator_count", bam_validator_count as i64, i64),
             ("bam_stake", bam_stake as i64, i64),
             ("total_stake", total_stake as i64, i64),
             "cluster" => self.cluster.to_string(),
@@ -426,9 +429,12 @@ impl BamWriterService {
         current_epoch_metrics.set_allocation_bps(allocation_percentage);
         current_epoch_metrics.set_available_bam_delegation_stake(available_delegation);
 
-        let delegation_per_validator = self
-            .override_delegation_lamports
-            .unwrap_or(available_delegation / eligible_bam_validators.len() as u64);
+        let delegation_per_validator = if eligible_bam_validators.is_empty() {
+            0
+        } else {
+            self.override_delegation_lamports
+                .unwrap_or(available_delegation / eligible_bam_validators.len() as u64)
+        };
 
         datapoint_info!(
             "bam-writer-run",

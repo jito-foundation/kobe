@@ -358,10 +358,7 @@ impl BamWriterService {
             .sum();
 
         // JIP-28 BAM stakeweight should use all BAM-running stake, not only eligible stake.
-        let bam_stake = bam_validators
-            .iter()
-            .map(|v| v.get_active_stake())
-            .sum();
+        let bam_stake = bam_validators.iter().map(|v| v.get_active_stake()).sum();
         let bam_validator_count = bam_validators.len();
 
         let eligible_bam_validators = bam_validators

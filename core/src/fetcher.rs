@@ -236,7 +236,7 @@ pub async fn fetch_chain_data(
             .targets
             .iter()
             .find(|target| target.vote_pubkey.eq(&v.vote_account))
-            .map(|target| (true, target.staked_last_updated_epoch))
+            .map(|target| (true, target.total_staked_lamports))
             .unwrap_or_default();
 
         let data = ChainData {

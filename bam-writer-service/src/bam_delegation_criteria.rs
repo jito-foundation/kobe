@@ -15,10 +15,9 @@ impl BamDelegationCriteria {
     pub fn new() -> Self {
         Self {
             tiers: vec![
-                (0, 3_000),      // 0% -> 30%
-                (2_000, 5_000),  // 20% -> 50%
-                (2_500, 7_500),  // 25% -> 75%
-                (3_000, 10_000), // 30% -> 100%
+                (0, 3_000),     // 0% -> 30%
+                (2_000, 5_000), // 20% -> 50%
+                (2_500, 7_500), // 25% -> 75%
             ],
         }
     }
@@ -240,10 +239,10 @@ mod tests {
             10,
         );
 
-        // Both epochs above 30% threshold -> 100% allocation
+        // Both epochs above 25% threshold -> 75% allocation
         assert_eq!(
             criteria.calculate_current_allocation(&current, Some(&previous)),
-            10_000
+            7_500
         );
     }
 
@@ -258,7 +257,7 @@ mod tests {
         let current = BamEpochMetrics::new(100, 140_000_000, 400_000_000, 200_000_000, 10);
 
         // Can't skip tiers - previous only qualified for initial 30%
-        // Should get 30% allocation, not 100%
+        // Should get 30% allocation, not 75%
         assert_eq!(
             criteria.calculate_current_allocation(&current, Some(&previous)),
             3000

@@ -1,6 +1,6 @@
 //! Validator eligibility validation for BAM delegation (JIP-28)
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use jito_steward::Config;
 use kobe_core::client_type::ClientType;
@@ -28,6 +28,9 @@ pub struct BamValidatorEligibility {
     /// Running bam end epoch
     running_bam_end_epoch: u16,
 
+    /// Minimum number of BAM-capable / BAM-connected epochs required in the lookback window
+    min_running_bam_epochs: usize,
+
     /// Superminority start epoch
     superminority_start_epoch: u16,
 
@@ -42,11 +45,15 @@ pub struct BamValidatorEligibility {
 
     /// Chain maximum vote credits per epoch
     chain_max_credits: HashMap<u16, u32>,
+
+    /// Epochs where a validator was observed in BAM validator snapshots
+    bam_connected_epochs: HashMap<Pubkey, HashSet<u16>>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum IneligibilityReason {
     NotBamClient,
+    NotBamConnected,
     NonZeroCommission {
         epoch: u16,
         commission: u8,
@@ -78,10 +85,14 @@ impl BamValidatorEligibility {
     /// | `bam_blacklist_component` | Is the validator on the BAM blacklist (includes on-chain blacklist)? Binary component. |
     /// | `validator_commission_component` | Has the validator maintained an inflation rate of 0% the last 30 epochs? Binary component. |
     /// | `mev_commission_component` | Has the validator maintained a MEV commission rate of under 10% the last 10 epochs? Binary component. |
-    /// | `running_bam_component` | Has the validator been running the BAM client for the last 3 epochs? Binary component. |
+    /// | `running_bam_component` | Has the validator been BAM-capable and actually BAM-connected in at least 3 of the last 5 completed epochs? Binary component. |
     /// | `superminority_component` | Has the validator been outside of the superminority for the last 3 epochs? Binary component. |
     /// | `voting_rate_component` | Has the validator maintained a minimum voting_rate of voting_rate_threshold for the last 3 epochs? Binary component. |
-    pub fn new(current_epoch: u64, all_validator_histories: &[ValidatorHistory]) -> Self {
+    pub fn new(
+        current_epoch: u64,
+        all_validator_histories: &[ValidatorHistory],
+        bam_connected_epochs: HashMap<Pubkey, HashSet<u16>>,
+    ) -> Self {
         // Validator Commission
         let validator_commission_start_epoch = (current_epoch - 30) as u16;
         let validator_commission_end_epoch = (current_epoch - 1) as u16;
@@ -91,8 +102,9 @@ impl BamValidatorEligibility {
         let mev_commission_end_epoch = (current_epoch - 1) as u16;
 
         // Running bam
-        let running_bam_start_epoch = (current_epoch - 3) as u16;
+        let running_bam_start_epoch = current_epoch.saturating_sub(5) as u16;
         let running_bam_end_epoch = (current_epoch - 1) as u16;
+        let min_running_bam_epochs = 3;
 
         // Superminority
         let superminority_start_epoch = (current_epoch - 3) as u16;
@@ -116,11 +128,13 @@ impl BamValidatorEligibility {
             mev_commission_end_epoch,
             running_bam_start_epoch,
             running_bam_end_epoch,
+            min_running_bam_epochs,
             superminority_start_epoch,
             superminority_end_epoch,
             epoch_credits_start_epoch,
             epoch_credits_end_epoch,
             chain_max_credits,
+            bam_connected_epochs,
         }
     }
 
@@ -186,13 +200,26 @@ impl BamValidatorEligibility {
             return Err(IneligibilityReason::InsufficientHistory);
         }
 
-        for (i, _) in (self.running_bam_start_epoch..=self.running_bam_end_epoch).enumerate() {
-            // BAM clients
-            if let Some(client_type) = client_types[i] {
-                if !matches!(ClientType::from_u8(client_type), ClientType::Bam) {
-                    return Err(IneligibilityReason::NotBamClient);
-                }
-            }
+        let bam_capable_epochs = client_types
+            .iter()
+            .flatten()
+            .filter(|client_type| ClientType::from_u8(**client_type).is_bam_capable())
+            .count();
+        if bam_capable_epochs < self.min_running_bam_epochs {
+            return Err(IneligibilityReason::NotBamClient);
+        }
+
+        let bam_connected_epochs = self
+            .bam_connected_epochs
+            .get(&validator_history.vote_account)
+            .map(|epochs| {
+                (self.running_bam_start_epoch..=self.running_bam_end_epoch)
+                    .filter(|epoch| epochs.contains(epoch))
+                    .count()
+            })
+            .unwrap_or_default();
+        if bam_connected_epochs < self.min_running_bam_epochs {
+            return Err(IneligibilityReason::NotBamConnected);
         }
 
         for (i, epoch) in (self.validator_commission_start_epoch
@@ -336,6 +363,17 @@ mod tests {
         history
     }
 
+    fn create_recent_bam_connected_epochs(
+        current_epoch: u64,
+        vote_account: Pubkey,
+    ) -> HashMap<Pubkey, HashSet<u16>> {
+        let start_epoch = current_epoch.saturating_sub(5) as u16;
+        let end_epoch = current_epoch.saturating_sub(1) as u16;
+        let mut bam_connected_epochs = HashMap::new();
+        bam_connected_epochs.insert(vote_account, (start_epoch..=end_epoch).collect());
+        bam_connected_epochs
+    }
+
     #[test]
     fn test_eligible_validator_passes() {
         let blacklist_validators = vec![];
@@ -348,7 +386,11 @@ mod tests {
         }
         let vh1 = create_validator_history(entries);
 
-        let checker = BamValidatorEligibility::new(30, &[vh1.clone()]);
+        let checker = BamValidatorEligibility::new(
+            30,
+            &[vh1.clone()],
+            create_recent_bam_connected_epochs(30, vh1.vote_account),
+        );
 
         assert!(checker
             .check_eligibility(&blacklist_validators, &steward_config, &vh1)
@@ -360,17 +402,68 @@ mod tests {
         let blacklist_validators = vec![];
         let steward_config = create_steward_config();
         let vh = create_validator_history(vec![
+            create_entry(96, 2, 0, 10, 0, 10000), // Firedancer
             create_entry(97, 2, 0, 10, 0, 10000), // Firedancer
-            create_entry(98, 6, 5, 10, 0, 10000),
-            create_entry(99, 6, 0, 10, 0, 10000),
-            create_entry(100, 6, 0, 10, 0, 10000),
+            create_entry(98, 6, 0, 10, 0, 10000),
+            create_entry(99, 1, 0, 10, 0, 10000), // JitoLabs is BAM-capable
+            create_entry(100, 1, 0, 10, 0, 10000),
         ]);
 
-        let checker = BamValidatorEligibility::new(100, &[vh.clone()]);
+        let checker = BamValidatorEligibility::new(
+            100,
+            &[vh.clone()],
+            create_recent_bam_connected_epochs(100, vh.vote_account),
+        );
 
         assert_eq!(
             checker.check_eligibility(&blacklist_validators, &steward_config, &vh),
             Err(IneligibilityReason::NotBamClient)
+        );
+    }
+
+    #[test]
+    fn test_jito_labs_client_passes() {
+        let blacklist_validators = vec![];
+        let steward_config = create_steward_config();
+        let vh = create_validator_history(vec![
+            create_entry(96, 1, 0, 10, 0, 10000),
+            create_entry(97, 1, 0, 10, 0, 10000),
+            create_entry(98, 1, 0, 10, 0, 10000),
+            create_entry(99, 1, 0, 10, 0, 10000),
+            create_entry(100, 1, 0, 10, 0, 10000),
+        ]);
+
+        let checker = BamValidatorEligibility::new(
+            100,
+            &[vh.clone()],
+            create_recent_bam_connected_epochs(100, vh.vote_account),
+        );
+
+        assert!(checker
+            .check_eligibility(&blacklist_validators, &steward_config, &vh)
+            .is_ok());
+    }
+
+    #[test]
+    fn test_requires_three_of_last_five_bam_connected_epochs() {
+        let blacklist_validators = vec![];
+        let steward_config = create_steward_config();
+        let vh = create_validator_history(vec![
+            create_entry(95, 1, 0, 10, 0, 10000),
+            create_entry(96, 1, 0, 10, 0, 10000),
+            create_entry(97, 1, 0, 10, 0, 10000),
+            create_entry(98, 6, 0, 10, 0, 10000),
+            create_entry(99, 6, 0, 10, 0, 10000),
+            create_entry(100, 6, 0, 10, 0, 10000),
+        ]);
+        let mut bam_connected_epochs = HashMap::new();
+        bam_connected_epochs.insert(vh.vote_account, HashSet::from([96_u16, 99_u16]));
+
+        let checker = BamValidatorEligibility::new(100, &[vh.clone()], bam_connected_epochs);
+
+        assert_eq!(
+            checker.check_eligibility(&blacklist_validators, &steward_config, &vh),
+            Err(IneligibilityReason::NotBamConnected)
         );
     }
 
@@ -388,7 +481,11 @@ mod tests {
 
         let vh = create_validator_history(entries);
 
-        let checker = BamValidatorEligibility::new(31, &[vh.clone()]);
+        let checker = BamValidatorEligibility::new(
+            31,
+            &[vh.clone()],
+            create_recent_bam_connected_epochs(31, vh.vote_account),
+        );
 
         assert_eq!(
             checker.check_eligibility(&blacklist_validators, &steward_config, &vh),
@@ -413,7 +510,11 @@ mod tests {
 
         let vh = create_validator_history(entries);
 
-        let checker = BamValidatorEligibility::new(31, &[vh.clone()]);
+        let checker = BamValidatorEligibility::new(
+            31,
+            &[vh.clone()],
+            create_recent_bam_connected_epochs(31, vh.vote_account),
+        );
 
         assert_eq!(
             checker.check_eligibility(&blacklist_validators, &steward_config, &vh),
@@ -435,7 +536,11 @@ mod tests {
             create_entry(100, 6, 0, 10, 0, 10000),
         ]);
 
-        let checker = BamValidatorEligibility::new(100, &[vh.clone()]);
+        let checker = BamValidatorEligibility::new(
+            100,
+            &[vh.clone()],
+            create_recent_bam_connected_epochs(100, vh.vote_account),
+        );
 
         assert_eq!(
             checker.check_eligibility(&blacklist_validators, &steward_config, &vh),
@@ -461,7 +566,11 @@ mod tests {
             create_entry(100, 6, 0, 10, 0, 10000),
         ]);
 
-        let checker = BamValidatorEligibility::new(100, &[vh_good, vh_bad.clone()]);
+        let checker = BamValidatorEligibility::new(
+            100,
+            &[vh_good, vh_bad.clone()],
+            create_recent_bam_connected_epochs(100, vh_bad.vote_account),
+        );
 
         assert_eq!(
             checker.check_eligibility(&blacklist_validators, &steward_config, &vh_bad),
@@ -483,7 +592,11 @@ mod tests {
             create_entry(100, 6, 0, 10, 0, 10000),
         ]);
 
-        let checker = BamValidatorEligibility::new(100, &[vh.clone()]);
+        let checker = BamValidatorEligibility::new(
+            100,
+            &[vh.clone()],
+            create_recent_bam_connected_epochs(100, vh.vote_account),
+        );
 
         assert_eq!(
             checker.check_eligibility(&blacklist_validators, &steward_config, &vh),
@@ -509,7 +622,11 @@ mod tests {
             create_entry(100, 6, 0, 10, 0, 9700),
         ]);
 
-        let checker = BamValidatorEligibility::new(100, &[vh_max, vh_97.clone()]);
+        let checker = BamValidatorEligibility::new(
+            100,
+            &[vh_max, vh_97.clone()],
+            create_recent_bam_connected_epochs(100, vh_97.vote_account),
+        );
 
         assert!(checker
             .check_eligibility(&blacklist_validators, &steward_config, &vh_97)
@@ -536,7 +653,11 @@ mod tests {
             create_entry(100, 6, 0, 1100, 0, 10000),
         ]);
 
-        let checker = BamValidatorEligibility::new(100, &[vh_10.clone(), vh_11.clone()]);
+        let checker = BamValidatorEligibility::new(
+            100,
+            &[vh_10.clone(), vh_11.clone()],
+            create_recent_bam_connected_epochs(100, vh_10.vote_account),
+        );
 
         assert!(checker
             .check_eligibility(&blacklist_validators, &steward_config, &vh_10)
@@ -562,7 +683,11 @@ mod tests {
             create_entry(100, 6, 0, 10, 0, 10000),
         ]);
 
-        let checker = BamValidatorEligibility::new(100, &[vh.clone()]);
+        let checker = BamValidatorEligibility::new(
+            100,
+            &[vh.clone()],
+            create_recent_bam_connected_epochs(100, vh.vote_account),
+        );
 
         assert_eq!(
             checker.check_eligibility(&blacklist_validators, &steward_config, &vh),
@@ -583,7 +708,11 @@ mod tests {
             create_entry(100, 6, 0, 10, 0, 10000),
         ]);
 
-        let checker = BamValidatorEligibility::new(100, &[vh.clone()]);
+        let checker = BamValidatorEligibility::new(
+            100,
+            &[vh.clone()],
+            create_recent_bam_connected_epochs(100, vh.vote_account),
+        );
 
         assert_eq!(
             checker.check_eligibility(&blacklist_validators, &steward_config, &vh),

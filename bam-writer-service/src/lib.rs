@@ -1,4 +1,8 @@
-use std::{collections::HashMap, str::FromStr, sync::Arc};
+use std::{
+    collections::{HashMap, HashSet},
+    str::FromStr,
+    sync::Arc,
+};
 
 use anyhow::anyhow;
 use bam_api_client::{client::BamApiClient, types::ValidatorsResponse};
@@ -172,6 +176,37 @@ impl BamWriterService {
         }
     }
 
+    async fn get_recent_bam_connected_epochs(
+        &self,
+        current_epoch: u64,
+    ) -> anyhow::Result<HashMap<Pubkey, HashSet<u16>>> {
+        let mut bam_connected_epochs: HashMap<Pubkey, HashSet<u16>> = HashMap::new();
+
+        for epoch in current_epoch.saturating_sub(5)..current_epoch {
+            let validators = self.bam_validators_store.find(epoch).await?;
+            for validator in validators {
+                let vote_account = match Pubkey::from_str(&validator.get_vote_account()) {
+                    Ok(vote_account) => vote_account,
+                    Err(err) => {
+                        log::warn!(
+                            "Skipping historical BAM validator with invalid vote account {} at epoch {}: {}",
+                            validator.get_vote_account(),
+                            epoch,
+                            err
+                        );
+                        continue;
+                    }
+                };
+                bam_connected_epochs
+                    .entry(vote_account)
+                    .or_default()
+                    .insert(epoch as u16);
+            }
+        }
+
+        Ok(bam_connected_epochs)
+    }
+
     /// Run [`BamWriterService`]
     pub async fn run(&self) -> anyhow::Result<()> {
         let epoch_info = self.rpc_client.get_epoch_info().await?;
@@ -268,7 +303,9 @@ impl BamWriterService {
             )
             .await?;
 
-            let eligibility_checker = BamValidatorEligibility::new(epoch, &validator_histories);
+            let bam_connected_epochs = self.get_recent_bam_connected_epochs(epoch).await?;
+            let eligibility_checker =
+                BamValidatorEligibility::new(epoch, &validator_histories, bam_connected_epochs);
             let mut validators: Vec<BamValidator> = Vec::new();
 
             for validator_history in validator_histories.iter() {
@@ -301,6 +338,9 @@ impl BamWriterService {
                         Err(reason) => {
                             let reason_string = match reason {
                                 IneligibilityReason::NotBamClient => "NotBamClient".to_string(),
+                                IneligibilityReason::NotBamConnected => {
+                                    "NotBamConnected".to_string()
+                                }
                                 IneligibilityReason::NonZeroCommission { epoch, commission } => {
                                     format!("NonZeroCommission: {} in epoch {}", commission, epoch)
                                 }

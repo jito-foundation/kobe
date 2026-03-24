@@ -46,6 +46,11 @@ impl ClientType {
         }
     }
 
+    /// Returns true when the client can run BAM transaction forwarding.
+    pub fn is_bam_capable(&self) -> bool {
+        matches!(self, ClientType::JitoLabs | ClientType::Bam)
+    }
+
     /// Returns the string representation of the client type.
     ///
     /// # Examples

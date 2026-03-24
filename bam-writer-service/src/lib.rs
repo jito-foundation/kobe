@@ -25,7 +25,9 @@ use stakenet_sdk::{
 
 use crate::{
     bam_delegation_criteria::BamDelegationCriteria,
-    bam_validator_eligibility::{BamValidatorEligibility, IneligibilityReason},
+    bam_validator_eligibility::{
+        BamValidatorEligibility, IneligibilityReason, RUNNING_BAM_LOOKBACK_EPOCHS,
+    },
 };
 
 mod bam_delegation_criteria;
@@ -182,7 +184,7 @@ impl BamWriterService {
     ) -> anyhow::Result<HashMap<Pubkey, HashSet<u16>>> {
         let mut bam_connected_epochs: HashMap<Pubkey, HashSet<u16>> = HashMap::new();
 
-        for epoch in current_epoch.saturating_sub(5)..current_epoch {
+        for epoch in current_epoch.saturating_sub(RUNNING_BAM_LOOKBACK_EPOCHS)..current_epoch {
             let validators = self.bam_validators_store.find(epoch).await?;
             for validator in validators {
                 let vote_account = match Pubkey::from_str(&validator.get_vote_account()) {

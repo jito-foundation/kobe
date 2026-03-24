@@ -7,6 +7,9 @@ use kobe_core::client_type::ClientType;
 use solana_pubkey::Pubkey;
 use validator_history::ValidatorHistory;
 
+pub(crate) const RUNNING_BAM_LOOKBACK_EPOCHS: u64 = 5;
+pub(crate) const MIN_RUNNING_BAM_EPOCHS: usize = 3;
+
 /// Validates validator eligibility for BAM delegation according to JIP-28 criteria
 #[derive(Debug)]
 pub struct BamValidatorEligibility {
@@ -85,7 +88,7 @@ impl BamValidatorEligibility {
     /// | `bam_blacklist_component` | Is the validator on the BAM blacklist (includes on-chain blacklist)? Binary component. |
     /// | `validator_commission_component` | Has the validator maintained an inflation rate of 0% the last 30 epochs? Binary component. |
     /// | `mev_commission_component` | Has the validator maintained a MEV commission rate of under 10% the last 10 epochs? Binary component. |
-    /// | `running_bam_component` | Has the validator been BAM-capable and actually BAM-connected in at least 3 of the last 5 completed epochs? Binary component. |
+    /// | `running_bam_component` | Has the validator been BAM-capable and actually BAM-connected in the BAM lookback window often enough to satisfy the configured threshold? Binary component. |
     /// | `superminority_component` | Has the validator been outside of the superminority for the last 3 epochs? Binary component. |
     /// | `voting_rate_component` | Has the validator maintained a minimum voting_rate of voting_rate_threshold for the last 3 epochs? Binary component. |
     pub fn new(
@@ -102,9 +105,10 @@ impl BamValidatorEligibility {
         let mev_commission_end_epoch = (current_epoch - 1) as u16;
 
         // Running bam
-        let running_bam_start_epoch = current_epoch.saturating_sub(5) as u16;
+        let running_bam_start_epoch =
+            current_epoch.saturating_sub(RUNNING_BAM_LOOKBACK_EPOCHS) as u16;
         let running_bam_end_epoch = (current_epoch - 1) as u16;
-        let min_running_bam_epochs = 3;
+        let min_running_bam_epochs = MIN_RUNNING_BAM_EPOCHS;
 
         // Superminority
         let superminority_start_epoch = (current_epoch - 3) as u16;
@@ -367,7 +371,7 @@ mod tests {
         current_epoch: u64,
         vote_account: Pubkey,
     ) -> HashMap<Pubkey, HashSet<u16>> {
-        let start_epoch = current_epoch.saturating_sub(5) as u16;
+        let start_epoch = current_epoch.saturating_sub(RUNNING_BAM_LOOKBACK_EPOCHS) as u16;
         let end_epoch = current_epoch.saturating_sub(1) as u16;
         let mut bam_connected_epochs = HashMap::new();
         bam_connected_epochs.insert(vote_account, (start_epoch..=end_epoch).collect());

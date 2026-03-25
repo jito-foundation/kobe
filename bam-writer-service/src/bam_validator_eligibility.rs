@@ -204,25 +204,32 @@ impl BamValidatorEligibility {
             return Err(IneligibilityReason::InsufficientHistory);
         }
 
-        let bam_capable_epochs = client_types
-            .iter()
-            .flatten()
-            .filter(|client_type| ClientType::from_u8(**client_type).is_bam_capable())
-            .count();
-        if bam_capable_epochs < self.min_running_bam_epochs {
-            return Err(IneligibilityReason::NotBamClient);
+        let connected_set = self
+            .bam_connected_epochs
+            .get(&validator_history.vote_account);
+
+        let mut bam_capable_count = 0usize;
+        let mut bam_capable_and_connected_count = 0usize;
+
+        for (i, epoch) in
+            (self.running_bam_start_epoch..=self.running_bam_end_epoch).enumerate()
+        {
+            let is_capable = client_types[i]
+                .map(|ct| ClientType::from_u8(ct).is_bam_capable())
+                .unwrap_or(false);
+
+            if is_capable {
+                bam_capable_count += 1;
+                if connected_set.map_or(false, |s| s.contains(&epoch)) {
+                    bam_capable_and_connected_count += 1;
+                }
+            }
         }
 
-        let bam_connected_epochs = self
-            .bam_connected_epochs
-            .get(&validator_history.vote_account)
-            .map(|epochs| {
-                (self.running_bam_start_epoch..=self.running_bam_end_epoch)
-                    .filter(|epoch| epochs.contains(epoch))
-                    .count()
-            })
-            .unwrap_or_default();
-        if bam_connected_epochs < self.min_running_bam_epochs {
+        if bam_capable_count < self.min_running_bam_epochs {
+            return Err(IneligibilityReason::NotBamClient);
+        }
+        if bam_capable_and_connected_count < self.min_running_bam_epochs {
             return Err(IneligibilityReason::NotBamConnected);
         }
 
@@ -448,6 +455,35 @@ mod tests {
         assert!(checker
             .check_eligibility(&blacklist_validators, &steward_config, &vh)
             .is_ok());
+    }
+
+    #[test]
+    fn test_bam_capable_and_connected_must_overlap() {
+        let blacklist_validators = vec![];
+        let steward_config = create_steward_config();
+
+        // BAM-capable in epochs 96-98 (3 epochs), but BAM-connected in epochs 99-100 (different epochs).
+        // Despite having 3 capable epochs and 2 connected epochs, no single epoch is both,
+        // so the validator should fail the connected check.
+        let vh = create_validator_history(vec![
+            create_entry(95, 2, 0, 10, 0, 10000), // Firedancer (not capable)
+            create_entry(96, 1, 0, 10, 0, 10000), // JitoLabs (capable)
+            create_entry(97, 1, 0, 10, 0, 10000), // JitoLabs (capable)
+            create_entry(98, 1, 0, 10, 0, 10000), // JitoLabs (capable)
+            create_entry(99, 2, 0, 10, 0, 10000), // Firedancer (not capable)
+            create_entry(100, 2, 0, 10, 0, 10000),
+        ]);
+
+        // Connected in epochs 99-100 only (non-capable epochs)
+        let mut bam_connected_epochs = HashMap::new();
+        bam_connected_epochs.insert(vh.vote_account, HashSet::from([99_u16, 100_u16]));
+
+        let checker = BamValidatorEligibility::new(100, &[vh.clone()], bam_connected_epochs);
+
+        assert_eq!(
+            checker.check_eligibility(&blacklist_validators, &steward_config, &vh),
+            Err(IneligibilityReason::NotBamConnected)
+        );
     }
 
     #[test]

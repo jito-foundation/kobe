@@ -211,9 +211,7 @@ impl BamValidatorEligibility {
         let mut bam_capable_count = 0usize;
         let mut bam_capable_and_connected_count = 0usize;
 
-        for (i, epoch) in
-            (self.running_bam_start_epoch..=self.running_bam_end_epoch).enumerate()
-        {
+        for (i, epoch) in (self.running_bam_start_epoch..=self.running_bam_end_epoch).enumerate() {
             let is_capable = client_types[i]
                 .map(|ct| ClientType::from_u8(ct).is_bam_capable())
                 .unwrap_or(false);

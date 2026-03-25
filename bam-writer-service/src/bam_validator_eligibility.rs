@@ -218,7 +218,7 @@ impl BamValidatorEligibility {
 
             if is_capable {
                 bam_capable_count += 1;
-                if connected_set.map_or(false, |s| s.contains(&epoch)) {
+                if connected_set.is_some_and(|s| s.contains(&epoch)) {
                     bam_capable_and_connected_count += 1;
                 }
             }

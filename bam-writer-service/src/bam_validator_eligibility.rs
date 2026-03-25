@@ -406,6 +406,7 @@ mod tests {
         let blacklist_validators = vec![];
         let steward_config = create_steward_config();
         let vh = create_validator_history(vec![
+            create_entry(95, 2, 0, 10, 0, 10000), // Firedancer
             create_entry(96, 2, 0, 10, 0, 10000), // Firedancer
             create_entry(97, 2, 0, 10, 0, 10000), // Firedancer
             create_entry(98, 6, 0, 10, 0, 10000),
@@ -430,7 +431,8 @@ mod tests {
         let blacklist_validators = vec![];
         let steward_config = create_steward_config();
         let vh = create_validator_history(vec![
-            create_entry(96, 1, 0, 10, 0, 10000),
+            create_entry(95, 3, 0, 10, 0, 10000),
+            create_entry(96, 3, 0, 10, 0, 10000),
             create_entry(97, 1, 0, 10, 0, 10000),
             create_entry(98, 1, 0, 10, 0, 10000),
             create_entry(99, 1, 0, 10, 0, 10000),

@@ -27,3 +27,10 @@ solana-pubkey = { workspace = true }
 stakenet-sdk = { workspace = true }
 tokio = { workspace = true }
 validator-history = { workspace = true }
+
+[dev-dependencies]
+anyhow = { workspace = true }
+reqwest = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }

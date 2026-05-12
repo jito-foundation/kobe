@@ -45,7 +45,7 @@ impl CoinbaseBalanceStore {
         Self { collection }
     }
 
-    /// Find [`CoinbaseBalance`] records
+    /// Find a [`CoinbaseBalance`] record
     pub async fn find(&self, epoch: u64) -> Result<Option<CoinbaseBalance>, mongodb::error::Error> {
         let filter = doc! {"epoch": epoch as u32};
         self.collection.find_one(filter, None).await

@@ -20,7 +20,7 @@ use kobe_api::{
         daily_mev_rewards_cacheable_wrapper, get_bam_boost_claim_wrapper,
         get_bam_boost_validators_wrapper, get_bam_delegation_blacklist_wrapper,
         get_bam_epoch_metrics_wrapper, get_bam_validator_score_wrapper, get_bam_validators_wrapper,
-        get_cb_balance_wrapper, get_validator_histories_wrapper,
+        get_coinbase_balance_wrapper, get_validator_histories_wrapper,
         jito_stake_over_time_ratio_cacheable_wrapper, jitosol_ratio_cacheable_wrapper,
         jitosol_validators_cacheable_wrapper, mev_commission_average_over_time_cacheable_wrapper,
         mev_rewards_cacheable_wrapper, preferred_withdraw_validator_list_cacheable_wrapper,
@@ -32,7 +32,7 @@ use kobe_api::{
         bam_boost_validator::BamBoostValidatorsRequest,
         bam_epoch_metrics::BamEpochMetricsRequest,
         bam_validator::{BamValidatorRequest, BamValidatorsRequest},
-        coinbase_balance::CbBalanceRequest,
+        coinbase_balance::CoinbaseBalanceRequest,
         jitosol_ratio::JitoSolRatioRequest,
         mev_rewards::{MevRewardsRequest, StakerRewardsRequest, ValidatorRewardsRequest},
         preferred_withdraw::PreferredWithdrawRequest,
@@ -252,9 +252,9 @@ async fn bam_boost_validators_handler(
 
 async fn coinbase_balance_handler(
     resolver: Extension<QueryResolver>,
-    request: Query<CbBalanceRequest>,
+    request: Query<CoinbaseBalanceRequest>,
 ) -> impl IntoResponse {
-    get_cb_balance_wrapper(resolver, request.epoch).await
+    get_coinbase_balance_wrapper(resolver, request.epoch).await
 }
 
 #[derive(Parser, Debug)]

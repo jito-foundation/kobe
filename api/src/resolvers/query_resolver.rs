@@ -589,7 +589,7 @@ pub async fn get_bam_boost_validators_wrapper(
     key = "String",
     convert = r#"{ format!("coinbase-balance-{epoch}") }"#
 )]
-pub async fn get_cb_balance_wrapper(
+pub async fn get_coinbase_balance_wrapper(
     resolver: Extension<QueryResolver>,
     epoch: u64,
 ) -> (StatusCode, Json<CoinbaseBalanceResponse>) {
@@ -1043,7 +1043,7 @@ impl QueryResolver {
         }
 
         // Sort ratios in chronological order -- oldest first
-        ratios.sort_by(|a, b| a.date.cmp(&b.date));
+        ratios.sort_by_key(|a| a.date);
 
         Ok(JitoSolRatioResponse { ratios })
     }

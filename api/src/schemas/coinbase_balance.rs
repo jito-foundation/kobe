@@ -2,7 +2,7 @@ use kobe_core::db_models::coinbase_balances::CoinbaseBalance;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone)]
-pub struct CbBalanceRequest {
+pub struct CoinbaseBalanceRequest {
     pub epoch: u64,
 }
 

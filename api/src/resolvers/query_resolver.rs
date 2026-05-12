@@ -86,7 +86,7 @@ pub struct QueryResolver {
     bam_boost_validators_store: BamBoostValidatorsStore,
 
     /// CB Balances Store
-    cb_balances_store: CoinbaseBalanceStore,
+    coinbase_balance_store: CoinbaseBalanceStore,
 
     /// RPC Client URL
     rpc_client: Arc<RpcClient>,
@@ -593,7 +593,7 @@ pub async fn get_coinbase_balance_wrapper(
     resolver: Extension<QueryResolver>,
     epoch: u64,
 ) -> (StatusCode, Json<CoinbaseBalanceResponse>) {
-    if let Ok(res) = resolver.get_cb_balance(epoch).await {
+    if let Ok(res) = resolver.get_coinbase_balance(epoch).await {
         (StatusCode::OK, Json(res))
     } else {
         (
@@ -639,7 +639,7 @@ impl QueryResolver {
             bam_boost_validators_store: BamBoostValidatorsStore::new(
                 database.collection(BamBoostValidatorsStore::COLLECTION),
             ),
-            cb_balances_store: CoinbaseBalanceStore::new(
+            coinbase_balance_store: CoinbaseBalanceStore::new(
                 database.collection(CoinbaseBalanceStore::COLLECTION),
             ),
             rpc_client: Arc::new(client),
@@ -1364,8 +1364,8 @@ impl QueryResolver {
     /// ```
     ///
     /// This request retrieves the CB Balance for epoch 800
-    pub async fn get_cb_balance(&self, epoch: u64) -> Result<CoinbaseBalanceResponse> {
-        let coinbase_balance = self.cb_balances_store.find(epoch).await?;
+    pub async fn get_coinbase_balance(&self, epoch: u64) -> Result<CoinbaseBalanceResponse> {
+        let coinbase_balance = self.coinbase_balance_store.find(epoch).await?;
 
         Ok(CoinbaseBalanceResponse { coinbase_balance })
     }

@@ -20,18 +20,19 @@ use kobe_api::{
         daily_mev_rewards_cacheable_wrapper, get_bam_boost_claim_wrapper,
         get_bam_boost_validators_wrapper, get_bam_delegation_blacklist_wrapper,
         get_bam_epoch_metrics_wrapper, get_bam_validator_score_wrapper, get_bam_validators_wrapper,
-        get_validator_histories_wrapper, jito_stake_over_time_ratio_cacheable_wrapper,
-        jitosol_ratio_cacheable_wrapper, jitosol_validators_cacheable_wrapper,
-        mev_commission_average_over_time_cacheable_wrapper, mev_rewards_cacheable_wrapper,
-        preferred_withdraw_validator_list_cacheable_wrapper, stake_pool_stats_cacheable_wrapper,
-        staker_rewards_cacheable_wrapper, steward_events_cacheable_wrapper,
-        validator_by_vote_account_cacheable_wrapper, validator_rewards_cacheable_wrapper,
-        validators_cacheable_wrapper, QueryResolver,
+        get_coinbase_balance_wrapper, get_validator_histories_wrapper,
+        jito_stake_over_time_ratio_cacheable_wrapper, jitosol_ratio_cacheable_wrapper,
+        jitosol_validators_cacheable_wrapper, mev_commission_average_over_time_cacheable_wrapper,
+        mev_rewards_cacheable_wrapper, preferred_withdraw_validator_list_cacheable_wrapper,
+        stake_pool_stats_cacheable_wrapper, staker_rewards_cacheable_wrapper,
+        steward_events_cacheable_wrapper, validator_by_vote_account_cacheable_wrapper,
+        validator_rewards_cacheable_wrapper, validators_cacheable_wrapper, QueryResolver,
     },
     schemas::{
         bam_boost_validator::BamBoostValidatorsRequest,
         bam_epoch_metrics::BamEpochMetricsRequest,
         bam_validator::{BamValidatorRequest, BamValidatorsRequest},
+        coinbase_balance::CoinbaseBalanceRequest,
         jitosol_ratio::JitoSolRatioRequest,
         mev_rewards::{MevRewardsRequest, StakerRewardsRequest, ValidatorRewardsRequest},
         preferred_withdraw::PreferredWithdrawRequest,
@@ -249,6 +250,13 @@ async fn bam_boost_validators_handler(
     get_bam_boost_validators_wrapper(resolver, request.epoch).await
 }
 
+async fn coinbase_balance_handler(
+    resolver: Extension<QueryResolver>,
+    request: Query<CoinbaseBalanceRequest>,
+) -> impl IntoResponse {
+    get_coinbase_balance_wrapper(resolver, request.epoch).await
+}
+
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
 struct Args {
@@ -425,6 +433,7 @@ async fn run_server(args: &Args) {
             "/api/v1/bam_boost_validators",
             get(bam_boost_validators_handler),
         )
+        .route("/api/v1/coinbase_balance", get(coinbase_balance_handler))
         .layer(Extension(query_resolver))
         .layer(middleware)
         .layer(cors);

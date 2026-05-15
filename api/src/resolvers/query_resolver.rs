@@ -16,6 +16,7 @@ use kobe_core::{
         bam_delegation_blacklist::{BamDelegationBlacklistEntry, BamDelegationBlacklistStore},
         bam_epoch_metrics::BamEpochMetricsStore,
         bam_validators::BamValidatorStore,
+        coinbase_balances::CoinbaseBalanceStore,
         mev_rewards::{StakerRewardsStore, ValidatorRewardsStore},
         stake_pool_stats::{StakePoolStats, StakePoolStatsStore},
         steward_events::StewardEventsStore,
@@ -43,6 +44,7 @@ use crate::{
         },
         bam_epoch_metrics::BamEpochMetricsResponse,
         bam_validator::{BamValidatorScoreResponse, BamValidatorsResponse},
+        coinbase_balance::CoinbaseBalanceResponse,
         jitosol_ratio::{JitoSolRatioRequest, JitoSolRatioResponse},
         mev_rewards::{
             MevRewards, MevRewardsRequest, StakerRewards, StakerRewardsRequest,
@@ -82,6 +84,9 @@ pub struct QueryResolver {
 
     /// BAM Boost Validators Store
     bam_boost_validators_store: BamBoostValidatorsStore,
+
+    /// CB Balances Store
+    coinbase_balance_store: CoinbaseBalanceStore,
 
     /// RPC Client URL
     rpc_client: Arc<RpcClient>,
@@ -578,6 +583,26 @@ pub async fn get_bam_boost_validators_wrapper(
     }
 }
 
+#[cached(
+    type = "TimedCache<String, (StatusCode, Json<CoinbaseBalanceResponse>)>",
+    create = "{ TimedCache::with_lifespan_and_capacity(60, 1000) }",
+    key = "String",
+    convert = r#"{ format!("coinbase-balance-{epoch}") }"#
+)]
+pub async fn get_coinbase_balance_wrapper(
+    resolver: Extension<QueryResolver>,
+    epoch: u64,
+) -> (StatusCode, Json<CoinbaseBalanceResponse>) {
+    if let Ok(res) = resolver.get_coinbase_balance(epoch).await {
+        (StatusCode::OK, Json(res))
+    } else {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoinbaseBalanceResponse::default()),
+        )
+    }
+}
+
 impl QueryResolver {
     pub fn new(
         database: &Database,
@@ -613,6 +638,9 @@ impl QueryResolver {
             ),
             bam_boost_validators_store: BamBoostValidatorsStore::new(
                 database.collection(BamBoostValidatorsStore::COLLECTION),
+            ),
+            coinbase_balance_store: CoinbaseBalanceStore::new(
+                database.collection(CoinbaseBalanceStore::COLLECTION),
             ),
             rpc_client: Arc::new(client),
             cluster,
@@ -1015,7 +1043,7 @@ impl QueryResolver {
         }
 
         // Sort ratios in chronological order -- oldest first
-        ratios.sort_by(|a, b| a.date.cmp(&b.date));
+        ratios.sort_by_key(|a| a.date);
 
         Ok(JitoSolRatioResponse { ratios })
     }
@@ -1323,6 +1351,23 @@ impl QueryResolver {
         Ok(BamBoostValidatorsResponse {
             bam_boost_validators,
         })
+    }
+
+    /// Retrieves the CB Balance for a specific epoch.
+    ///
+    /// # Example
+    ///
+    /// This endpoint can be used to fetch the CB Balance for a specific epoch:
+    ///
+    /// ```ignore
+    /// GET /coinbase_balance?epoch=800
+    /// ```
+    ///
+    /// This request retrieves the CB Balance for epoch 800
+    pub async fn get_coinbase_balance(&self, epoch: u64) -> Result<CoinbaseBalanceResponse> {
+        let coinbase_balance = self.coinbase_balance_store.find(epoch).await?;
+
+        Ok(CoinbaseBalanceResponse { coinbase_balance })
     }
 }
 

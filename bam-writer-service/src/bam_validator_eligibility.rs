@@ -456,6 +456,30 @@ mod tests {
     }
 
     #[test]
+    fn test_firebam_client_passes() {
+        let blacklist_validators = vec![];
+        let steward_config = create_steward_config();
+        let vh = create_validator_history(vec![
+            create_entry(95, 3, 0, 10, 0, 10000),
+            create_entry(96, 3, 0, 10, 0, 10000),
+            create_entry(97, 12, 0, 10, 0, 10000),
+            create_entry(98, 12, 0, 10, 0, 10000),
+            create_entry(99, 12, 0, 10, 0, 10000),
+            create_entry(100, 12, 0, 10, 0, 10000),
+        ]);
+
+        let checker = BamValidatorEligibility::new(
+            100,
+            &[vh.clone()],
+            create_recent_bam_connected_epochs(100, vh.vote_account),
+        );
+
+        assert!(checker
+            .check_eligibility(&blacklist_validators, &steward_config, &vh)
+            .is_ok());
+    }
+
+    #[test]
     fn test_bam_capable_and_connected_must_overlap() {
         let blacklist_validators = vec![];
         let steward_config = create_steward_config();

@@ -151,7 +151,6 @@ impl ValidatorHistoryEntryResponse {
     }
 }
 
-
 #[derive(Default, Clone, Serialize, Deserialize)]
 #[repr(u8)]
 pub enum MerkleRootUploadAuthorityResponse {

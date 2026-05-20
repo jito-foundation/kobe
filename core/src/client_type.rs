@@ -1,10 +1,10 @@
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// Represents the different validator client types
 ///
 /// This enum maps the u8 values stored in the ValidatorHistory program to human-readable client
 /// type names.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ClientType {
     SolanaLabs,
     JitoLabs,
@@ -13,6 +13,34 @@ pub enum ClientType {
     Bam,
     FireBam,
     Other(u8),
+}
+
+impl Serialize for ClientType {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(match self {
+            ClientType::SolanaLabs => "SolanaLabs",
+            ClientType::JitoLabs => "JitoLabs",
+            ClientType::Firedancer => "Firedancer",
+            ClientType::Agave => "Agave",
+            ClientType::Bam => "BAM",
+            ClientType::FireBam => "FireBAM",
+            ClientType::Other(_) => "Other",
+        })
+    }
+}
+
+impl<'de> Deserialize<'de> for ClientType {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        Ok(match String::deserialize(deserializer)?.as_str() {
+            "SolanaLabs" => ClientType::SolanaLabs,
+            "JitoLabs" => ClientType::JitoLabs,
+            "Firedancer" => ClientType::Firedancer,
+            "Agave" => ClientType::Agave,
+            "BAM" => ClientType::Bam,
+            "FireBAM" => ClientType::FireBam,
+            _ => ClientType::Other(u8::MAX),
+        })
+    }
 }
 
 impl Default for ClientType {
@@ -31,6 +59,8 @@ impl ClientType {
     /// - 1: Jito Labs
     /// - 2: Firedancer
     /// - 3: Agave
+    /// - 6: BAM
+    /// - 12: FireBAM
     /// - Other values: Stored as `Other(value)`
     ///
     /// https://github.com/anza-xyz/agave/blob/master/version/src/lib.rs#L19

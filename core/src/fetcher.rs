@@ -187,7 +187,10 @@ pub async fn fetch_chain_data(
 
         let is_bam_client = match (&v.account, bam_validator_set.is_empty()) {
             (Some(identity), false) => bam_validator_set.contains(identity.as_str()),
-            _ => matches!(client_type, Some(ClientType::Bam)),
+            _ => matches!(
+                client_type,
+                Some(ClientType::Bam) | Some(ClientType::FireBam)
+            ),
         };
         let running_jito = has_tip_account || is_jito_client;
 

@@ -1,15 +1,24 @@
+use serde::{Deserialize, Serialize};
+
 /// Represents the different validator client types
 ///
 /// This enum maps the u8 values stored in the ValidatorHistory program to human-readable client
 /// type names.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ClientType {
     SolanaLabs,
     JitoLabs,
     Firedancer,
     Agave,
     Bam,
-    Other(u8), // Store the unknown value for debugging
+    FireBam,
+    Other(u8),
+}
+
+impl Default for ClientType {
+    fn default() -> Self {
+        ClientType::Other(u8::MAX)
+    }
 }
 
 impl ClientType {
@@ -42,13 +51,17 @@ impl ClientType {
             2 => ClientType::Firedancer,
             3 => ClientType::Agave,
             6 => ClientType::Bam,
+            12 => ClientType::FireBam,
             other => ClientType::Other(other),
         }
     }
 
     /// Returns true when the client can run BAM transaction forwarding.
     pub fn is_bam_capable(&self) -> bool {
-        matches!(self, ClientType::JitoLabs | ClientType::Bam)
+        matches!(
+            self,
+            ClientType::JitoLabs | ClientType::Bam | ClientType::FireBam
+        )
     }
 
     /// Returns the string representation of the client type.
@@ -66,6 +79,7 @@ impl ClientType {
             ClientType::Firedancer => "Firedancer",
             ClientType::Agave => "Agave",
             ClientType::Bam => "BAM",
+            ClientType::FireBam => "FireBAM",
             ClientType::Other(_) => "Other",
         }
     }

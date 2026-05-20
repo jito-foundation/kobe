@@ -1,3 +1,4 @@
+use kobe_core::client_type::ClientType;
 use serde::{Deserialize, Serialize};
 use validator_history::{
     ClientVersion, MerkleRootUploadAuthority, ValidatorHistory, ValidatorHistoryEntry,
@@ -71,7 +72,7 @@ pub struct ValidatorHistoryEntryResponse {
     pub commission: u8,
 
     /// Enum representation of the validator client type
-    pub client_type: ClientTypeResponse,
+    pub client_type: ClientType,
 
     /// Client type ID: 0 if Solana Labs client, 1 if Jito client, >1 if other
     pub client_type_id: u8,
@@ -129,7 +130,7 @@ impl ValidatorHistoryEntryResponse {
             epoch_credits: entry.epoch_credits,
             commission: entry.commission,
             client_type_id: entry.client_type,
-            client_type: entry.client_type.into(),
+            client_type: ClientType::from_u8(entry.client_type),
             version: format!("{}.{}.{}", version.major, version.minor, version.patch),
             ip: entry.ip.map(|n| n.to_string()).join("."),
             merkle_root_upload_authority: entry.merkle_root_upload_authority.into(),
@@ -150,29 +151,6 @@ impl ValidatorHistoryEntryResponse {
     }
 }
 
-#[derive(Default, Clone, Serialize, Deserialize)]
-pub enum ClientTypeResponse {
-    SolanaLabs,
-    JitoLabs,
-    Firedancer,
-    Agave,
-    BAM,
-    #[default]
-    Other,
-}
-
-impl From<u8> for ClientTypeResponse {
-    fn from(value: u8) -> Self {
-        match value {
-            0 => Self::SolanaLabs,
-            1 => Self::JitoLabs,
-            2 => Self::Firedancer,
-            3 => Self::Agave,
-            6 => Self::BAM,
-            _ => Self::Other,
-        }
-    }
-}
 
 #[derive(Default, Clone, Serialize, Deserialize)]
 #[repr(u8)]

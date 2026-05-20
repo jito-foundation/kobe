@@ -368,7 +368,7 @@ impl Client {
             .header(TOKEN_HTTP_HEADER_NAME, &self.api_token)
             .query(&query)
             .build()?;
-        let result = self.client.execute(request);
+        let result = self.client.execute(request).and_then(|r| r.error_for_status());
         info!(
             "Validators App response took {:?}",
             Instant::now().duration_since(start)

@@ -3085,7 +3085,7 @@ dependencies = [
 
 [[package]]
 name = "kobe-api"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "anchor-lang",
  "axum",
@@ -3119,7 +3119,7 @@ dependencies = [
 
 [[package]]
 name = "kobe-bam-writer-service"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "bam-api-client",
@@ -3158,7 +3158,7 @@ dependencies = [
 
 [[package]]
 name = "kobe-core"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "anchor-lang",
  "chrono",

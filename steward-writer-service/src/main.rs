@@ -8,7 +8,7 @@ use jito_steward::{
         DirectedRebalanceEvent, EpochMaintenanceEvent, InstantUnstakeComponents, RebalanceEvent,
         ScoreComponents, StateTransition,
     },
-    score::{InstantUnstakeComponentsV3, ScoreComponentsV4},
+    score::{InstantUnstakeComponentsV3, ScoreComponentsV5},
 };
 use kobe_core::db_models::steward_events::{StewardEvent, StewardEventsStore};
 use kobe_core::rpc_utils::{retry_get_slot, retry_get_transactions};
@@ -571,9 +571,9 @@ async fn parse_log(
         return Ok(Some(steward_event));
     }
 
-    // ScoreComponentsV4
-    if let Ok((Some(event), _, _)) = handle_program_log::<ScoreComponentsV4>(&program, &log) {
-        let steward_event = StewardEvent::from_score_components_v4(
+    // ScoreComponentsV5
+    if let Ok((Some(event), _, _)) = handle_program_log::<ScoreComponentsV5>(&program, &log) {
+        let steward_event = StewardEvent::from_score_components_v5(
             event,
             signature,
             instruction_idx,

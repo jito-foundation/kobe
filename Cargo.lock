@@ -2507,7 +2507,7 @@ dependencies = [
  "httpdate",
  "itoa",
  "pin-project-lite",
- "socket2 0.4.10",
+ "socket2 0.5.10",
  "tokio",
  "tower-service",
  "tracing",
@@ -2975,8 +2975,8 @@ dependencies = [
 
 [[package]]
 name = "jito-steward"
-version = "0.1.0"
-source = "git+https://github.com/jito-foundation/stakenet?rev=4f98f941b153737665b1eb65e77737616b3cd070#4f98f941b153737665b1eb65e77737616b3cd070"
+version = "0.2.0"
+source = "git+https://github.com/jito-foundation/stakenet?rev=223621d4a024d1ed04d0d5f0071850348a5a2853#223621d4a024d1ed04d0d5f0071850348a5a2853"
 dependencies = [
  "anchor-lang",
  "bincode",
@@ -3143,9 +3143,9 @@ dependencies = [
 
 [[package]]
 name = "kobe-client"
-version = "0.1.8"
+version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bb78638c834105723f7d8f2868415f2800d6e9ea18ba1765b1b9941015aa5223"
+checksum = "5db55f51a6159ea21b09cd03fef39c61776ea66397af6164e8b7c6bb396d30a2"
 dependencies = [
  "chrono",
  "reqwest 0.12.24",
@@ -4640,7 +4640,7 @@ dependencies = [
  "security-framework 3.7.0",
  "security-framework-sys",
  "webpki-root-certs",
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -8155,7 +8155,7 @@ checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
 [[package]]
 name = "stakenet-sdk"
 version = "0.1.0"
-source = "git+https://github.com/jito-foundation/stakenet?rev=4f98f941b153737665b1eb65e77737616b3cd070#4f98f941b153737665b1eb65e77737616b3cd070"
+source = "git+https://github.com/jito-foundation/stakenet?rev=223621d4a024d1ed04d0d5f0071850348a5a2853#223621d4a024d1ed04d0d5f0071850348a5a2853"
 dependencies = [
  "anchor-lang",
  "base64 0.21.7",
@@ -8165,6 +8165,7 @@ dependencies = [
  "futures",
  "jito-steward",
  "jito-tip-distribution",
+ "kobe-client",
  "log",
  "solana-account-decoder",
  "solana-client",
@@ -8986,8 +8987,8 @@ dependencies = [
 
 [[package]]
 name = "validator-history"
-version = "0.1.0"
-source = "git+https://github.com/jito-foundation/stakenet?rev=4f98f941b153737665b1eb65e77737616b3cd070#4f98f941b153737665b1eb65e77737616b3cd070"
+version = "0.2.1"
+source = "git+https://github.com/jito-foundation/stakenet?rev=223621d4a024d1ed04d0d5f0071850348a5a2853#223621d4a024d1ed04d0d5f0071850348a5a2853"
 dependencies = [
  "anchor-lang",
  "bincode",
@@ -9009,11 +9010,12 @@ dependencies = [
 [[package]]
 name = "validator-history-vote-state"
 version = "0.1.2"
-source = "git+https://github.com/jito-foundation/stakenet?rev=4f98f941b153737665b1eb65e77737616b3cd070#4f98f941b153737665b1eb65e77737616b3cd070"
+source = "git+https://github.com/jito-foundation/stakenet?rev=223621d4a024d1ed04d0d5f0071850348a5a2853#223621d4a024d1ed04d0d5f0071850348a5a2853"
 dependencies = [
  "anchor-lang",
  "bincode",
  "serde",
+ "serde-big-array",
  "solana-program",
 ]
 

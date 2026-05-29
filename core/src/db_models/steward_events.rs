@@ -7,7 +7,7 @@ use jito_steward::{
         DirectedRebalanceEvent, EpochMaintenanceEvent, InstantUnstakeComponents, RebalanceEvent,
         RebalanceTypeTag, ScoreComponents, StateTransition,
     },
-    score::{InstantUnstakeComponentsV3, ScoreComponentsV4},
+    score::{InstantUnstakeComponentsV3, ScoreComponentsV5},
 };
 use log::info;
 use mongodb::{
@@ -219,8 +219,8 @@ impl StewardEvent {
     }
 
     #[allow(clippy::too_many_arguments)]
-    pub fn from_score_components_v4(
-        event: ScoreComponentsV4,
+    pub fn from_score_components_v5(
+        event: ScoreComponentsV5,
         signature: &Signature,
         instruction_idx: u32,
         tx_error: Option<String>,
@@ -240,7 +240,7 @@ impl StewardEvent {
             "blacklisted_score": event.blacklisted_score as i32,
             "superminority_score": event.superminority_score as i32,
             "delinquency_score": event.delinquency_score as i32,
-            "running_jito_score": event.running_jito_score as i32,
+            "running_bam_score": event.running_bam_score as i32,
             "commission_score": event.commission_score as i32,
             "historical_commission_score": event.historical_commission_score as i32,
             "merkle_root_upload_authority_score": event.merkle_root_upload_authority_score as i32,
@@ -264,7 +264,7 @@ impl StewardEvent {
         Self::new(
             signature,
             instruction_idx,
-            &"ScoreComponentsV4".to_string(),
+            &"ScoreComponentsV5".to_string(),
             Some(event.vote_account),
             Some(metadata),
             tx_error,
@@ -623,7 +623,7 @@ impl StewardEventsStore {
                 "ScoreComponents" => {
                     filter.insert(
                         "event_type",
-                        doc! { "$in": ["ScoreComponents", "ScoreComponentsV2", "ScoreComponentsV3", "ScoreComponentsV4"] },
+                        doc! { "$in": ["ScoreComponents", "ScoreComponentsV2", "ScoreComponentsV3", "ScoreComponentsV4", "ScoreComponentsV5"] },
                     );
                 }
                 "InstantUnstakeComponents" => {

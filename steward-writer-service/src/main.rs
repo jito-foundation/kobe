@@ -571,7 +571,7 @@ async fn parse_log(
         return Ok(Some(steward_event));
     }
 
-    // ScoreComponentsV4
+    // ScoreComponentsV5
     if let Ok((Some(event), _, _)) = handle_program_log::<ScoreComponentsV5>(&program, &log) {
         let steward_event = StewardEvent::from_score_components_v5(
             event,

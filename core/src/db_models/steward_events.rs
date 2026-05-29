@@ -264,7 +264,7 @@ impl StewardEvent {
         Self::new(
             signature,
             instruction_idx,
-            &"ScoreComponentsV4".to_string(),
+            &"ScoreComponentsV5".to_string(),
             Some(event.vote_account),
             Some(metadata),
             tx_error,
@@ -623,7 +623,7 @@ impl StewardEventsStore {
                 "ScoreComponents" => {
                     filter.insert(
                         "event_type",
-                        doc! { "$in": ["ScoreComponents", "ScoreComponentsV2", "ScoreComponentsV3", "ScoreComponentsV4"] },
+                        doc! { "$in": ["ScoreComponents", "ScoreComponentsV2", "ScoreComponentsV3", "ScoreComponentsV4", "ScoreComponentsV5"] },
                     );
                 }
                 "InstantUnstakeComponents" => {

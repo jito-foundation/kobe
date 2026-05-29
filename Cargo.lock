@@ -2993,7 +2993,30 @@ dependencies = [
  "static_assertions",
  "thiserror 1.0.69",
  "type-layout",
- "validator-history",
+ "validator-history 0.1.0",
+]
+
+[[package]]
+name = "jito-steward"
+version = "0.2.0"
+source = "git+https://github.com/jito-foundation/stakenet#5e68b5674466941f1eadd4c704ac065bf861554b"
+dependencies = [
+ "anchor-lang",
+ "bincode",
+ "blake3",
+ "borsh 0.10.4",
+ "borsh 1.5.7",
+ "bytemuck",
+ "cfg-if",
+ "semver 1.0.26",
+ "serde",
+ "serde_derive",
+ "spl-pod",
+ "spl-stake-pool",
+ "static_assertions",
+ "thiserror 1.0.69",
+ "type-layout",
+ "validator-history 0.2.1",
 ]
 
 [[package]]
@@ -3095,7 +3118,7 @@ dependencies = [
  "env_logger 0.10.2",
  "http 0.2.12",
  "jito-bam-boost-merkle-tree",
- "jito-steward",
+ "jito-steward 0.2.0",
  "kobe-core",
  "log",
  "mongodb",
@@ -3114,7 +3137,7 @@ dependencies = [
  "tower 0.4.13",
  "tower-http 0.4.4",
  "tracing-core",
- "validator-history",
+ "validator-history 0.1.0",
 ]
 
 [[package]]
@@ -3125,7 +3148,7 @@ dependencies = [
  "bam-api-client",
  "clap 4.5.40",
  "env_logger 0.10.2",
- "jito-steward",
+ "jito-steward 0.2.0",
  "kobe-client",
  "kobe-core",
  "log",
@@ -3138,7 +3161,7 @@ dependencies = [
  "solana-pubkey 2.4.0",
  "stakenet-sdk",
  "tokio",
- "validator-history",
+ "validator-history 0.1.0",
 ]
 
 [[package]]
@@ -3169,7 +3192,7 @@ dependencies = [
  "itertools 0.5.10",
  "jito-priority-fee-distribution",
  "jito-priority-fee-distribution-sdk",
- "jito-steward",
+ "jito-steward 0.2.0",
  "jito-tip-distribution",
  "log",
  "mongodb",
@@ -3189,7 +3212,7 @@ dependencies = [
  "thiserror 1.0.69",
  "tokio",
  "tokio-retry",
- "validator-history",
+ "validator-history 0.1.0",
 ]
 
 [[package]]
@@ -3230,7 +3253,7 @@ dependencies = [
  "anchor-client",
  "clap 4.5.40",
  "env_logger 0.10.2",
- "jito-steward",
+ "jito-steward 0.2.0",
  "kobe-core",
  "log",
  "mongodb",
@@ -8163,7 +8186,7 @@ dependencies = [
  "borsh 0.10.4",
  "clap 4.5.40",
  "futures",
- "jito-steward",
+ "jito-steward 0.1.0",
  "jito-tip-distribution",
  "log",
  "solana-account-decoder",
@@ -8177,7 +8200,7 @@ dependencies = [
  "spl-stake-pool",
  "thiserror 1.0.69",
  "tokio",
- "validator-history",
+ "validator-history 0.1.0",
 ]
 
 [[package]]
@@ -9003,7 +9026,29 @@ dependencies = [
  "static_assertions",
  "thiserror 1.0.69",
  "type-layout",
- "validator-history-vote-state",
+ "validator-history-vote-state 0.1.2 (git+https://github.com/jito-foundation/stakenet?rev=4f98f941b153737665b1eb65e77737616b3cd070)",
+]
+
+[[package]]
+name = "validator-history"
+version = "0.2.1"
+source = "git+https://github.com/jito-foundation/stakenet#5e68b5674466941f1eadd4c704ac065bf861554b"
+dependencies = [
+ "anchor-lang",
+ "bincode",
+ "bytemuck",
+ "cfg-if",
+ "jito-priority-fee-distribution",
+ "jito-tip-distribution",
+ "semver 1.0.26",
+ "serde",
+ "serde_derive",
+ "solana-program",
+ "solana-security-txt",
+ "static_assertions",
+ "thiserror 1.0.69",
+ "type-layout",
+ "validator-history-vote-state 0.1.2 (git+https://github.com/jito-foundation/stakenet)",
 ]
 
 [[package]]
@@ -9014,6 +9059,18 @@ dependencies = [
  "anchor-lang",
  "bincode",
  "serde",
+ "solana-program",
+]
+
+[[package]]
+name = "validator-history-vote-state"
+version = "0.1.2"
+source = "git+https://github.com/jito-foundation/stakenet#5e68b5674466941f1eadd4c704ac065bf861554b"
+dependencies = [
+ "anchor-lang",
+ "bincode",
+ "serde",
+ "serde-big-array",
  "solana-program",
 ]
 

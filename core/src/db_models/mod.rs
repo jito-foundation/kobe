@@ -1,6 +1,5 @@
 pub mod bam_boost_validators;
 pub mod bam_delegation_blacklist;
-pub mod bam_epoch_metrics;
 pub mod bam_validators;
 pub mod coinbase_balances;
 pub mod error;

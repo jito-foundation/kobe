@@ -14,7 +14,6 @@ use kobe_core::{
     db_models::{
         bam_boost_validators::BamBoostValidatorsStore,
         bam_delegation_blacklist::{BamDelegationBlacklistEntry, BamDelegationBlacklistStore},
-        bam_epoch_metrics::BamEpochMetricsStore,
         bam_validators::BamValidatorStore,
         coinbase_balances::CoinbaseBalanceStore,
         mev_rewards::{StakerRewardsStore, ValidatorRewardsStore},
@@ -42,7 +41,6 @@ use crate::{
             claim_status_address, merkle_distributor_address, BamBoostClaimResponse,
             BamBoostValidatorsResponse,
         },
-        bam_epoch_metrics::BamEpochMetricsResponse,
         bam_validator::{BamValidatorScoreResponse, BamValidatorsResponse},
         coinbase_balance::CoinbaseBalanceResponse,
         jitosol_ratio::{JitoSolRatioRequest, JitoSolRatioResponse},
@@ -72,9 +70,6 @@ pub struct QueryResolver {
     validator_rewards_store: ValidatorRewardsStore,
     staker_rewards_store: StakerRewardsStore,
     steward_events_store: StewardEventsStore,
-
-    /// BAM epoch metrics store
-    bam_epoch_metrics_store: BamEpochMetricsStore,
 
     /// BAM validators store
     bam_validators_store: BamValidatorStore,
@@ -410,26 +405,6 @@ pub async fn get_validator_histories_wrapper(
 }
 
 #[cached(
-    type = "TimedCache<String, (StatusCode, Json<BamEpochMetricsResponse>)>",
-    create = "{ TimedCache::with_lifespan_and_capacity(60, 1000) }",
-    key = "String",
-    convert = r#"{ format!("bam-epoch-metrics-{}", epoch.to_string()) }"#
-)]
-pub async fn get_bam_epoch_metrics_wrapper(
-    resolver: Extension<QueryResolver>,
-    epoch: u64,
-) -> (StatusCode, Json<BamEpochMetricsResponse>) {
-    if let Ok(res) = resolver.get_bam_epoch_metrics(epoch).await {
-        (StatusCode::OK, Json(res))
-    } else {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(BamEpochMetricsResponse::default()),
-        )
-    }
-}
-
-#[cached(
     type = "TimedCache<String, (StatusCode, Json<BamValidatorsResponse>)>",
     create = "{ TimedCache::with_lifespan_and_capacity(60, 1000) }",
     key = "String",
@@ -626,9 +601,6 @@ impl QueryResolver {
             ),
             steward_events_store: StewardEventsStore::new(
                 database.collection(StewardEventsStore::COLLECTION),
-            ),
-            bam_epoch_metrics_store: BamEpochMetricsStore::new(
-                database.collection(BamEpochMetricsStore::COLLECTION),
             ),
             bam_validators_store: BamValidatorStore::new(
                 database.collection(BamValidatorStore::COLLECTION),
@@ -1112,22 +1084,6 @@ impl QueryResolver {
             ValidatorHistoryResponse::from_validator_history(validator_history, history_entries);
 
         Ok(history)
-    }
-
-    /// Retrieves the bam epoch metrics, based on the provided epoch filter.
-    ///
-    /// # Example
-    ///
-    /// This endpoint can be used to fetch the bam metric for a specific epoch:
-    ///
-    /// ```ignore
-    /// GET /bam_epoch_metrics?epoch=800
-    /// ```
-    /// This request retrieves the BAM epoch metrics for epoch 800.
-    pub async fn get_bam_epoch_metrics(&self, epoch: u64) -> Result<BamEpochMetricsResponse> {
-        let bam_epoch_metrics = self.bam_epoch_metrics_store.find_by_epoch(epoch).await?;
-
-        Ok(BamEpochMetricsResponse { bam_epoch_metrics })
     }
 
     /// Retrieves the bam validators, based on the provided epoch filter.

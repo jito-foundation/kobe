@@ -8,31 +8,23 @@ use anyhow::anyhow;
 use bam_api_client::{client::BamApiClient, types::ValidatorsResponse};
 use clap::ValueEnum;
 use kobe_client::{client::KobeClient, client_builder::KobeApiClientBuilder};
-use kobe_core::db_models::{
-    bam_epoch_metrics::{BamEpochMetrics, BamEpochMetricsStore},
-    bam_validators::{BamValidator, BamValidatorStore},
-};
+use kobe_core::db_models::bam_validators::{BamValidator, BamValidatorStore};
 use mongodb::Collection;
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_metrics::datapoint_info;
 use solana_pubkey::Pubkey;
 use stakenet_sdk::{
     models::cluster::Cluster,
-    utils::accounts::{
-        get_all_steward_accounts, get_all_validator_history_accounts, get_stake_pool_account,
-    },
+    utils::accounts::{get_all_steward_accounts, get_all_validator_history_accounts},
 };
 
-use crate::{
-    bam_delegation_criteria::BamDelegationCriteria,
-    bam_validator_eligibility::{
-        BamValidatorEligibility, IneligibilityReason, RUNNING_BAM_LOOKBACK_EPOCHS,
-    },
+use crate::bam_validator_eligibility::{
+    BamValidatorEligibility, IneligibilityReason, RUNNING_BAM_LOOKBACK_EPOCHS,
 };
 
-mod bam_delegation_criteria;
 mod bam_validator_eligibility;
 
+#[allow(unused)]
 pub struct BamWriterService {
     /// Cluster name (mainnet-beta, testnet)
     cluster: Cluster,
@@ -54,12 +46,6 @@ pub struct BamWriterService {
 
     /// Bam validators store
     bam_validators_store: BamValidatorStore,
-
-    /// Bam epoch metrics store
-    bam_epoch_metrics_store: BamEpochMetricsStore,
-
-    /// BAM Delegation Criteria
-    bam_delegation_criteria: BamDelegationCriteria,
 
     /// Override eligible validators with a hardcoded list (vote account pubkeys)
     override_eligible_validators: Option<Vec<Pubkey>>,
@@ -98,12 +84,6 @@ impl BamWriterService {
             db.collection(BamValidatorStore::COLLECTION);
         let bam_validators_store = BamValidatorStore::new(bam_validators_collection);
 
-        let bam_epoch_metrics_collection: Collection<BamEpochMetrics> =
-            db.collection(BamEpochMetricsStore::COLLECTION);
-        let bam_epoch_metrics_store = BamEpochMetricsStore::new(bam_epoch_metrics_collection);
-
-        let bam_delegation_criteria = BamDelegationCriteria::new();
-
         if let Some(ref overrides) = override_eligible_validators {
             log::info!(
                 "Using override eligible validators ({} pubkeys): {:?}",
@@ -128,8 +108,6 @@ impl BamWriterService {
             rpc_client,
             bam_api_base_url: bam_api_base_url.to_string(),
             bam_validators_store,
-            bam_epoch_metrics_store,
-            bam_delegation_criteria,
             override_eligible_validators,
             override_delegation_lamports,
         })
@@ -213,10 +191,6 @@ impl BamWriterService {
     pub async fn run(&self) -> anyhow::Result<()> {
         let epoch_info = self.rpc_client.get_epoch_info().await?;
         let epoch = epoch_info.epoch;
-
-        let jitosol_pool = get_stake_pool_account(&self.rpc_client, &self.stake_pool).await?;
-        let jitosol_stake = jitosol_pool.total_lamports;
-
         let vote_accounts = self.rpc_client.get_vote_accounts().await?;
 
         // Build vote account lookup by vote pubkey
@@ -393,14 +367,14 @@ impl BamWriterService {
             .upsert(&bam_validators, epoch)
             .await?;
 
-        let total_stake = vote_accounts
+        let total_stake: u64 = vote_accounts
             .current
             .iter()
             .map(|v| v.activated_stake)
             .sum();
 
         // JIP-28 BAM stakeweight should use all BAM-running stake, not only eligible stake.
-        let bam_stake = bam_validators.iter().map(|v| v.get_active_stake()).sum();
+        let bam_stake: u64 = bam_validators.iter().map(|v| v.get_active_stake()).sum();
         let bam_validator_count = bam_validators.len();
 
         let eligible_bam_validators = bam_validators
@@ -420,74 +394,6 @@ impl BamWriterService {
             ("total_stake", total_stake as i64, i64),
             "cluster" => self.cluster.to_string(),
         );
-
-        let mut current_epoch_metrics = BamEpochMetrics::new(
-            epoch,
-            bam_stake,
-            total_stake,
-            jitosol_stake,
-            eligible_bam_validators.len() as u64,
-        );
-
-        let (allocation_percentage, available_delegation) = if let Some(override_delegation) =
-            self.override_delegation_lamports
-        {
-            // Override mode: use hardcoded delegation amount
-            log::info!(
-                "Using override delegation: {} lamports ({:.2} SOL)",
-                override_delegation,
-                override_delegation as f64 / 1_000_000_000.0
-            );
-
-            (
-                0u64,
-                override_delegation * eligible_bam_validators.len() as u64,
-            )
-        } else {
-            // Normal mode: calculate allocation based on criteria
-            let previous_epoch_metrics = if let Some(prev_epoch) = epoch.checked_sub(1) {
-                self.bam_epoch_metrics_store
-                    .find_by_epoch(prev_epoch)
-                    .await?
-            } else {
-                None
-            };
-
-            let allocation_percentage = self.bam_delegation_criteria.calculate_current_allocation(
-                &current_epoch_metrics,
-                previous_epoch_metrics.as_ref(),
-            );
-
-            let available_delegation = self
-                .bam_delegation_criteria
-                .calculate_available_delegation(allocation_percentage, jitosol_stake);
-
-            (allocation_percentage, available_delegation)
-        };
-
-        current_epoch_metrics.set_allocation_bps(allocation_percentage);
-        current_epoch_metrics.set_available_bam_delegation_stake(available_delegation);
-
-        let delegation_per_validator = if eligible_bam_validators.is_empty() {
-            0
-        } else {
-            self.override_delegation_lamports
-                .unwrap_or(available_delegation / eligible_bam_validators.len() as u64)
-        };
-
-        datapoint_info!(
-            "bam-writer-run",
-            ("epoch", epoch, i64),
-            ("slot_index", epoch_info.slot_index, i64),
-            ("allocation_bps", allocation_percentage, i64),
-            ("available_delegation", available_delegation, i64),
-            ("delegation_per_validator", delegation_per_validator, i64),
-            "cluster" => self.cluster.to_string(),
-        );
-
-        self.bam_epoch_metrics_store
-            .upsert(current_epoch_metrics)
-            .await?;
 
         Ok(())
     }

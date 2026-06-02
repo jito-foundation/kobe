@@ -1,5 +1,4 @@
 pub mod bam_boost_validator;
-pub mod bam_epoch_metrics;
 pub mod bam_validator;
 pub mod coinbase_balance;
 pub mod jitosol_ratio;

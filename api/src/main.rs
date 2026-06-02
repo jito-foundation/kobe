@@ -19,18 +19,17 @@ use kobe_api::{
     resolvers::query_resolver::{
         daily_mev_rewards_cacheable_wrapper, get_bam_boost_claim_wrapper,
         get_bam_boost_validators_wrapper, get_bam_delegation_blacklist_wrapper,
-        get_bam_epoch_metrics_wrapper, get_bam_validator_score_wrapper, get_bam_validators_wrapper,
-        get_coinbase_balance_wrapper, get_validator_histories_wrapper,
-        jito_stake_over_time_ratio_cacheable_wrapper, jitosol_ratio_cacheable_wrapper,
-        jitosol_validators_cacheable_wrapper, mev_commission_average_over_time_cacheable_wrapper,
-        mev_rewards_cacheable_wrapper, preferred_withdraw_validator_list_cacheable_wrapper,
-        stake_pool_stats_cacheable_wrapper, staker_rewards_cacheable_wrapper,
-        steward_events_cacheable_wrapper, validator_by_vote_account_cacheable_wrapper,
-        validator_rewards_cacheable_wrapper, validators_cacheable_wrapper, QueryResolver,
+        get_bam_validator_score_wrapper, get_bam_validators_wrapper, get_coinbase_balance_wrapper,
+        get_validator_histories_wrapper, jito_stake_over_time_ratio_cacheable_wrapper,
+        jitosol_ratio_cacheable_wrapper, jitosol_validators_cacheable_wrapper,
+        mev_commission_average_over_time_cacheable_wrapper, mev_rewards_cacheable_wrapper,
+        preferred_withdraw_validator_list_cacheable_wrapper, stake_pool_stats_cacheable_wrapper,
+        staker_rewards_cacheable_wrapper, steward_events_cacheable_wrapper,
+        validator_by_vote_account_cacheable_wrapper, validator_rewards_cacheable_wrapper,
+        validators_cacheable_wrapper, QueryResolver,
     },
     schemas::{
         bam_boost_validator::BamBoostValidatorsRequest,
-        bam_epoch_metrics::BamEpochMetricsRequest,
         bam_validator::{BamValidatorRequest, BamValidatorsRequest},
         coinbase_balance::CoinbaseBalanceRequest,
         jitosol_ratio::JitoSolRatioRequest,
@@ -202,13 +201,6 @@ async fn get_validator_histories(
     Query(epoch_query): Query<EpochQuery>,
 ) -> impl IntoResponse {
     get_validator_histories_wrapper(resolver, vote_account, epoch_query).await
-}
-
-async fn get_bam_epoch_metrics_handler(
-    resolver: Extension<QueryResolver>,
-    Query(epoch_query): Query<BamEpochMetricsRequest>,
-) -> impl IntoResponse {
-    get_bam_epoch_metrics_wrapper(resolver, epoch_query.epoch).await
 }
 
 async fn get_bam_validators_handler(
@@ -407,10 +399,6 @@ async fn run_server(args: &Args) {
         .route(
             "/api/v1/validator_history/:vote_account",
             get(get_validator_histories),
-        )
-        .route(
-            "/api/v1/bam_epoch_metrics",
-            get(get_bam_epoch_metrics_handler),
         )
         .route("/api/v1/bam_validators", get(get_bam_validators_handler))
         .route(

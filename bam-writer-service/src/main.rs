@@ -34,14 +34,6 @@ struct Args {
     #[clap(long, env)]
     kobe_api_base_url: String,
 
-    /// Stake pool address
-    #[clap(
-        long,
-        env,
-        default_value = "Jito4APyf642JPZPx3hGc6WWJ8zPKtRbRs4P815Awbb"
-    )]
-    stake_pool: Pubkey,
-
     /// Steward config account address
     #[clap(
         long,
@@ -67,11 +59,6 @@ struct Args {
     /// Comma-separated list of vote account pubkeys.
     #[clap(long, env, value_delimiter = ',')]
     override_eligible_validators: Option<Vec<Pubkey>>,
-
-    /// Override the available BAM delegation stake amount (in lamports).
-    /// Only used when --override-eligible-validators is also provided.
-    #[clap(long, env)]
-    override_delegation_lamports: Option<u64>,
 }
 
 #[derive(Subcommand, Debug)]
@@ -98,13 +85,11 @@ async fn main() -> anyhow::Result<()> {
         &args.cluster_name,
         &args.mongo_connection_uri,
         &args.mongo_db_name,
-        args.stake_pool,
         args.steward_config,
         rpc_client.clone(),
         &args.bam_api_base_url,
         &args.kobe_api_base_url,
         args.override_eligible_validators,
-        args.override_delegation_lamports,
     )
     .await?;
 

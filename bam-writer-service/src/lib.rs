@@ -24,16 +24,12 @@ use crate::bam_validator_eligibility::{
 
 mod bam_validator_eligibility;
 
-#[allow(unused)]
 pub struct BamWriterService {
     /// Cluster name (mainnet-beta, testnet)
     cluster: Cluster,
 
     /// Kobe api client
     kobe_api_client: KobeClient,
-
-    /// Stake pool address
-    stake_pool: Pubkey,
 
     /// Steward config
     steward_config: Pubkey,
@@ -49,9 +45,6 @@ pub struct BamWriterService {
 
     /// Override eligible validators with a hardcoded list (vote account pubkeys)
     override_eligible_validators: Option<Vec<Pubkey>>,
-
-    /// Override available BAM delegation stake amount (in lamports)
-    override_delegation_lamports: Option<u64>,
 }
 
 impl BamWriterService {
@@ -61,13 +54,11 @@ impl BamWriterService {
         cluster: &str,
         mongo_connection_uri: &str,
         mongo_db_name: &str,
-        stake_pool: Pubkey,
         steward_config: Pubkey,
         rpc_client: Arc<RpcClient>,
         bam_api_base_url: &str,
         kobe_api_base_url: &str,
         override_eligible_validators: Option<Vec<Pubkey>>,
-        override_delegation_lamports: Option<u64>,
     ) -> anyhow::Result<Self> {
         let cluster = Cluster::from_str(cluster, false)
             .map_err(|e| anyhow!("Failed to read cluster: {e}"))?;
@@ -92,24 +83,14 @@ impl BamWriterService {
             );
         }
 
-        if let Some(delegation) = override_delegation_lamports {
-            log::info!(
-                "Using override delegation amount: {} lamports ({:.2} SOL)",
-                delegation,
-                delegation as f64 / 1_000_000_000.0
-            );
-        }
-
         Ok(Self {
             cluster,
             kobe_api_client,
-            stake_pool,
             steward_config,
             rpc_client,
             bam_api_base_url: bam_api_base_url.to_string(),
             bam_validators_store,
             override_eligible_validators,
-            override_delegation_lamports,
         })
     }
 

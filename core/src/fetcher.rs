@@ -57,8 +57,11 @@ pub struct ChainData {
     /// Whether or not running Jito client
     pub running_jito: bool,
 
-    /// Whether or not running BAM client
-    pub running_bam: bool,
+    /// BAM API-observed connection status.
+    /// `Some(true)` = API queried and validator is in the response.
+    /// `Some(false)` = API queried but validator is not in the response.
+    /// `None` = BAM API not configured or returned an empty set; connection unknown.
+    pub running_bam: Option<bool>,
 
     pub vote_credit_proportion: f64,
     pub stake_info: Option<ValidatorStakeInfo>,
@@ -127,8 +130,8 @@ pub fn get_priority_fee_distribution_program_id() -> solana_pubkey::Pubkey {
 ///
 /// ## BAM Client Detection
 ///
-/// - If BAM validator set exists and not empty: check if validator identity is in the set
-/// - Otherwise: fall back to client_type check from validator history
+/// Returns `Some(true/false)` when the BAM API was queried (non-empty response), or `None`
+/// when the BAM API is not configured or returned an empty set.
 pub async fn fetch_chain_data(
     validators: &[ValidatorsAppResponseEntry],
     bam_validator_set: HashSet<String>,
@@ -185,9 +188,15 @@ pub async fn fetch_chain_data(
             .map(|entry| ClientType::from_u8(entry.client_type));
         let is_jito_client = matches!(client_type, Some(ClientType::JitoLabs));
 
-        let running_bam = match (&v.account, bam_validator_set.is_empty()) {
-            (Some(identity), false) => bam_validator_set.contains(identity.as_str()),
-            _ => false,
+        let running_bam = if bam_validator_set.is_empty() {
+            None
+        } else {
+            Some(
+                v.account
+                    .as_deref()
+                    .map(|id| bam_validator_set.contains(id))
+                    .unwrap_or(false),
+            )
         };
         let running_jito = has_tip_account || is_jito_client;
 

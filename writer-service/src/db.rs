@@ -41,6 +41,13 @@ where
     Ok(())
 }
 
+/// Upsert validators for the current epoch.
+///
+/// BAM connection counters (`bam_total_snapshots` / `bam_connected_count`) are only
+/// incremented when `running_bam` is `Some` — i.e. the BAM API was actually queried this
+/// run. When the API is not configured or returns an empty set `running_bam` is `None`,
+/// and skipping the increment prevents a transient outage from driving the connection
+/// rate toward 0 spuriously.
 pub async fn upsert_to_db(
     collection: &Collection<Validator>,
     items: &[Validator],
@@ -64,11 +71,17 @@ pub async fn upsert_to_db(
             set_doc.remove("bam_connected_count");
             set_doc.remove("bam_total_snapshots");
 
-            let bam_inc = if item.running_bam.unwrap_or(false) {
-                1_i32
-            } else {
-                0_i32
-            };
+            let mut update_doc = doc! { "$set": set_doc };
+
+            if let Some(connected) = item.running_bam {
+                update_doc.insert(
+                    "$inc",
+                    doc! {
+                        "bam_total_snapshots": 1_i32,
+                        "bam_connected_count": i32::from(connected)
+                    },
+                );
+            }
 
             collection
                 .update_one(
@@ -76,13 +89,7 @@ pub async fn upsert_to_db(
                         "epoch": epoch as u32,
                         "vote_account": &item.vote_account
                     },
-                    doc! {
-                        "$set": set_doc,
-                        "$inc": {
-                            "bam_total_snapshots": 1_i32,
-                            "bam_connected_count": bam_inc
-                        }
-                    },
+                    update_doc,
                     update_options.clone(),
                 )
                 .await?;

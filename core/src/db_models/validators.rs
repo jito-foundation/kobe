@@ -41,10 +41,14 @@ pub struct Validator {
     pub name: Option<String>,
     pub published_information_score: Option<i64>,
     pub root_distance_score: Option<i64>,
+
     /// Whether or not running Jito client
     pub running_jito: bool,
 
-    /// Whether or not running BAM client
+    /// BAM API-observed connection status for this snapshot.
+    /// `Some(true)` = API queried and validator is connected.
+    /// `Some(false)` = API queried but validator is not connected.
+    /// `None` = BAM API not configured or returned an empty set; drives `bam_connected_count` / `bam_total_snapshots`.
     pub running_bam: Option<bool>,
 
     /// Number of 10-minute snapshots this epoch where the validator was observed connected to BAM
@@ -108,7 +112,7 @@ impl Validator {
             published_information_score: validators_app_entry.published_information_score,
             root_distance_score: validators_app_entry.root_distance_score,
             running_jito: on_chain_data.running_jito,
-            running_bam: Some(on_chain_data.running_bam),
+            running_bam: on_chain_data.running_bam,
             bam_connected_count: 0,
             bam_total_snapshots: 0,
             software_version: validators_app_entry.software_version.clone(),

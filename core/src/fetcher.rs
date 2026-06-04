@@ -185,12 +185,9 @@ pub async fn fetch_chain_data(
             .map(|entry| ClientType::from_u8(entry.client_type));
         let is_jito_client = matches!(client_type, Some(ClientType::JitoLabs));
 
-        let is_bam_client = match (&v.account, bam_validator_set.is_empty()) {
+        let running_bam = match (&v.account, bam_validator_set.is_empty()) {
             (Some(identity), false) => bam_validator_set.contains(identity.as_str()),
-            _ => matches!(
-                client_type,
-                Some(ClientType::Bam) | Some(ClientType::FireBam)
-            ),
+            _ => false,
         };
         let running_jito = has_tip_account || is_jito_client;
 
@@ -246,7 +243,7 @@ pub async fn fetch_chain_data(
             mev_commission_bps,
             mev_revenue_lamports,
             running_jito,
-            running_bam: is_bam_client,
+            running_bam,
             vote_credit_proportion,
             stake_info,
             total_staked_lamports,

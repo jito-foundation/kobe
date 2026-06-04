@@ -11,8 +11,8 @@ use kobe_core::{
 };
 use log::{error, info, warn};
 use mongodb::{
-    bson::doc,
-    options::{ClientOptions, ReplaceOptions},
+    bson::{self, doc},
+    options::{ClientOptions, UpdateOptions},
     Client as MongodbClient, Collection, Database,
 };
 use reqwest::Client as ReqwestClient;
@@ -21,7 +21,7 @@ use solana_program::pubkey::Pubkey;
 
 use crate::{
     google_storage, merkle_tree_parser,
-    result::Result,
+    result::{AppError, Result},
     stake_pool_manager::StakePoolManager,
     tip_distributor_sdk::{GeneratedMerkleTreeCollection, StakeMetaCollection},
 };
@@ -49,8 +49,7 @@ pub async fn upsert_to_db(
     let start = Instant::now();
     let batch_size = 100;
 
-    let mut replace_options = ReplaceOptions::default();
-    replace_options.upsert = Some(true);
+    let update_options = UpdateOptions::builder().upsert(true).build();
 
     for (i, chunk) in items.chunks(batch_size).enumerate() {
         info!(
@@ -60,14 +59,32 @@ pub async fn upsert_to_db(
         );
 
         for item in chunk {
+            let mut set_doc = bson::to_document(item)
+                .map_err(|e| AppError::from(e.to_string()))?;
+            // Remove the counter fields from $set so they are only touched via $inc
+            set_doc.remove("bam_connected_count");
+            set_doc.remove("bam_total_snapshots");
+
+            let bam_inc = if item.running_bam.unwrap_or(false) {
+                1_i32
+            } else {
+                0_i32
+            };
+
             collection
-                .replace_one(
+                .update_one(
                     doc! {
                         "epoch": epoch as u32,
                         "vote_account": &item.vote_account
                     },
-                    item,
-                    replace_options.clone(),
+                    doc! {
+                        "$set": set_doc,
+                        "$inc": {
+                            "bam_total_snapshots": 1_i32,
+                            "bam_connected_count": bam_inc
+                        }
+                    },
+                    update_options.clone(),
                 )
                 .await?;
         }

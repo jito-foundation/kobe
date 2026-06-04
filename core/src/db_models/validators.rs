@@ -46,6 +46,15 @@ pub struct Validator {
 
     /// Whether or not running BAM client
     pub running_bam: Option<bool>,
+
+    /// Number of 10-minute snapshots this epoch where the validator was observed connected to BAM
+    #[serde(default)]
+    pub bam_connected_count: u32,
+
+    /// Total number of 10-minute snapshots taken this epoch
+    #[serde(default)]
+    pub bam_total_snapshots: u32,
+
     pub software_version: Option<String>,
     pub software_version_score: Option<i64>,
     pub skipped_slot_percent: Option<String>,
@@ -100,6 +109,8 @@ impl Validator {
             root_distance_score: validators_app_entry.root_distance_score,
             running_jito: on_chain_data.running_jito,
             running_bam: Some(on_chain_data.running_bam),
+            bam_connected_count: 0,
+            bam_total_snapshots: 0,
             software_version: validators_app_entry.software_version.clone(),
             software_version_score: validators_app_entry.software_version_score,
             skipped_slot_percent: validators_app_entry.skipped_slot_percent.clone(),
@@ -129,6 +140,16 @@ impl Validator {
         self.target_pool_active_lamports
             .checked_add(self.target_pool_transient_lamports)
             .unwrap()
+    }
+
+    /// Fraction of 10-minute snapshots this epoch where the validator was connected to BAM.
+    /// Returns `None` if no snapshots have been recorded yet.
+    pub fn bam_connection_rate(&self) -> Option<f64> {
+        if self.bam_total_snapshots == 0 {
+            None
+        } else {
+            Some(self.bam_connected_count as f64 / self.bam_total_snapshots as f64)
+        }
     }
 }
 

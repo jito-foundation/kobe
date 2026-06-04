@@ -59,8 +59,7 @@ pub async fn upsert_to_db(
         );
 
         for item in chunk {
-            let mut set_doc = bson::to_document(item)
-                .map_err(|e| AppError::from(e.to_string()))?;
+            let mut set_doc = bson::to_document(item).map_err(|e| AppError::from(e.to_string()))?;
             // Remove the counter fields from $set so they are only touched via $inc
             set_doc.remove("bam_connected_count");
             set_doc.remove("bam_total_snapshots");

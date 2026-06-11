@@ -44,10 +44,10 @@ where
     Ok(())
 }
 
-/// Upsert validator metadata for the current epoch.
+/// Upsert validator metadata for the current epoch
 ///
-/// This writes validator data only. The BAM fields — `running_bam` and the connection
-/// counters (`bam_total_snapshots` / `bam_connected_count`) — are owned by the separate BAM
+/// This writes validator data only. The BAM fields - `running_bam` and the connection
+/// counters (`bam_total_snapshots` / `bam_connected_count`) - are owned by the separate BAM
 /// snapshot job ([`write_bam_snapshot`]), which runs on its own (coarser) cadence. They are
 /// therefore excluded from `$set` so a validator write never clobbers them, and seeded via
 /// `$setOnInsert` so the fields exist as soon as a new epoch document is created (epoch
@@ -71,7 +71,6 @@ pub async fn upsert_to_db(
 
         for item in chunk {
             let mut set_doc = bson::to_document(item).map_err(|e| AppError::from(e.to_string()))?;
-            // The BAM snapshot job owns these fields; never overwrite them from a validator write.
             set_doc.remove("running_bam");
             set_doc.remove("bam_connected_count");
             set_doc.remove("bam_total_snapshots");
@@ -108,12 +107,12 @@ pub async fn upsert_to_db(
     Ok(())
 }
 
-/// Record one BAM connection snapshot for the current epoch.
+/// Record one BAM connection snapshot for the current epoch
 ///
 /// Runs on its own cadence, decoupled from the validator write. `connected` carries the BAM
 /// API result: `None` means the API was not queried (not configured), so the snapshot is
 /// skipped entirely and the denominator is left alone. `Some(set)` means the API was queried
-/// successfully — the snapshot is recorded even when the set is empty, because a valid
+/// successfully - the snapshot is recorded even when the set is empty, because a valid
 /// zero-connected response is a real observation, not a reason to bias the denominator.
 /// (Query *failures* never reach here: they surface as an `Err` from `fetch_bam_connected_set`
 /// and the caller skips the snapshot.)

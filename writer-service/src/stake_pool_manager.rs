@@ -105,7 +105,7 @@ impl StakePoolManager {
     /// connected.
     ///
     /// Returns `None` when the BAM API is not configured (no snapshot should be recorded), and
-    /// `Some(set)` when it was queried successfully — including `Some(empty)` for a valid
+    /// `Some(set)` when it was queried successfully - including `Some(empty)` for a valid
     /// response with zero connected validators, which is a real snapshot rather than a reason
     /// to skip. Errors from the API are propagated so the caller can skip recording a
     /// misleading snapshot rather than store one.

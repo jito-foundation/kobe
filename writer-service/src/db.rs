@@ -1,4 +1,7 @@
-use std::time::{Duration as CoreDuration, Instant};
+use std::{
+    collections::HashSet,
+    time::{Duration as CoreDuration, Instant},
+};
 
 use backoff::{future::retry, ExponentialBackoff};
 use kobe_core::{
@@ -11,7 +14,7 @@ use kobe_core::{
 };
 use log::{error, info, warn};
 use mongodb::{
-    bson::{self, doc},
+    bson::{self, doc, Bson},
     options::{ClientOptions, UpdateOptions},
     Client as MongodbClient, Collection, Database,
 };
@@ -41,13 +44,14 @@ where
     Ok(())
 }
 
-/// Upsert validators for the current epoch.
+/// Upsert validator metadata for the current epoch.
 ///
-/// BAM connection counters (`bam_total_snapshots` / `bam_connected_count`) are only
-/// incremented when `running_bam` is `Some` — i.e. the BAM API was actually queried this
-/// run. When the API is not configured or returns an empty set `running_bam` is `None`,
-/// and skipping the increment prevents a transient outage from driving the connection
-/// rate toward 0 spuriously.
+/// This writes validator data only. The BAM fields — `running_bam` and the connection
+/// counters (`bam_total_snapshots` / `bam_connected_count`) — are owned by the separate BAM
+/// snapshot job ([`write_bam_snapshot`]), which runs on its own (coarser) cadence. They are
+/// therefore excluded from `$set` so a validator write never clobbers them, and seeded via
+/// `$setOnInsert` so the fields exist as soon as a new epoch document is created (epoch
+/// rollover) rather than being absent until the first snapshot lands.
 pub async fn upsert_to_db(
     collection: &Collection<Validator>,
     items: &[Validator],
@@ -67,21 +71,10 @@ pub async fn upsert_to_db(
 
         for item in chunk {
             let mut set_doc = bson::to_document(item).map_err(|e| AppError::from(e.to_string()))?;
-            // Remove the counter fields from $set so they are only touched via $inc
+            // The BAM snapshot job owns these fields; never overwrite them from a validator write.
+            set_doc.remove("running_bam");
             set_doc.remove("bam_connected_count");
             set_doc.remove("bam_total_snapshots");
-
-            let mut update_doc = doc! { "$set": set_doc };
-
-            if let Some(connected) = item.running_bam {
-                update_doc.insert(
-                    "$inc",
-                    doc! {
-                        "bam_total_snapshots": 1_i32,
-                        "bam_connected_count": i32::from(connected)
-                    },
-                );
-            }
 
             collection
                 .update_one(
@@ -89,7 +82,14 @@ pub async fn upsert_to_db(
                         "epoch": epoch as u32,
                         "vote_account": &item.vote_account
                     },
-                    update_doc,
+                    doc! {
+                        "$set": set_doc,
+                        "$setOnInsert": {
+                            "running_bam": Bson::Null,
+                            "bam_connected_count": 0_i32,
+                            "bam_total_snapshots": 0_i32
+                        },
+                    },
                     update_options.clone(),
                 )
                 .await?;
@@ -102,6 +102,78 @@ pub async fn upsert_to_db(
     info!(
         "done upserting {} items to db, took {}ms",
         items.len(),
+        start.elapsed().as_millis()
+    );
+
+    Ok(())
+}
+
+/// Record one BAM connection snapshot for the current epoch.
+///
+/// Runs on its own cadence, decoupled from the validator write. `connected` is the set of
+/// validator *identity* pubkeys the BAM API reports as connected for this snapshot. When it
+/// is empty — BAM API not configured, or it returned nothing / was unreachable — the snapshot
+/// is skipped entirely so a transient outage cannot drive the connection rate toward 0.
+///
+/// For every validator with a document this epoch we bump `bam_total_snapshots` (the
+/// denominator) and default `running_bam` to `false`; validators in `connected` then get
+/// `bam_connected_count` bumped and `running_bam` set to `true`. Validators without a document
+/// yet this epoch (not written by the validator job) are simply skipped this snapshot.
+pub async fn write_bam_snapshot(
+    collection: &Collection<Validator>,
+    epoch: u64,
+    connected: &HashSet<String>,
+) -> Result<()> {
+    if connected.is_empty() {
+        info!("BAM connected set is empty; skipping BAM snapshot for epoch {epoch}");
+        return Ok(());
+    }
+
+    let start = Instant::now();
+
+    // Denominator: every validator observed this epoch counts as one snapshot and defaults to
+    // not-connected until the numerator pass below proves otherwise.
+    collection
+        .update_many(
+            doc! { "epoch": epoch as u32 },
+            doc! {
+                "$inc": { "bam_total_snapshots": 1_i32 },
+                "$set": { "running_bam": false },
+            },
+            None,
+        )
+        .await?;
+
+    // Numerator: validators the BAM API reports as connected this snapshot. The connected set
+    // can be large, so chunk the `$in` filter into batches rather than issuing one oversized
+    // query, mirroring the batching `upsert_to_db` uses.
+    let batch_size = 100;
+    let connected_ids: Vec<&str> = connected.iter().map(String::as_str).collect();
+    let mut marked_connected = 0_u64;
+
+    for chunk in connected_ids.chunks(batch_size) {
+        let result = collection
+            .update_many(
+                doc! {
+                    "epoch": epoch as u32,
+                    "identity_account": { "$in": chunk }
+                },
+                doc! {
+                    "$inc": { "bam_connected_count": 1_i32 },
+                    "$set": { "running_bam": true },
+                },
+                None,
+            )
+            .await?;
+        marked_connected += result.modified_count;
+
+        // Small delay between batches to avoid overwhelming the server
+        tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
+    }
+
+    info!(
+        "BAM snapshot for epoch {epoch}: marked {marked_connected} connected (BAM reported {}), took {}ms",
+        connected.len(),
         start.elapsed().as_millis()
     );
 
@@ -199,6 +271,18 @@ pub async fn write_validator_info(
             e
         })?;
     upsert_to_db(&collection, &validators, epoch).await
+}
+
+/// Query the BAM API for the currently-connected validator set and record one snapshot for
+/// `epoch`. See [`write_bam_snapshot`] for the snapshot semantics.
+pub async fn write_bam_snapshot_info(
+    db: &Database,
+    stake_pool_manager: &StakePoolManager,
+    epoch: u64,
+) -> Result<()> {
+    let connected = stake_pool_manager.fetch_bam_connected_set().await?;
+    let collection = db.collection::<Validator>(VALIDATOR_COLLECTION_NAME);
+    write_bam_snapshot(&collection, epoch, &connected).await
 }
 
 pub async fn setup_mongo_client(uri: &str) -> Result<MongodbClient> {

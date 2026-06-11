@@ -45,17 +45,19 @@ pub struct Validator {
     /// Whether or not running Jito client
     pub running_jito: bool,
 
-    /// BAM API-observed connection status for this snapshot.
+    /// BAM API-observed connection status as of the most recent BAM snapshot.
     /// `Some(true)` = API queried and validator is connected.
     /// `Some(false)` = API queried but validator is not connected.
-    /// `None` = BAM API not configured or returned an empty set; drives `bam_connected_count` / `bam_total_snapshots`.
+    /// `None` = no BAM snapshot recorded yet this epoch (BAM API not configured or unreachable).
+    ///
+    /// Owned by the writer's BAM snapshot job, not the validator write.
     pub running_bam: Option<bool>,
 
-    /// Number of 10-minute snapshots this epoch where the validator was observed connected to BAM
+    /// Number of BAM snapshots this epoch where the validator was observed connected to BAM
     #[serde(default)]
     pub bam_connected_count: u32,
 
-    /// Total number of 10-minute snapshots taken this epoch
+    /// Total number of BAM snapshots taken this epoch (the connection-rate denominator)
     #[serde(default)]
     pub bam_total_snapshots: u32,
 
@@ -146,7 +148,7 @@ impl Validator {
             .unwrap()
     }
 
-    /// Fraction of 10-minute snapshots this epoch where the validator was connected to BAM.
+    /// Fraction of BAM snapshots this epoch where the validator was connected to BAM.
     /// Returns `None` if no snapshots have been recorded yet.
     pub fn bam_connection_rate(&self) -> Option<f64> {
         if self.bam_total_snapshots == 0 {

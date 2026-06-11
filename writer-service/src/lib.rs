@@ -15,7 +15,9 @@ use tokio::time::{sleep_until, Instant};
 
 use crate::{
     bam_boost_manager::BamBoostManager,
-    db::{write_mev_claims_info, write_stake_pool_info, write_validator_info},
+    db::{
+        write_bam_snapshot_info, write_mev_claims_info, write_stake_pool_info, write_validator_info,
+    },
     result::Result,
     stake_pool_manager::StakePoolManager,
 };
@@ -131,10 +133,16 @@ impl KobeWriterService {
     ///   into DB
     /// - Collect MEV Claim information from on-chain and GCP server, then update into DB
     ///
+    /// Every 30 min
+    /// - Record one BAM connection snapshot (separate from the validator write so a BAM API
+    ///   outage never blocks validator data, and the snapshot cadence is explicit)
+    ///
     /// Hourly
     /// - Collect stake pool stats from on-chain, then write into DB
     pub async fn run_live_mode(&self) -> Result<()> {
         let mut next_hourly_update = Instant::now();
+        // Do not fire on boot: a restart should delay the next snapshot, never duplicate one.
+        let mut next_bam_snapshot = Instant::now() + Duration::from_secs(1800); // 30 minutes
         info!("Starting live mode with 10-minute epoch processing intervals");
 
         loop {
@@ -142,8 +150,23 @@ impl KobeWriterService {
 
             // Process epoch every 10 minutes
             info!("Processing epoch...");
-            self.process_epoch().await?;
+            let epoch = self.process_epoch().await?;
             info!("Epoch processing completed");
+
+            // Record a BAM connection snapshot every 30 minutes, independent of validator writes.
+            if Instant::now() >= next_bam_snapshot {
+                info!("Recording BAM connection snapshot for epoch {epoch}");
+                match write_bam_snapshot_info(&self.db, &self.stake_pool_manager, epoch).await {
+                    Ok(_) => {
+                        datapoint_info!("bam_snapshot_written", ("success", 1, i64), "cluster" => self.cluster.to_string());
+                    }
+                    Err(e) => {
+                        error!("Writing BAM snapshot failed. Error: {e:?}");
+                        datapoint_info!("bam_snapshot_written", ("success", 0, i64), "cluster" => self.cluster.to_string());
+                    }
+                }
+                next_bam_snapshot = Instant::now() + Duration::from_secs(1800);
+            }
 
             // Check if it's time for the hourly update
             if Instant::now() >= next_hourly_update {
@@ -203,8 +226,11 @@ impl KobeWriterService {
         Ok(())
     }
 
-    /// Process the epoch by writing validator info and MEV claims info to the database
-    async fn process_epoch(&self) -> Result<()> {
+    /// Process the epoch by writing validator info and MEV claims info to the database.
+    ///
+    /// Returns the current epoch so the caller can reuse it (e.g. for the BAM snapshot) without
+    /// a second RPC round-trip.
+    async fn process_epoch(&self) -> Result<u64> {
         let epoch = rpc_utils::retry_get_epoch_info(&self.stake_pool_manager.rpc_client).await?;
 
         match write_validator_info(
@@ -243,6 +269,6 @@ impl KobeWriterService {
             }
         }
 
-        Ok(())
+        Ok(epoch)
     }
 }

@@ -114,7 +114,7 @@ impl Validator {
             published_information_score: validators_app_entry.published_information_score,
             root_distance_score: validators_app_entry.root_distance_score,
             running_jito: on_chain_data.running_jito,
-            running_bam: on_chain_data.running_bam,
+            running_bam: None,
             bam_connected_count: 0,
             bam_total_snapshots: 0,
             software_version: validators_app_entry.software_version.clone(),

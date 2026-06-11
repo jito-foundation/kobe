@@ -79,7 +79,6 @@ impl StakePoolManager {
         // and that field is excluded from the validator upsert anyway.
         let on_chain_data = fetch_chain_data(
             network_validators.as_ref(),
-            HashSet::new(),
             self.rpc_client.clone(),
             &self.cluster,
             epoch,

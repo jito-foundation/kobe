@@ -1,8 +1,4 @@
-use std::{
-    collections::{HashMap, HashSet},
-    str::FromStr,
-    sync::Arc,
-};
+use std::{collections::HashMap, str::FromStr, sync::Arc};
 
 use anchor_lang::AccountDeserialize;
 use jito_priority_fee_distribution::state::PriorityFeeDistributionAccount;
@@ -56,12 +52,6 @@ pub struct ChainData {
 
     /// Whether or not running Jito client
     pub running_jito: bool,
-
-    /// BAM API-observed connection status.
-    /// `Some(true)` = API queried and validator is in the response.
-    /// `Some(false)` = API queried but validator is not in the response.
-    /// `None` = BAM API not configured or returned an empty set; connection unknown.
-    pub running_bam: Option<bool>,
 
     pub vote_credit_proportion: f64,
     pub stake_info: Option<ValidatorStakeInfo>,
@@ -134,7 +124,6 @@ pub fn get_priority_fee_distribution_program_id() -> solana_pubkey::Pubkey {
 /// when the BAM API is not configured or returned an empty set.
 pub async fn fetch_chain_data(
     validators: &[ValidatorsAppResponseEntry],
-    bam_validator_set: HashSet<String>,
     rpc_client: Arc<RpcClient>,
     cluster: &Cluster,
     epoch: u64,
@@ -188,16 +177,6 @@ pub async fn fetch_chain_data(
             .map(|entry| ClientType::from_u8(entry.client_type));
         let is_jito_client = matches!(client_type, Some(ClientType::JitoLabs));
 
-        let running_bam = if bam_validator_set.is_empty() {
-            None
-        } else {
-            Some(
-                v.account
-                    .as_deref()
-                    .map(|id| bam_validator_set.contains(id))
-                    .unwrap_or(false),
-            )
-        };
         let running_jito = has_tip_account || is_jito_client;
 
         let (mev_commission_bps, mev_revenue_lamports) =
@@ -252,7 +231,6 @@ pub async fn fetch_chain_data(
             mev_commission_bps,
             mev_revenue_lamports,
             running_jito,
-            running_bam,
             vote_credit_proportion,
             stake_info,
             total_staked_lamports,

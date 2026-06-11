@@ -118,10 +118,12 @@ pub async fn upsert_to_db(
 /// (Query *failures* never reach here: they surface as an `Err` from `fetch_bam_connected_set`
 /// and the caller skips the snapshot.)
 ///
-/// For every validator with a document this epoch we bump `bam_total_snapshots` (the
-/// denominator) and default `running_bam` to `false`; validators in `connected` then get
-/// `bam_connected_count` bumped and `running_bam` set to `true`. Validators without a document
-/// yet this epoch (not written by the validator job) are simply skipped this snapshot.
+/// `bam_total_snapshots` (the denominator) is bumped for every validator with a document this
+/// epoch. `running_bam` (read live by the API) is updated so each document only ever moves
+/// toward its correct new value: connected validators are set `true` and never transiently
+/// flipped to `false`, while validators no longer connected are set `false`. Connected
+/// validators additionally get `bam_connected_count` bumped. Validators without a document yet
+/// this epoch (not written by the validator job) are simply skipped this snapshot.
 pub async fn write_bam_snapshot(
     collection: &Collection<Validator>,
     epoch: u64,
@@ -133,25 +135,31 @@ pub async fn write_bam_snapshot(
     };
 
     let start = Instant::now();
+    let connected_ids: Vec<&str> = connected.iter().map(String::as_str).collect();
 
-    // Denominator: every validator observed this epoch counts as one snapshot and defaults to
-    // not-connected until the numerator pass below proves otherwise.
+    // Denominator: every validator observed this epoch counts as one snapshot
     collection
         .update_many(
             doc! { "epoch": epoch as u32 },
-            doc! {
-                "$inc": { "bam_total_snapshots": 1_i32 },
-                "$set": { "running_bam": false },
-            },
+            doc! { "$inc": { "bam_total_snapshots": 1_i32 } },
             None,
         )
         .await?;
 
-    // Numerator: validators the BAM API reports as connected this snapshot. The connected set
-    // can be large, so chunk the `$in` filter into batches rather than issuing one oversized
-    // query, mirroring the batching `upsert_to_db` uses.
+    // Mark the not-connected validators `false`
+    collection
+        .update_many(
+            doc! {
+                "epoch": epoch as u32,
+                "identity_account": { "$nin": connected_ids.as_slice() }
+            },
+            doc! { "$set": { "running_bam": false } },
+            None,
+        )
+        .await?;
+
+    // Numerator: validators the BAM API reports as connected this snapshot
     let batch_size = 100;
-    let connected_ids: Vec<&str> = connected.iter().map(String::as_str).collect();
     let mut marked_connected = 0_u64;
 
     for chunk in connected_ids.chunks(batch_size) {

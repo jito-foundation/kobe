@@ -110,10 +110,13 @@ pub async fn upsert_to_db(
 
 /// Record one BAM connection snapshot for the current epoch.
 ///
-/// Runs on its own cadence, decoupled from the validator write. `connected` is the set of
-/// validator *identity* pubkeys the BAM API reports as connected for this snapshot. When it
-/// is empty — BAM API not configured, or it returned nothing / was unreachable — the snapshot
-/// is skipped entirely so a transient outage cannot drive the connection rate toward 0.
+/// Runs on its own cadence, decoupled from the validator write. `connected` carries the BAM
+/// API result: `None` means the API was not queried (not configured), so the snapshot is
+/// skipped entirely and the denominator is left alone. `Some(set)` means the API was queried
+/// successfully — the snapshot is recorded even when the set is empty, because a valid
+/// zero-connected response is a real observation, not a reason to bias the denominator.
+/// (Query *failures* never reach here: they surface as an `Err` from `fetch_bam_connected_set`
+/// and the caller skips the snapshot.)
 ///
 /// For every validator with a document this epoch we bump `bam_total_snapshots` (the
 /// denominator) and default `running_bam` to `false`; validators in `connected` then get
@@ -122,12 +125,12 @@ pub async fn upsert_to_db(
 pub async fn write_bam_snapshot(
     collection: &Collection<Validator>,
     epoch: u64,
-    connected: &HashSet<String>,
+    connected: Option<&HashSet<String>>,
 ) -> Result<()> {
-    if connected.is_empty() {
-        info!("BAM connected set is empty; skipping BAM snapshot for epoch {epoch}");
+    let Some(connected) = connected else {
+        info!("BAM API not configured; skipping BAM snapshot for epoch {epoch}");
         return Ok(());
-    }
+    };
 
     let start = Instant::now();
 
@@ -282,7 +285,7 @@ pub async fn write_bam_snapshot_info(
 ) -> Result<()> {
     let connected = stake_pool_manager.fetch_bam_connected_set().await?;
     let collection = db.collection::<Validator>(VALIDATOR_COLLECTION_NAME);
-    write_bam_snapshot(&collection, epoch, &connected).await
+    write_bam_snapshot(&collection, epoch, connected.as_ref()).await
 }
 
 pub async fn setup_mongo_client(uri: &str) -> Result<MongodbClient> {

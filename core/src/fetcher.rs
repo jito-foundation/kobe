@@ -117,11 +117,6 @@ pub fn get_priority_fee_distribution_program_id() -> solana_pubkey::Pubkey {
 /// 1. **Tip account method**: Checks if validator has tip distribution account
 /// 2. **Validator-History method**: Checks validator history for Jito client type
 /// 3. **Combined detection**: Detect `running_jito` = (`has_tip_account || is_jito_client`)
-///
-/// ## BAM Client Detection
-///
-/// Returns `Some(true/false)` when the BAM API was queried (non-empty response), or `None`
-/// when the BAM API is not configured or returned an empty set.
 pub async fn fetch_chain_data(
     validators: &[ValidatorsAppResponseEntry],
     rpc_client: Arc<RpcClient>,

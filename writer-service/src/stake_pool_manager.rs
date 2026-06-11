@@ -104,18 +104,22 @@ impl StakePoolManager {
     /// Fetch the set of validator *identity* pubkeys the BAM API currently reports as
     /// connected.
     ///
-    /// Returns an empty set when the BAM API is not configured. Errors from the API are
-    /// propagated so the caller can skip recording a snapshot rather than store a misleading
-    /// one.
-    pub async fn fetch_bam_connected_set(&self) -> Result<HashSet<String>> {
+    /// Returns `None` when the BAM API is not configured (no snapshot should be recorded), and
+    /// `Some(set)` when it was queried successfully — including `Some(empty)` for a valid
+    /// response with zero connected validators, which is a real snapshot rather than a reason
+    /// to skip. Errors from the API are propagated so the caller can skip recording a
+    /// misleading snapshot rather than store one.
+    pub async fn fetch_bam_connected_set(&self) -> Result<Option<HashSet<String>>> {
         let Some(ref bam_api_client) = self.bam_api_client else {
-            return Ok(HashSet::new());
+            return Ok(None);
         };
         let bam_validators = bam_api_client.get_validators().await?;
-        Ok(bam_validators
-            .iter()
-            .map(|v| v.validator_pubkey.clone())
-            .collect())
+        Ok(Some(
+            bam_validators
+                .iter()
+                .map(|v| v.validator_pubkey.clone())
+                .collect(),
+        ))
     }
 
     pub async fn get_mev_rewards(&self) -> Result<u64> {

@@ -6,6 +6,7 @@ use kobe_core::{
 };
 use log::{error, info};
 use mongodb::Database;
+use rand::Rng;
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_metrics::datapoint_info;
 use solana_sdk::{commitment_config::CommitmentConfig, pubkey::Pubkey};
@@ -30,6 +31,14 @@ pub mod result;
 pub mod rpc_utils;
 pub mod stake_pool_manager;
 pub mod tip_distributor_sdk;
+
+/// Target spacing between BAM connection snapshots.
+const BAM_SNAPSHOT_BASE_SECS: u64 = 1800; // 30 minutes
+
+/// Maximum random offset applied to each BAM snapshot interval, in either direction. Spreading
+/// the snapshot away from an exact 30-minute cadence makes it harder to predict when a snapshot
+/// is taken (and therefore harder to game the connection-rate metric).
+const BAM_SNAPSHOT_JITTER_SECS: u64 = 300; // +/- 5 minutes
 
 /// Kobe writer service main instance
 pub struct KobeWriterService {
@@ -124,6 +133,16 @@ impl KobeWriterService {
         })
     }
 
+    /// A randomized delay until the next BAM snapshot, uniformly in
+    /// `BAM_SNAPSHOT_BASE_SECS ± BAM_SNAPSHOT_JITTER_SECS`.
+    fn next_bam_snapshot_delay(&self) -> Duration {
+        let secs = rand::thread_rng().gen_range(
+            (BAM_SNAPSHOT_BASE_SECS - BAM_SNAPSHOT_JITTER_SECS)
+                ..=(BAM_SNAPSHOT_BASE_SECS + BAM_SNAPSHOT_JITTER_SECS),
+        );
+        Duration::from_secs(secs)
+    }
+
     /// Run [`KobeWriterService`] in live mode
     ///
     /// In this mode, the service processes:
@@ -141,8 +160,8 @@ impl KobeWriterService {
     /// - Collect stake pool stats from on-chain, then write into DB
     pub async fn run_live_mode(&self) -> Result<()> {
         let mut next_hourly_update = Instant::now();
-        // Do not fire on boot: a restart should delay the next snapshot, never duplicate one.
-        let mut next_bam_snapshot = Instant::now() + Duration::from_secs(1800); // 30 minutes
+        let mut next_bam_snapshot = Instant::now() + self.next_bam_snapshot_delay();
+
         info!("Starting live mode with 10-minute epoch processing intervals");
 
         loop {
@@ -153,7 +172,9 @@ impl KobeWriterService {
             let epoch = self.process_epoch().await?;
             info!("Epoch processing completed");
 
-            // Record a BAM connection snapshot every 30 minutes, independent of validator writes.
+            // Record a BAM connection snapshot roughly every 30 minutes (jittered), independent
+            // of validator writes. Note the check only runs once per ~10-minute loop tick, so
+            // the jitter varies the interval between snapshots rather than giving sub-tick timing.
             if Instant::now() >= next_bam_snapshot {
                 info!("Recording BAM connection snapshot for epoch {epoch}");
                 match write_bam_snapshot_info(&self.db, &self.stake_pool_manager, epoch).await {
@@ -165,7 +186,8 @@ impl KobeWriterService {
                         datapoint_info!("bam_snapshot_written", ("success", 0, i64), "cluster" => self.cluster.to_string());
                     }
                 }
-                next_bam_snapshot = Instant::now() + Duration::from_secs(1800);
+
+                next_bam_snapshot = Instant::now() + self.next_bam_snapshot_delay();
             }
 
             // Check if it's time for the hourly update

@@ -23,6 +23,7 @@ jito-tip-distribution = { workspace = true }
 kobe-core = { workspace = true }
 log = { workspace = true }
 mongodb = { workspace = true }
+rand = { workspace = true }
 reqwest = { workspace = true }
 sentry = { workspace = true }
 sentry-log = { workspace = true }

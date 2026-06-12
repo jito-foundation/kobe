@@ -1,8 +1,9 @@
+use log::warn;
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_client::rpc_config::RpcTransactionConfig;
 use solana_clock::Slot;
 use solana_commitment_config::CommitmentConfig;
-use solana_rpc_client_api::client_error::Error as RpcError;
+use solana_rpc_client_api::client_error::{Error as RpcError, ErrorKind as RpcErrorKind};
 use solana_signature::Signature;
 use solana_transaction_status::{EncodedConfirmedTransactionWithStatusMeta, UiTransactionEncoding};
 use std::iter::{Map, Take};
@@ -45,12 +46,29 @@ async fn get_signatures_internal(
 
     let mut temp_txs = vec![];
     for signature in transaction_signatures.iter() {
-        let tx = rpc_client
+        match rpc_client
             .get_transaction_with_config(signature, config)
-            .await?;
-        temp_txs.push(tx);
+            .await
+        {
+            Ok(tx) => temp_txs.push(tx),
+            Err(e) if is_null_transaction(&e) => {
+                warn!("getTransaction returned null for {signature}, skipping");
+                continue;
+            }
+            Err(e) => return Err(e),
+        }
     }
     Ok(temp_txs)
+}
+
+/// Returns true when an RPC error is the serde failure produced by a `null`
+/// `getTransaction` response (`invalid type: null, expected struct
+/// EncodedConfirmedTransactionWithStatusMeta`).
+fn is_null_transaction(err: &RpcError) -> bool {
+    match &err.kind {
+        RpcErrorKind::SerdeJson(e) => e.to_string().contains("invalid type: null"),
+        _ => false,
+    }
 }
 
 pub async fn retry_get_slot(rpc_client: &RpcClient) -> Result<Slot, RpcError> {

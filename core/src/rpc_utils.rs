@@ -52,7 +52,7 @@ async fn get_signatures_internal(
         {
             Ok(tx) => temp_txs.push(tx),
             Err(e) if is_null_transaction(&e) => {
-                warn!("getTransaction returned null for {signature}, skipping");
+                warn!("getTransaction returned null for {signature} ({e}), skipping");
                 continue;
             }
             Err(e) => return Err(e),

@@ -1,5 +1,6 @@
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+
+use serde::{Deserialize, Serialize};
 
 #[derive(Default, Serialize, Deserialize, Clone)]
 pub struct JitoStakeOverTimeResponse {
@@ -32,6 +33,9 @@ pub struct ValidatorEntry {
 
     /// Whether or not running BAM client
     pub running_bam: Option<bool>,
+
+    /// BAM connection rate
+    pub bam_connection_rate: Option<f64>,
 
     /// Total active stake delegated to this validator on the Solana network
     pub active_stake: u64,

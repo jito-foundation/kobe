@@ -726,6 +726,7 @@ impl QueryResolver {
                 .into_iter()
                 .map(|v| {
                     let mev_rewards = mev_rewards.get(&v.vote_account).unwrap_or(&0);
+                    let bam_connection_rate = v.bam_connection_rate();
 
                     ValidatorEntry {
                         identity_account: v.identity_account,
@@ -741,6 +742,7 @@ impl QueryResolver {
                         priority_fee_rewards: v.priority_fee_revenue_lamports,
                         running_jito: v.running_jito,
                         running_bam: v.running_bam,
+                        bam_connection_rate,
                         jito_directed_stake_target: v.jito_directed_stake_target,
                         jito_directed_stake_lamports: v.jito_directed_stake_lamports,
                         jito_sol_active_lamports: None,
@@ -809,6 +811,7 @@ impl QueryResolver {
                 .into_iter()
                 .map(|v| {
                     let mev_rewards = mev_rewards.get(&v.vote_account).unwrap_or(&0);
+                    let bam_connection_rate = v.bam_connection_rate();
 
                     ValidatorEntry {
                         identity_account: v.identity_account,
@@ -824,6 +827,7 @@ impl QueryResolver {
                         priority_fee_rewards: v.priority_fee_revenue_lamports,
                         running_jito: v.running_jito,
                         running_bam: v.running_bam,
+                        bam_connection_rate,
                         jito_directed_stake_target: v.jito_directed_stake_target,
                         jito_directed_stake_lamports: v.jito_directed_stake_lamports,
                         jito_sol_active_lamports: Some(v.target_pool_active_lamports),

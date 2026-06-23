@@ -1,7 +1,7 @@
 [package]
 name = "kobe-steward-writer-service"
 description = "Kobe Steward Writer Service is a specialized data collection service that monitors and records Jito Steward program events"
-version = "1.0.0"
+version = "1.0.1"
 authors = { workspace = true }
 repository = { workspace = true }
 homepage = { workspace = true }

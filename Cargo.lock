@@ -3225,7 +3225,7 @@ dependencies = [
 
 [[package]]
 name = "kobe-steward-writer-service"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "anchor-client",
  "clap 4.5.40",

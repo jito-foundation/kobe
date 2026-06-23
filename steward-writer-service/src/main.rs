@@ -196,7 +196,7 @@ async fn listen(
                         before,
                         until: Some(latest_signature),
                         limit: Some(NUM_TRANSACTIONS),
-                        commitment: Some(CommitmentConfig::confirmed()),
+                        commitment: Some(CommitmentConfig::finalized()),
                     },
                 )
                 .await

@@ -18,8 +18,7 @@ use kobe_api::{
     error::{handle_error, ApiError},
     resolvers::query_resolver::{
         daily_mev_rewards_cacheable_wrapper, get_bam_boost_claim_wrapper,
-        get_bam_boost_validators_wrapper, get_bam_delegation_blacklist_wrapper,
-        get_bam_validator_score_wrapper, get_bam_validators_wrapper, get_coinbase_balance_wrapper,
+        get_bam_boost_validators_wrapper, get_coinbase_balance_wrapper,
         get_validator_histories_wrapper, jito_stake_over_time_ratio_cacheable_wrapper,
         jitosol_ratio_cacheable_wrapper, jitosol_validators_cacheable_wrapper,
         mev_commission_average_over_time_cacheable_wrapper, mev_rewards_cacheable_wrapper,
@@ -30,7 +29,6 @@ use kobe_api::{
     },
     schemas::{
         bam_boost_validator::BamBoostValidatorsRequest,
-        bam_validator::{BamValidatorRequest, BamValidatorsRequest},
         coinbase_balance::CoinbaseBalanceRequest,
         jitosol_ratio::JitoSolRatioRequest,
         mev_rewards::{MevRewardsRequest, StakerRewardsRequest, ValidatorRewardsRequest},
@@ -203,29 +201,11 @@ async fn get_validator_histories(
     get_validator_histories_wrapper(resolver, vote_account, epoch_query).await
 }
 
-async fn get_bam_validators_handler(
-    resolver: Extension<QueryResolver>,
-    Query(epoch_query): Query<BamValidatorsRequest>,
-) -> impl IntoResponse {
-    get_bam_validators_wrapper(resolver, epoch_query.epoch).await
-}
-
-async fn get_bam_validator_score_handler(
-    resolver: Extension<QueryResolver>,
-    Query(query): Query<BamValidatorRequest>,
-) -> impl IntoResponse {
-    get_bam_validator_score_wrapper(resolver, query.epoch, &query.vote_account).await
-}
-
 async fn preferred_withdraw_validator_list_handler(
     resolver: Extension<QueryResolver>,
     request: Query<PreferredWithdrawRequest>,
 ) -> impl IntoResponse {
     preferred_withdraw_validator_list_cacheable_wrapper(resolver, request.0).await
-}
-
-async fn bam_delegation_blacklist_handler(resolver: Extension<QueryResolver>) -> impl IntoResponse {
-    get_bam_delegation_blacklist_wrapper(resolver).await
 }
 
 async fn bam_boost_claim_handler(
@@ -400,18 +380,9 @@ async fn run_server(args: &Args) {
             "/api/v1/validator_history/:vote_account",
             get(get_validator_histories),
         )
-        .route("/api/v1/bam_validators", get(get_bam_validators_handler))
-        .route(
-            "/api/v1/bam_validator_score",
-            get(get_bam_validator_score_handler),
-        )
         .route(
             "/api/v1/preferred_withdraw_validator_list",
             get(preferred_withdraw_validator_list_handler),
-        )
-        .route(
-            "/api/v1/bam_delegation_blacklist",
-            get(bam_delegation_blacklist_handler),
         )
         .route(
             "/api/v1/claim/:network/:epoch/:validator_id",

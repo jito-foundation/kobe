@@ -3118,30 +3118,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "kobe-bam-writer-service"
-version = "0.1.1"
-dependencies = [
- "anyhow",
- "bam-api-client",
- "clap 4.5.40",
- "env_logger 0.10.2",
- "jito-steward",
- "kobe-client",
- "kobe-core",
- "log",
- "mongodb",
- "reqwest 0.11.27",
- "serde_json",
- "solana-client",
- "solana-commitment-config",
- "solana-metrics",
- "solana-pubkey 2.4.0",
- "stakenet-sdk",
- "tokio",
- "validator-history",
-]
-
-[[package]]
 name = "kobe-client"
 version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"

@@ -13,8 +13,6 @@ use kobe_core::{
     constants::{JITOSOL_MINT, JITOSOL_VALIDATOR_LIST_MAINNET, JITOSOL_VALIDATOR_LIST_TESTNET},
     db_models::{
         bam_boost_validators::BamBoostValidatorsStore,
-        bam_delegation_blacklist::{BamDelegationBlacklistEntry, BamDelegationBlacklistStore},
-        bam_validators::BamValidatorStore,
         coinbase_balances::CoinbaseBalanceStore,
         mev_rewards::{StakerRewardsStore, ValidatorRewardsStore},
         stake_pool_stats::{StakePoolStats, StakePoolStatsStore},
@@ -41,7 +39,6 @@ use crate::{
             claim_status_address, merkle_distributor_address, BamBoostClaimResponse,
             BamBoostValidatorsResponse,
         },
-        bam_validator::{BamValidatorScoreResponse, BamValidatorsResponse},
         coinbase_balance::CoinbaseBalanceResponse,
         jitosol_ratio::{JitoSolRatioRequest, JitoSolRatioResponse},
         mev_rewards::{
@@ -70,12 +67,6 @@ pub struct QueryResolver {
     validator_rewards_store: ValidatorRewardsStore,
     staker_rewards_store: StakerRewardsStore,
     steward_events_store: StewardEventsStore,
-
-    /// BAM validators store
-    bam_validators_store: BamValidatorStore,
-
-    /// BAM Delegation Blacklist Store
-    bam_delegation_blacklist_store: BamDelegationBlacklistStore,
 
     /// BAM Boost Validators Store
     bam_boost_validators_store: BamBoostValidatorsStore,
@@ -405,47 +396,6 @@ pub async fn get_validator_histories_wrapper(
 }
 
 #[cached(
-    type = "TimedCache<String, (StatusCode, Json<BamValidatorsResponse>)>",
-    create = "{ TimedCache::with_lifespan_and_capacity(60, 1000) }",
-    key = "String",
-    convert = r#"{ format!("bam-validators-{}", epoch.to_string()) }"#
-)]
-pub async fn get_bam_validators_wrapper(
-    resolver: Extension<QueryResolver>,
-    epoch: u64,
-) -> (StatusCode, Json<BamValidatorsResponse>) {
-    if let Ok(res) = resolver.get_bam_validators(epoch).await {
-        (StatusCode::OK, Json(res))
-    } else {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(BamValidatorsResponse::default()),
-        )
-    }
-}
-
-#[cached(
-    type = "TimedCache<String, (StatusCode, Json<BamValidatorScoreResponse>)>",
-    create = "{ TimedCache::with_lifespan_and_capacity(60, 1000) }",
-    key = "String",
-    convert = r#"{ format!("bam-validator-score-{epoch}-{vote_account}") }"#
-)]
-pub async fn get_bam_validator_score_wrapper(
-    resolver: Extension<QueryResolver>,
-    epoch: u64,
-    vote_account: &str,
-) -> (StatusCode, Json<BamValidatorScoreResponse>) {
-    if let Ok(res) = resolver.get_bam_validator_score(epoch, vote_account).await {
-        (StatusCode::OK, Json(res))
-    } else {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(BamValidatorScoreResponse::default()),
-        )
-    }
-}
-
-#[cached(
     type = "TimedCache<String, Vec<PreferredWithdraw>>",
     create = "{ TimedCache::with_lifespan_and_capacity(10, 100) }",
     key = "String",
@@ -488,22 +438,6 @@ pub async fn preferred_withdraw_validator_list_cacheable_wrapper(
     }
 
     (StatusCode::OK, Json(list))
-}
-
-#[cached(
-    type = "TimedCache<String, (StatusCode, Json<Vec<BamDelegationBlacklistEntry>>)>",
-    create = "{ TimedCache::with_lifespan_and_capacity(60, 1000) }",
-    key = "String",
-    convert = r#"{ format!("bam-delegation-blacklist") }"#
-)]
-pub async fn get_bam_delegation_blacklist_wrapper(
-    resolver: Extension<QueryResolver>,
-) -> (StatusCode, Json<Vec<BamDelegationBlacklistEntry>>) {
-    if let Ok(res) = resolver.get_bam_delegation_blacklist().await {
-        (StatusCode::OK, Json(res))
-    } else {
-        (StatusCode::INTERNAL_SERVER_ERROR, Json(vec![]))
-    }
 }
 
 #[cached(
@@ -601,12 +535,6 @@ impl QueryResolver {
             ),
             steward_events_store: StewardEventsStore::new(
                 database.collection(StewardEventsStore::COLLECTION),
-            ),
-            bam_validators_store: BamValidatorStore::new(
-                database.collection(BamValidatorStore::COLLECTION),
-            ),
-            bam_delegation_blacklist_store: BamDelegationBlacklistStore::new(
-                database.collection(BamDelegationBlacklistStore::COLLECTION),
             ),
             bam_boost_validators_store: BamBoostValidatorsStore::new(
                 database.collection(BamBoostValidatorsStore::COLLECTION),
@@ -1090,51 +1018,6 @@ impl QueryResolver {
         Ok(history)
     }
 
-    /// Retrieves the bam validators, based on the provided epoch filter.
-    ///
-    /// # Example
-    ///
-    /// This endpoint can be used to fetch the bam validators for a specific epoch:
-    ///
-    /// ```ignore
-    /// GET /bam_validators?epoch=800
-    /// ```
-    /// This request retrieves the BAM validators for epoch 800.
-    pub async fn get_bam_validators(&self, epoch: u64) -> Result<BamValidatorsResponse> {
-        let bam_validators = self.bam_validators_store.find(epoch).await?;
-
-        Ok(BamValidatorsResponse { bam_validators })
-    }
-
-    /// Retrieves the BAM validator score for a specific epoch and vote account.
-    ///
-    /// # Example
-    ///
-    /// This endpoint can be used to fetch the BAM validator score for a specific epoch and vote account:
-    ///
-    /// ```ignore
-    /// GET /bam_validator_score?epoch=800&vote_account=J1to1yufRnoWn81KYg1XkTWzmKjnYSnmE2VY8DGUJ9Qv
-    /// ```
-    /// This request retrieves the BAM validator score for epoch 800 and vote account J1to1yufRnoWn81KYg1XkTWzmKjnYSnmE2VY8DGUJ9Qv.
-    pub async fn get_bam_validator_score(
-        &self,
-        epoch: u64,
-        vote_account: &str,
-    ) -> Result<BamValidatorScoreResponse> {
-        let mut res = BamValidatorScoreResponse::default();
-
-        if let Some(bam_validator) = self
-            .bam_validators_store
-            .find_by_epoch_and_vote_account(epoch, vote_account)
-            .await?
-        {
-            res.vote_account = Some(bam_validator.get_vote_account());
-            res.score = bam_validator.get_score();
-        }
-
-        Ok(res)
-    }
-
     pub async fn get_preferred_withdraw_validator_list(
         &self,
         min_stake_threshold: u64,
@@ -1202,12 +1085,6 @@ impl QueryResolver {
         }
 
         Ok(preferred_withdraw_list)
-    }
-
-    /// Retrieves the blacklist for bam delegation
-    pub async fn get_bam_delegation_blacklist(&self) -> Result<Vec<BamDelegationBlacklistEntry>> {
-        let entries = self.bam_delegation_blacklist_store.find().await?;
-        Ok(entries)
     }
 
     /// BAM Boost merkle tree

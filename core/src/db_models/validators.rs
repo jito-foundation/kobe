@@ -41,11 +41,26 @@ pub struct Validator {
     pub name: Option<String>,
     pub published_information_score: Option<i64>,
     pub root_distance_score: Option<i64>,
+
     /// Whether or not running Jito client
     pub running_jito: bool,
 
-    /// Whether or not running BAM client
+    /// BAM API-observed connection status as of the most recent BAM snapshot
+    /// `Some(true)` = API queried and validator is connected
+    /// `Some(false)` = API queried but validator is not connected
+    /// `None` = no BAM snapshot recorded yet this epoch (BAM API not configured or unreachable)
+    ///
+    /// Owned by the writer's BAM snapshot job, not the validator write
     pub running_bam: Option<bool>,
+
+    /// Number of BAM snapshots this epoch where the validator was observed connected to BAM
+    #[serde(default)]
+    pub bam_connected_count: u32,
+
+    /// Total number of BAM snapshots taken this epoch (the connection-rate denominator)
+    #[serde(default)]
+    pub bam_total_snapshots: u32,
+
     pub software_version: Option<String>,
     pub software_version_score: Option<i64>,
     pub skipped_slot_percent: Option<String>,
@@ -99,7 +114,9 @@ impl Validator {
             published_information_score: validators_app_entry.published_information_score,
             root_distance_score: validators_app_entry.root_distance_score,
             running_jito: on_chain_data.running_jito,
-            running_bam: Some(on_chain_data.running_bam),
+            running_bam: None,
+            bam_connected_count: 0,
+            bam_total_snapshots: 0,
             software_version: validators_app_entry.software_version.clone(),
             software_version_score: validators_app_entry.software_version_score,
             skipped_slot_percent: validators_app_entry.skipped_slot_percent.clone(),
@@ -129,6 +146,16 @@ impl Validator {
         self.target_pool_active_lamports
             .checked_add(self.target_pool_transient_lamports)
             .unwrap()
+    }
+
+    /// Fraction of BAM snapshots this epoch where the validator was connected to BAM
+    /// Returns `None` if no snapshots have been recorded yet
+    pub fn bam_connection_rate(&self) -> Option<f64> {
+        if self.bam_total_snapshots == 0 {
+            None
+        } else {
+            Some(self.bam_connected_count as f64 / self.bam_total_snapshots as f64)
+        }
     }
 }
 

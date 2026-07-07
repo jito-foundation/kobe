@@ -1,8 +1,4 @@
-use std::{
-    collections::{HashMap, HashSet},
-    str::FromStr,
-    sync::Arc,
-};
+use std::{collections::HashMap, str::FromStr, sync::Arc};
 
 use anchor_lang::AccountDeserialize;
 use jito_priority_fee_distribution::state::PriorityFeeDistributionAccount;
@@ -56,9 +52,6 @@ pub struct ChainData {
 
     /// Whether or not running Jito client
     pub running_jito: bool,
-
-    /// Whether or not running BAM client
-    pub running_bam: bool,
 
     pub vote_credit_proportion: f64,
     pub stake_info: Option<ValidatorStakeInfo>,
@@ -124,14 +117,8 @@ pub fn get_priority_fee_distribution_program_id() -> solana_pubkey::Pubkey {
 /// 1. **Tip account method**: Checks if validator has tip distribution account
 /// 2. **Validator-History method**: Checks validator history for Jito client type
 /// 3. **Combined detection**: Detect `running_jito` = (`has_tip_account || is_jito_client`)
-///
-/// ## BAM Client Detection
-///
-/// - If BAM validator set exists and not empty: check if validator identity is in the set
-/// - Otherwise: fall back to client_type check from validator history
 pub async fn fetch_chain_data(
     validators: &[ValidatorsAppResponseEntry],
-    bam_validator_set: HashSet<String>,
     rpc_client: Arc<RpcClient>,
     cluster: &Cluster,
     epoch: u64,
@@ -185,13 +172,6 @@ pub async fn fetch_chain_data(
             .map(|entry| ClientType::from_u8(entry.client_type));
         let is_jito_client = matches!(client_type, Some(ClientType::JitoLabs));
 
-        let is_bam_client = match (&v.account, bam_validator_set.is_empty()) {
-            (Some(identity), false) => bam_validator_set.contains(identity.as_str()),
-            _ => matches!(
-                client_type,
-                Some(ClientType::Bam) | Some(ClientType::FireBam)
-            ),
-        };
         let running_jito = has_tip_account || is_jito_client;
 
         let (mev_commission_bps, mev_revenue_lamports) =
@@ -246,7 +226,6 @@ pub async fn fetch_chain_data(
             mev_commission_bps,
             mev_revenue_lamports,
             running_jito,
-            running_bam: is_bam_client,
             vote_credit_proportion,
             stake_info,
             total_staked_lamports,

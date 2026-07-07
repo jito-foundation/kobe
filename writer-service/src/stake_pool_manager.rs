@@ -73,20 +73,12 @@ impl StakePoolManager {
         })
         .await??;
 
-        let bam_validator_set: HashSet<String> =
-            if let Some(ref bam_api_client) = self.bam_api_client {
-                let bam_validators = bam_api_client.get_validators().await?;
-                bam_validators
-                    .iter()
-                    .map(|v| v.validator_pubkey.clone())
-                    .collect()
-            } else {
-                HashSet::new()
-            };
-
+        // BAM connection status is collected separately by the BAM snapshot job
+        // (`fetch_bam_connected_set` + `write_bam_snapshot`), so the validator fetch no longer
+        // depends on the BAM API being reachable. An empty set leaves `running_bam` as `None`,
+        // and that field is excluded from the validator upsert anyway.
         let on_chain_data = fetch_chain_data(
             network_validators.as_ref(),
-            bam_validator_set,
             self.rpc_client.clone(),
             &self.cluster,
             epoch,
@@ -107,6 +99,27 @@ impl StakePoolManager {
             })
             .collect();
         Ok(validators)
+    }
+
+    /// Fetch the set of validator *identity* pubkeys the BAM API currently reports as
+    /// connected.
+    ///
+    /// Returns `None` when the BAM API is not configured (no snapshot should be recorded), and
+    /// `Some(set)` when it was queried successfully - including `Some(empty)` for a valid
+    /// response with zero connected validators, which is a real snapshot rather than a reason
+    /// to skip. Errors from the API are propagated so the caller can skip recording a
+    /// misleading snapshot rather than store one.
+    pub async fn fetch_bam_connected_set(&self) -> Result<Option<HashSet<String>>> {
+        let Some(ref bam_api_client) = self.bam_api_client else {
+            return Ok(None);
+        };
+        let bam_validators = bam_api_client.get_validators().await?;
+        Ok(Some(
+            bam_validators
+                .iter()
+                .map(|v| v.validator_pubkey.clone())
+                .collect(),
+        ))
     }
 
     pub async fn get_mev_rewards(&self) -> Result<u64> {

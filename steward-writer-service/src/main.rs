@@ -335,9 +335,9 @@ async fn process_transactions(
                     {
                         Ok(Some(event)) => events.push(event),
                         Ok(None) => {}
-                        Err(e) => error!(
-                            "Failed to parse log message signature={signature:?}: {e:#}"
-                        ),
+                        Err(e) => {
+                            error!("Failed to parse log message signature={signature:?}: {e:#}")
+                        }
                     }
                 }
             }

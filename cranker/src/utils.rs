@@ -262,7 +262,10 @@ pub async fn parallel_execute_stake_pool_update(
         no_merge,
     );
 
-    info!("update_list_instructions={}", update_list_instructions.len());
+    info!(
+        "update_list_instructions={}",
+        update_list_instructions.len()
+    );
     info!("final_instructions={}", final_instructions.len());
 
     // Priority fee constants
@@ -398,7 +401,10 @@ pub async fn simulate_transaction(
         .await?
         .value;
     if result.err.is_some() {
-        error!("Simulation failed err={:?} logs={:?}", result.err, result.logs);
+        error!(
+            "Simulation failed err={:?} logs={:?}",
+            result.err, result.logs
+        );
     } else {
         info!("Simulation succeeded");
     }

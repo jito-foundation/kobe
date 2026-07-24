@@ -135,7 +135,7 @@ fn main() -> Result<()> {
         match mode {
             Commands::Live => {
                 if let Err(e) = kobe_service.run_live_mode().await {
-                    error!("Live mode failed. Error: {e:?}");
+                    error!("Live mode failed: {e:#}");
                 }
             }
             Commands::Backfill(backfill_args) => {
@@ -144,7 +144,7 @@ fn main() -> Result<()> {
                 } = backfill_args;
 
                 if let Err(e) = kobe_service.run_backfill_mode(backfill_epoch).await {
-                    error!("Backfill failed. Error: {e:?}");
+                    error!("Backfill failed: {e:#}");
                 }
             }
         }

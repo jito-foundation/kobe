@@ -128,12 +128,12 @@ async fn main() -> anyhow::Result<()> {
                     if progress >= threshold && !thresholds_hit.contains(&idx) {
                         let threshold_pct = threshold * 100.0;
 
-                        info!("Reached {threshold_pct:.0}% threshold for epoch {current_epoch}");
+                        info!("Reached epoch progress threshold_pct={threshold_pct:.0} epoch={current_epoch}");
 
                         match bam_writer_service.run().await {
                             Ok(()) => {
                                 info!(
-                                    "Successfully processed at {threshold_pct:.0}% of epoch {current_epoch}"
+                                    "BAM writer run succeeded threshold_pct={threshold_pct:.0} epoch={current_epoch}"
                                 );
                                 thresholds_hit.insert(idx);
 
@@ -147,7 +147,7 @@ async fn main() -> anyhow::Result<()> {
                             }
                             Err(e) => {
                                 error!(
-                                    "Error processing at {threshold_pct:.0}% of epoch {current_epoch}: {e}"
+                                    "BAM writer run failed threshold_pct={threshold_pct:.0} epoch={current_epoch}: {e:#}"
                                 );
 
                                 datapoint_info!(

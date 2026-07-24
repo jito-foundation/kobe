@@ -161,7 +161,7 @@ pub async fn parallel_execute_transactions(
                         }
                         Some(_) | None => {
                             // If the transaction failed for any other reason, log the error but don't try to resubmit
-                            error!("Transaction failed preflight with err: {e:?}");
+                            error!("Transaction failed preflight: {e:#}");
                         }
                     },
                 }
@@ -196,7 +196,7 @@ pub async fn parallel_execute_transactions(
         }
 
         info!(
-            "{} transactions submitted, {} confirmed",
+            "transactions submitted={} confirmed={}",
             results.len(),
             results.len() - executed_signatures.len()
         );
@@ -263,10 +263,10 @@ pub async fn parallel_execute_stake_pool_update(
     );
 
     info!(
-        "Update list instructions len: {}",
+        "update_list_instructions={}",
         update_list_instructions.len()
     );
-    info!("Final instructions len: {}", final_instructions.len());
+    info!("final_instructions={}", final_instructions.len());
 
     // Priority fee constants
     const INITIAL_PRIORITY_FEE: u64 = 10_000;
@@ -290,7 +290,7 @@ pub async fn parallel_execute_stake_pool_update(
     if let Err(e) =
         parallel_execute_transactions(update_list_transactions_prio_fee, config, 250).await
     {
-        error!("Failed to submit update list transactions with initial priority fee: {e:?}");
+        error!("Failed to submit update list transactions with initial priority fee: {e:#}");
         info!("Retrying with higher priority fee");
 
         let update_list_transactions_prio_fee: Vec<Vec<Instruction>> = update_list_instructions
@@ -322,7 +322,7 @@ pub async fn parallel_execute_stake_pool_update(
             .map_err(|e| anyhow!("{e}"))?;
 
     if let Err(e) = retry_send_transaction(config, &transaction, 250).await {
-        error!("Final transaction failed with initial priority fee: {e:?}");
+        error!("Final transaction failed with initial priority fee: {e:#}");
         info!("Retrying with high priority fee");
 
         let mut final_instructions_prio_fee = vec![
@@ -372,7 +372,7 @@ pub async fn send_transaction(
                 return Ok(());
             }
             Ok(Some(Err(e))) => {
-                error!("Transaction failed: {signature} {e:?}");
+                error!("Transaction failed signature={signature}: {e:#}");
                 return Err(e.into());
             }
             Ok(None) => {
@@ -401,10 +401,12 @@ pub async fn simulate_transaction(
         .await?
         .value;
     if result.err.is_some() {
-        error!("Err: {:?}", result.err);
-        error!("{:?}", result.logs);
+        error!(
+            "Simulation failed err={:?} logs={:?}",
+            result.err, result.logs
+        );
     } else {
-        info!("Ok");
+        info!("Simulation succeeded");
     }
     Ok(())
 }
@@ -427,7 +429,7 @@ pub async fn retry_send_transaction(
         if result.is_ok() {
             return result;
         } else {
-            error!("Hit error {result:?}");
+            error!("Transaction send failed: {result:#?}");
         }
     }
     result

@@ -12,7 +12,7 @@ use jito_steward::{
 };
 use kobe_core::db_models::steward_events::{StewardEvent, StewardEventsStore};
 use kobe_core::rpc_utils::{retry_get_slot, retry_get_transactions};
-use log::{debug, error, info};
+use log::{debug, error, info, warn};
 use mongodb::{Client, Collection};
 use solana_client::{
     nonblocking::rpc_client::RpcClient, rpc_client::GetConfirmedSignaturesForAddress2Config,
@@ -99,7 +99,7 @@ async fn main() {
 
     match args.command {
         Commands::Listen => {
-            info!("Listening for new events");
+            info!("Listening for new steward events");
             let polling_duration = Duration::from_secs(300); // Configurable polling duration (5 mins)
             loop {
                 if let Err(e) = listen(
@@ -113,7 +113,7 @@ async fn main() {
                 )
                 .await
                 {
-                    error!("Error in listen loop: {e:?}");
+                    error!("Listen loop failed: {e:#}");
                 }
             }
         }
@@ -121,14 +121,14 @@ async fn main() {
             start_slot,
             end_slot,
         } => {
-            info!("Backfilling events from slot {start_slot} to {end_slot:?}");
+            info!("Backfilling steward events start_slot={start_slot} end_slot={end_slot:?}");
             let end_slot = if let Some(end_slot) = end_slot {
                 end_slot
             } else {
                 match client.get_epoch_info().await {
                     Ok(epoch_info) => epoch_info.absolute_slot,
                     Err(e) => {
-                        info!("Error: {e:?}");
+                        error!("Failed to get current slot: {e:#}");
                         return;
                     }
                 }
@@ -146,7 +146,7 @@ async fn main() {
             )
             .await
             {
-                info!("Error: {e:?}");
+                error!("Historical transaction fetch failed: {e:#}");
             }
         }
     }
@@ -182,7 +182,7 @@ async fn listen(
             "cluster" => cluster_name,
         );
 
-        info!("Fetching new transactions since signature: {latest_signature}");
+        info!("Fetching new transactions since_signature={latest_signature}");
 
         let mut before = None;
 
@@ -203,7 +203,7 @@ async fn listen(
             {
                 Ok(signatures) => signatures,
                 Err(e) => {
-                    info!("Error fetching RPC signatures: {e}");
+                    warn!("Failed to fetch RPC signatures, retrying: {e:#}");
                     continue;
                 }
             };
@@ -244,7 +244,7 @@ async fn fetch_and_process_transactions(
 
     let transactions = retry_get_transactions(rpc_client, &transaction_signatures).await?;
 
-    info!("Fetched {} transactions from rpc", transactions.len());
+    info!("Fetched transactions count={}", transactions.len());
 
     let mut transaction_data = vec![];
     for tx in transactions.into_iter() {
@@ -278,7 +278,7 @@ async fn process_transactions(
     for (status, tx) in transactions.iter() {
         if tx.slot != status.slot {
             error!(
-                "Slot mismatch for signature {}: {} != {}",
+                "Slot mismatch signature={} tx_slot={} status_slot={}",
                 status.signature, tx.slot, status.slot
             );
         }
@@ -335,11 +335,9 @@ async fn process_transactions(
                     {
                         Ok(Some(event)) => events.push(event),
                         Ok(None) => {}
-                        Err(e) => error!(
-                            "Error parsing log message for transaction {:?}: {:?}",
-                            signature,
-                            e.to_string()
-                        ),
+                        Err(e) => {
+                            error!("Failed to parse log message signature={signature:?}: {e:#}")
+                        }
                     }
                 }
             }
@@ -348,11 +346,11 @@ async fn process_transactions(
 
     match dry_run {
         true => {
-            info!("upserting {events:#?}");
+            info!("Dry run upserting events count={}", events.len());
         }
         false => {
             if let Err(e) = store.bulk_upsert(events).await {
-                error!("Error inserting events: {e:?}");
+                error!("Failed to insert events: {e:#}");
             }
         }
     }
@@ -371,7 +369,7 @@ async fn fetch_historical_program_transactions(
     end_slot: u64,
     dry_run: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    info!("Backfilling transactions between slots {start_slot} and {end_slot}");
+    info!("Backfilling transactions start_slot={start_slot} end_slot={end_slot}");
     let mut before = None;
     let mut should_break = false;
 
@@ -390,7 +388,7 @@ async fn fetch_historical_program_transactions(
         {
             Ok(signatures) => signatures,
             Err(e) => {
-                info!("Error fetching RPC signatures: {e}");
+                warn!("Failed to fetch RPC signatures, retrying: {e:#}");
                 continue;
             }
         };
@@ -424,7 +422,7 @@ async fn fetch_historical_program_transactions(
         }
 
         info!(
-            "Processing {} transactions starting at slot {}",
+            "Processing transactions count={} start_slot={}",
             valid_signatures.len(),
             valid_signatures[0].slot
         );

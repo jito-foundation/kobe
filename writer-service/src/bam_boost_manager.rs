@@ -88,13 +88,13 @@ impl BamBoostManager {
             "https://storage.googleapis.com/jito-bam-boost/{network}/{epoch}/merkle_tree.json",
         );
 
-        log::info!("Fetching merkle tree from: {url}");
+        log::info!("Fetching bam boost merkle tree url={url}");
 
         // Download the merkle tree JSON from GCS
         let response = match reqwest::get(&url).await {
             Ok(resp) => resp,
             Err(e) => {
-                log::error!("Failed to fetch merkle tree: {e}");
+                log::error!("Failed to fetch bam boost merkle tree url={url}: {e:#}");
                 return Err(AppError::FileNotFound(
                     "Failed to fetch merkle tree ({url}: {e}".to_string(),
                 ));
@@ -102,14 +102,17 @@ impl BamBoostManager {
         };
 
         if !response.status().is_success() {
-            log::error!("Merkle tree not found: status {}", response.status());
+            log::error!(
+                "Bam boost merkle tree not found url={url} status={}",
+                response.status()
+            );
             return Err(AppError::InvalidOperation(format!(
                 "Merkle tree not found for network {network} epoch {epoch}",
             )));
         }
 
         let response_json: Vec<BamBoostEntry> = response.json().await.map_err(|e| {
-            log::error!("Failed to parse merkle tree JSON: {e}");
+            log::error!("Failed to parse bam boost merkle tree JSON url={url}: {e:#}");
             AppError::InvalidOperation(format!(
                 "Failed to parse merkle tree JSON for network {network} epoch {epoch}: {e}",
             ))
@@ -175,7 +178,7 @@ impl BamBoostManager {
                     }
                 }
                 Err(e) => {
-                    log::info!("Skip fetching bam boost merkle tree {epoch}: {e}");
+                    log::warn!("Skipping bam boost merkle tree fetch epoch={epoch}: {e:#}");
                 }
             }
         }

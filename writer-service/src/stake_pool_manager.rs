@@ -171,7 +171,7 @@ impl StakePoolManager {
             total_network_staked_lamports: Some(fetch_total_staked_lamports(&vote_accounts)),
         };
 
-        info!("Done writing stats: {stats:#?}");
+        info!("Stake pool stats written epoch={}", stats.epoch);
 
         Ok(stats)
     }

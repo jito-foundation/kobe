@@ -48,14 +48,14 @@ async fn update_stake_pool(config: &Config, epoch: Epoch) -> anyhow::Result<()> 
     let slack_message = match &result {
         Ok(()) => "Cranker has successfully run Stake Pool Update",
         Err(e) => {
-            error!("Cranker failed to update, {e:?}");
+            error!("Cranker failed to update: {e:#}");
             "Cranker failed to update. Please manually run stake pool update"
         }
     };
 
     // Fire-and-forget Slack notification (don't fail the function if Slack fails)
     if let Err(e) = post_slack_message(config.slack_api_token.clone(), slack_message) {
-        warn!("Slack message failed to post, {e:?}");
+        warn!("Slack message failed to post: {e:#}");
     }
 
     result
@@ -80,7 +80,7 @@ async fn wait_for_epoch_rewards_completion(config: &Config) -> anyhow::Result<()
                 tokio::time::sleep(POLL_INTERVAL).await;
             }
             Err(e) => {
-                warn!("Failed to check epoch rewards status: {e:?}, retrying...");
+                warn!("Failed to check epoch rewards status, retrying: {e:#}");
                 tokio::time::sleep(POLL_INTERVAL).await;
             }
         }

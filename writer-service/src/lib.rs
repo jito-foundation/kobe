@@ -182,7 +182,7 @@ impl KobeWriterService {
                         datapoint_info!("bam_snapshot_written", ("success", 1, i64), "cluster" => self.cluster.to_string());
                     }
                     Err(e) => {
-                        error!("Writing BAM snapshot failed. Error: {e:?}");
+                        error!("Writing BAM snapshot failed: {e:#}");
                         datapoint_info!("bam_snapshot_written", ("success", 0, i64), "cluster" => self.cluster.to_string());
                     }
                 }
@@ -205,7 +205,7 @@ impl KobeWriterService {
                         datapoint_info!("stake_pool_stats_written", ("success", 1, i64), "cluster" => self.cluster.to_string());
                     }
                     Err(e) => {
-                        error!("Writing stake pool stats failed. Error: {e:?}");
+                        error!("Writing stake pool stats failed: {e:#}");
                         datapoint_info!("stake_pool_stats_written", ("success", 0, i64), "cluster" => self.cluster.to_string());
                     }
                 }
@@ -216,7 +216,7 @@ impl KobeWriterService {
                         datapoint_info!("bam_boost_stats_written", ("success", 1, i64), "cluster" => self.cluster.to_string());
                     }
                     Err(e) => {
-                        error!("Writing BAM Boost stats failed. Error: {e:?}");
+                        error!("Writing BAM Boost stats failed: {e:#}");
                         datapoint_info!("bam_boost_stats_written", ("success", 0, i64), "cluster" => self.cluster.to_string());
                     }
                 }
@@ -242,7 +242,7 @@ impl KobeWriterService {
         )
         .await
         .map_err(|e| {
-            error!("Writing MEV claims failed. Error: {e:?}");
+            error!("Writing MEV claims failed: {e:#}");
             e
         })?;
         Ok(())
@@ -268,7 +268,7 @@ impl KobeWriterService {
             }
             Err(e) => {
                 datapoint_info!("validator_stats_written", ("success", 0, i64), "cluster" => self.cluster.to_string());
-                error!("Writing validator info failed: {e:?}");
+                error!("Writing validator info failed: {e:#}");
             }
         }
 
@@ -287,7 +287,7 @@ impl KobeWriterService {
             }
             Err(e) => {
                 datapoint_info!("mev_claims_written", ("success", 0, i64), "cluster" => self.cluster.to_string());
-                error!("Writing MEV claims failed: {e:?}");
+                error!("Writing MEV claims failed: {e:#}");
             }
         }
 

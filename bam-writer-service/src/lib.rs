@@ -106,7 +106,7 @@ impl BamWriterService {
 
         if let Some(ref overrides) = override_eligible_validators {
             log::info!(
-                "Using override eligible validators ({} pubkeys): {:?}",
+                "Using override eligible validators count={} validators={:?}",
                 overrides.len(),
                 overrides
             );
@@ -114,8 +114,7 @@ impl BamWriterService {
 
         if let Some(delegation) = override_delegation_lamports {
             log::info!(
-                "Using override delegation amount: {} lamports ({:.2} SOL)",
-                delegation,
+                "Using override delegation amount lamports={delegation} sol={:.2}",
                 delegation as f64 / 1_000_000_000.0
             );
         }
@@ -191,10 +190,9 @@ impl BamWriterService {
                     Ok(vote_account) => vote_account,
                     Err(err) => {
                         log::warn!(
-                            "Skipping historical BAM validator with invalid vote account {} at epoch {}: {}",
+                            "Skipping historical BAM validator with invalid vote account vote_account={} epoch={}: {err:#}",
                             validator.get_vote_account(),
                             epoch,
-                            err
                         );
                         continue;
                     }
@@ -231,7 +229,7 @@ impl BamWriterService {
         {
             // Override mode: use hardcoded list of vote account pubkeys
             log::info!(
-                "Using override eligible validators ({} pubkeys)",
+                "Using override eligible validators count={}",
                 override_validators.len()
             );
 
@@ -259,7 +257,7 @@ impl BamWriterService {
                     validators.push(bam_validator);
                 } else {
                     log::warn!(
-                        "Override validator {} not found in current vote accounts",
+                        "Override validator not found in current vote accounts vote_pubkey={}",
                         vote_pubkey
                     );
                 }
@@ -434,8 +432,7 @@ impl BamWriterService {
         {
             // Override mode: use hardcoded delegation amount
             log::info!(
-                "Using override delegation: {} lamports ({:.2} SOL)",
-                override_delegation,
+                "Using override delegation lamports={override_delegation} sol={:.2}",
                 override_delegation as f64 / 1_000_000_000.0
             );
 

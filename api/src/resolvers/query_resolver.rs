@@ -58,8 +58,10 @@ use crate::{
         },
         steward_events::{StewardEvent, StewardEventsRequest, StewardEventsResponse},
         validator::{
-            AverageMevCommissionOverTimeResponse, JitoStakeOverTimeResponse,
-            ValidatorByVoteAccountResponse, ValidatorEntry, ValidatorsRequest, ValidatorsResponse,
+            AverageMevCommissionOverTimeResponse, JitoSolValidatorStakeHistoryEntry,
+            JitoSolValidatorStakeHistoryRequest, JitoSolValidatorStakeHistoryResponse,
+            JitoStakeOverTimeResponse, ValidatorByVoteAccountResponse, ValidatorEntry,
+            ValidatorsRequest, ValidatorsResponse,
         },
         validator_history::{EpochQuery, ValidatorHistoryEntryResponse, ValidatorHistoryResponse},
     },
@@ -215,6 +217,33 @@ pub async fn jitosol_validators_cacheable_wrapper(
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(ValidatorsResponse::default()),
         )
+    }
+}
+
+#[cached(
+    type = "TimedCache<String, (StatusCode, Json<JitoSolValidatorStakeHistoryResponse>)>",
+    create = "{ TimedCache::with_lifespan_and_capacity(60, 1000) }",
+    key = "String",
+    convert = r#"{ format!("jitosol-validator-stake-history-{}-{}-{}", vote_account, req.start_epoch.map(|e| e.to_string()).unwrap_or_default(), req.end_epoch.map(|e| e.to_string()).unwrap_or_default()) }"#
+)]
+pub async fn jitosol_validator_stake_history_cacheable_wrapper(
+    resolver: Extension<QueryResolver>,
+    vote_account: String,
+    req: JitoSolValidatorStakeHistoryRequest,
+) -> (StatusCode, Json<JitoSolValidatorStakeHistoryResponse>) {
+    match resolver
+        .get_jitosol_validator_stake_history(&vote_account, &req)
+        .await
+    {
+        Ok(res) => (StatusCode::OK, Json(res)),
+        Err(QueryResolverError::InvalidRequest(_)) => (
+            StatusCode::BAD_REQUEST,
+            Json(JitoSolValidatorStakeHistoryResponse::default()),
+        ),
+        Err(_) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(JitoSolValidatorStakeHistoryResponse::default()),
+        ),
     }
 }
 
@@ -837,6 +866,45 @@ impl QueryResolver {
         };
 
         Ok(response)
+    }
+
+    /// Per-epoch JitoSOL stake-pool delegation for a single validator. Same source as
+    /// `jito_sol_active_lamports` in [`Self::get_jitosol_validators`], but read straight
+    /// from the validator records so one call covers the whole history.
+    pub async fn get_jitosol_validator_stake_history(
+        &self,
+        vote_account: &str,
+        req: &JitoSolValidatorStakeHistoryRequest,
+    ) -> Result<JitoSolValidatorStakeHistoryResponse> {
+        let vote_account = Pubkey::from_str(vote_account)
+            .map_err(|e| QueryResolverError::InvalidRequest(e.to_string()))?
+            .to_string();
+
+        if let (Some(start_epoch), Some(end_epoch)) = (req.start_epoch, req.end_epoch) {
+            if start_epoch > end_epoch {
+                return Err(QueryResolverError::InvalidRequest(
+                    "start_epoch must not be greater than end_epoch".to_string(),
+                ));
+            }
+        }
+
+        let history = self
+            .validator_store
+            .find_by_vote_account(&vote_account, req.start_epoch, req.end_epoch)
+            .await?
+            .into_iter()
+            .map(|v| JitoSolValidatorStakeHistoryEntry {
+                epoch: v.epoch,
+                jito_sol_active_lamports: v
+                    .target_pool_staked
+                    .then_some(v.target_pool_active_lamports),
+            })
+            .collect();
+
+        Ok(JitoSolValidatorStakeHistoryResponse {
+            vote_account,
+            history,
+        })
     }
 
     pub async fn get_validator(

@@ -880,14 +880,6 @@ impl QueryResolver {
             .map_err(|e| QueryResolverError::InvalidRequest(e.to_string()))?
             .to_string();
 
-        if let (Some(start_epoch), Some(end_epoch)) = (req.start_epoch, req.end_epoch) {
-            if start_epoch > end_epoch {
-                return Err(QueryResolverError::InvalidRequest(
-                    "start_epoch must not be greater than end_epoch".to_string(),
-                ));
-            }
-        }
-
         let history = self
             .validator_store
             .find_by_vote_account(&vote_account, req.start_epoch, req.end_epoch)

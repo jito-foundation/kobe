@@ -73,14 +73,14 @@ pub async fn checked_transaction_with_signers<S: Signers>(
     Ok(transaction)
 }
 
-async fn get_latest_blockhash(client: &RpcClient) -> Result<Hash, ClientError> {
+async fn get_latest_blockhash(client: &RpcClient) -> Result<Hash, Box<ClientError>> {
     Ok(client
         .get_latest_blockhash_with_commitment(CommitmentConfig::finalized())
         .await?
         .0)
 }
 
-async fn get_latest_blockhash_with_retry(client: &RpcClient) -> Result<Hash, ClientError> {
+async fn get_latest_blockhash_with_retry(client: &RpcClient) -> Result<Hash, Box<ClientError>> {
     let mut result;
     for _ in 1..4 {
         result = client
@@ -347,7 +347,7 @@ pub async fn parallel_execute_stake_pool_update(
 pub async fn send_transaction(
     config: &Config,
     transaction: Transaction,
-) -> solana_client::client_error::Result<()> {
+) -> Result<(), Box<ClientError>> {
     let signature = config
         .rpc_client
         .send_transaction_with_config(
@@ -373,28 +373,30 @@ pub async fn send_transaction(
             }
             Ok(Some(Err(e))) => {
                 error!("Transaction failed: {signature} {e:?}");
-                return Err(e.into());
+                return Err(Box::new(e.into()));
             }
             Ok(None) => {
                 // Transaction not yet confirmed
             }
             Err(e) => {
                 error!("Failed to get signature status: {e}");
-                return Err(e);
+                return Err(Box::new(e));
             }
         }
     }
 
-    Err(solana_rpc_client_api::client_error::ErrorKind::Custom(
-        "Transaction not confirmed".to_string(),
-    )
-    .into())
+    Err(Box::new(
+        solana_rpc_client_api::client_error::ErrorKind::Custom(
+            "Transaction not confirmed".to_string(),
+        )
+        .into(),
+    ))
 }
 
 pub async fn simulate_transaction(
     config: &Config,
     transaction: Transaction,
-) -> solana_client::client_error::Result<()> {
+) -> Result<(), Box<ClientError>> {
     let result = config
         .rpc_client
         .simulate_transaction(&transaction)
@@ -413,11 +415,11 @@ pub async fn retry_send_transaction(
     config: &Config,
     transaction: &Transaction,
     retry: u16,
-) -> solana_client::client_error::Result<()> {
+) -> Result<(), Box<ClientError>> {
     if config.dry_run {
         return Ok(());
     }
-    let mut result: solana_client::client_error::Result<()> = Ok(());
+    let mut result: Result<(), Box<ClientError>> = Ok(());
     for _ in 1..retry {
         result = if config.simulate {
             simulate_transaction(config, transaction.clone()).await

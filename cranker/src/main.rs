@@ -43,11 +43,22 @@ async fn update_stake_pool(config: &Config, epoch: Epoch) -> anyhow::Result<()> 
     wait_for_epoch_rewards_completion(config).await?;
 
     // Execute stake pool update and send notification
-    let result = parallel_execute_stake_pool_update(config, epoch, true, false).await;
+    let mut no_merge = false;
+    let mut result = parallel_execute_stake_pool_update(config, epoch, true, no_merge).await;
 
-    let slack_message = match &result {
-        Ok(()) => "Cranker has successfully run Stake Pool Update",
-        Err(e) => {
+    if let Err(e) = &result {
+        error!("Cranker failed to update with merging enabled, {e:?}. Retrying with no_merge");
+        no_merge = true;
+        result = parallel_execute_stake_pool_update(config, epoch, true, no_merge).await;
+    }
+
+    let slack_message = match (&result, no_merge) {
+        (Ok(()), false) => "Cranker has successfully run Stake Pool Update",
+        (Ok(()), true) => {
+            "Cranker has successfully run Stake Pool Update with no_merge after the first \
+             attempt failed. Transient stake accounts were not merged"
+        }
+        (Err(e), _) => {
             error!("Cranker failed to update, {e:?}");
             "Cranker failed to update. Please manually run stake pool update"
         }

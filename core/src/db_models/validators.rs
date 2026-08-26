@@ -174,6 +174,18 @@ pub struct TotalStakeDbResult {
     pub total_stake_lamports: u64,
 }
 
+/// Projection of a validator record down to its JitoSOL pool stake. Read through this
+/// rather than [`Validator`] so records written before the pool fields existed still
+/// deserialize (they read as "not staked" instead of failing the whole query).
+#[derive(Debug, Deserialize)]
+pub struct ValidatorPoolStake {
+    pub epoch: u64,
+    #[serde(default)]
+    pub target_pool_active_lamports: u64,
+    #[serde(default)]
+    pub target_pool_staked: bool,
+}
+
 impl ValidatorStore {
     pub const COLLECTION: &'static str = VALIDATOR_COLLECTION_NAME;
 
@@ -216,14 +228,14 @@ impl ValidatorStore {
         Ok(validators_map.into_values().collect::<Vec<Validator>>())
     }
 
-    /// All epoch entries for one validator, ascending by epoch, optionally bounded to
-    /// `[start_epoch, end_epoch]`. There is one document per (epoch, vote_account).
-    pub async fn find_by_vote_account(
+    /// JitoSOL pool stake for one validator at every epoch on record, ascending, optionally
+    /// bounded to `[start_epoch, end_epoch]`. There is one document per (epoch, vote_account).
+    pub async fn find_pool_stake_by_vote_account(
         &self,
         vote_account: &str,
         start_epoch: Option<u64>,
         end_epoch: Option<u64>,
-    ) -> Result<Vec<Validator>, DataStoreError> {
+    ) -> Result<Vec<ValidatorPoolStake>, DataStoreError> {
         let mut filter = doc! { "vote_account": vote_account };
         let mut epoch_filter = doc! {};
         if let Some(start_epoch) = start_epoch {
@@ -236,8 +248,19 @@ impl ValidatorStore {
             filter.insert("epoch", epoch_filter);
         }
 
-        let find_options = FindOptions::builder().sort(doc! { "epoch": 1 }).build();
-        let cursor = self.collection.find(filter, find_options).await?;
+        let find_options = FindOptions::builder()
+            .sort(doc! { "epoch": 1 })
+            .projection(doc! {
+                "epoch": 1,
+                "target_pool_active_lamports": 1,
+                "target_pool_staked": 1,
+            })
+            .build();
+        let cursor = self
+            .collection
+            .clone_with_type::<ValidatorPoolStake>()
+            .find(filter, find_options)
+            .await?;
         Ok(cursor.try_collect().await?)
     }
 

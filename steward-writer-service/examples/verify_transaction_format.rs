@@ -49,10 +49,6 @@ struct Args {
     limit: usize,
 
     /// Check these signatures instead of sampling. Repeatable.
-    ///
-    /// Recent steward traffic is nearly all `Idle` cranks, which emit no
-    /// events; pass a known event-bearing signature (a `Rebalance`, say) to
-    /// exercise the log side too.
     #[arg(long = "signature")]
     signatures: Vec<Signature>,
 
@@ -70,7 +66,10 @@ async fn main() -> ExitCode {
     let rpc_client = RpcClient::new_with_commitment(args.rpc_url, CommitmentConfig::confirmed());
 
     let signatures = if args.signatures.is_empty() {
-        println!("Sampling up to {} transactions for {program_id}\n", args.limit);
+        println!(
+            "Sampling up to {} transactions for {program_id}\n",
+            args.limit
+        );
 
         let statuses = match rpc_client
             .get_signatures_for_address_with_config(
@@ -139,7 +138,9 @@ async fn main() -> ExitCode {
                 );
             }
             None => {
-                println!("  FAIL  {version:>7}  {instruction:<18}  no fee payer readable  {signature}");
+                println!(
+                    "  FAIL  {version:>7}  {instruction:<18}  no fee payer readable  {signature}"
+                );
                 unreadable.push((*signature, version));
             }
         }

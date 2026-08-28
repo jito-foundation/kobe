@@ -47,25 +47,15 @@ pub async fn retry_get_transactions(
     Ok(txes)
 }
 
-/// Config for fetching transactions we intend to read fields out of.
-///
-/// The encoding is load-bearing: `Json` has the node parse the message for us,
-/// whereas a binary encoding hands back a blob only a `bincode` decoder
-/// matching the transaction's version can read. This SDK predates v1, so asking
-/// for the parsed form is what keeps those transactions readable.
-fn transaction_config() -> RpcTransactionConfig {
-    RpcTransactionConfig {
-        commitment: CommitmentConfig::finalized().into(),
-        encoding: UiTransactionEncoding::Json.into(),
-        max_supported_transaction_version: Some(MAX_SUPPORTED_TRANSACTION_VERSION),
-    }
-}
-
 async fn get_signatures_internal(
     rpc_client: &RpcClient,
     transaction_signatures: &[Signature],
 ) -> Result<Vec<(Signature, EncodedConfirmedTransactionWithStatusMeta)>, Box<RpcError>> {
-    let config = transaction_config();
+    let config = RpcTransactionConfig {
+        commitment: CommitmentConfig::finalized().into(),
+        encoding: UiTransactionEncoding::Json.into(),
+        max_supported_transaction_version: Some(MAX_SUPPORTED_TRANSACTION_VERSION),
+    };
 
     let mut temp_txs = vec![];
     for signature in transaction_signatures.iter() {

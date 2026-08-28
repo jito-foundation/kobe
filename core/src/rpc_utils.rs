@@ -11,6 +11,14 @@ use tokio_retry::strategy::{jitter, FibonacciBackoff};
 use tokio_retry::Retry;
 
 pub const MAX_RPC_RETRIES: usize = 10;
+
+/// Highest transaction version we ask the RPC to return.
+///
+/// `getTransaction` fails outright with `UnsupportedTransactionVersion` when it
+/// is asked for a transaction newer than this, so it has to keep up with what
+/// the cluster can produce. v1 (SIMD-0296 / SIMD-0385) ships in Agave v4.2.
+pub const MAX_SUPPORTED_TRANSACTION_VERSION: u8 = 1;
+
 type RetryStrategy = Take<Map<FibonacciBackoff, fn(Duration) -> Duration>>;
 
 pub fn retry() -> RetryStrategy {
@@ -21,10 +29,16 @@ pub fn retry() -> RetryStrategy {
         .take(MAX_RPC_RETRIES)
 }
 
+/// Fetches each signature's transaction, paired with the signature it was
+/// requested for.
+///
+/// Returning the signature lets callers line results up with their own
+/// bookkeeping without decoding the transaction, which fails for any version
+/// the pinned SDK predates.
 pub async fn retry_get_transactions(
     rpc_client: &RpcClient,
     transaction_signatures: &[Signature],
-) -> Result<Vec<EncodedConfirmedTransactionWithStatusMeta>, Box<RpcError>> {
+) -> Result<Vec<(Signature, EncodedConfirmedTransactionWithStatusMeta)>, Box<RpcError>> {
     let txes = Retry::spawn(retry(), || {
         get_signatures_internal(rpc_client, transaction_signatures)
     })
@@ -36,11 +50,11 @@ pub async fn retry_get_transactions(
 async fn get_signatures_internal(
     rpc_client: &RpcClient,
     transaction_signatures: &[Signature],
-) -> Result<Vec<EncodedConfirmedTransactionWithStatusMeta>, Box<RpcError>> {
+) -> Result<Vec<(Signature, EncodedConfirmedTransactionWithStatusMeta)>, Box<RpcError>> {
     let config = RpcTransactionConfig {
         commitment: CommitmentConfig::finalized().into(),
         encoding: UiTransactionEncoding::Base64.into(),
-        max_supported_transaction_version: Some(0),
+        max_supported_transaction_version: Some(MAX_SUPPORTED_TRANSACTION_VERSION),
     };
 
     let mut temp_txs = vec![];
@@ -48,7 +62,7 @@ async fn get_signatures_internal(
         let tx = rpc_client
             .get_transaction_with_config(signature, config)
             .await?;
-        temp_txs.push(tx);
+        temp_txs.push((*signature, tx));
     }
     Ok(temp_txs)
 }

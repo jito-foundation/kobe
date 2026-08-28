@@ -18,10 +18,12 @@ use solana_client::{
     nonblocking::rpc_client::RpcClient, rpc_client::GetConfirmedSignaturesForAddress2Config,
     rpc_response::RpcConfirmedTransactionStatusWithSignature,
 };
-use solana_metrics::datapoint_info;
+use solana_metrics::{datapoint_error, datapoint_info};
 use solana_sdk::{
-    commitment_config::CommitmentConfig, pubkey::Pubkey, signature::Signature,
-    transaction::TransactionError,
+    commitment_config::CommitmentConfig,
+    pubkey::Pubkey,
+    signature::Signature,
+    transaction::{TransactionError, TransactionVersion},
 };
 use solana_transaction_status::{
     option_serializer::OptionSerializer, EncodedConfirmedTransactionWithStatusMeta,
@@ -143,6 +145,7 @@ async fn main() {
                 start_slot,
                 end_slot,
                 args.dry_run,
+                &args.cluster_name,
             )
             .await
             {
@@ -218,8 +221,15 @@ async fn listen(
                 .first()
                 .map(|status| Signature::from_str(&status.signature).unwrap());
 
-            fetch_and_process_transactions(rpc_client, &rpc_signatures, stake_pool, store, dry_run)
-                .await?;
+            fetch_and_process_transactions(
+                rpc_client,
+                &rpc_signatures,
+                stake_pool,
+                store,
+                dry_run,
+                cluster_name,
+            )
+            .await?;
         }
     }
 }
@@ -230,13 +240,8 @@ async fn fetch_and_process_transactions(
     stake_pool: &Pubkey,
     store: &StewardEventsStore,
     dry_run: bool,
-) -> Result<
-    Vec<(
-        RpcConfirmedTransactionStatusWithSignature,
-        EncodedConfirmedTransactionWithStatusMeta,
-    )>,
-    Box<dyn std::error::Error>,
-> {
+    cluster_name: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
     let transaction_signatures: Vec<Signature> = signatures
         .iter()
         .map(|status| Signature::from_str(&status.signature).unwrap())
@@ -246,23 +251,48 @@ async fn fetch_and_process_transactions(
 
     info!("Fetched {} transactions from rpc", transactions.len());
 
-    let mut transaction_data = vec![];
-    for tx in transactions.into_iter() {
-        let target_signature = if let Some(tx) = tx.transaction.transaction.decode() {
-            *tx.signatures.first().unwrap()
-        } else {
-            continue;
-        };
-        let transaction_status = signatures
-            .iter()
-            .find(|status| Signature::from_str(&status.signature).unwrap() == target_signature);
-        if let Some(status) = transaction_status {
-            transaction_data.push((status.clone(), tx));
-        }
-    }
-    process_transactions(&transaction_data, stake_pool, store, dry_run).await?;
+    let transaction_data = pair_with_statuses(signatures, transactions);
 
-    Ok(transaction_data)
+    process_transactions(&transaction_data, stake_pool, store, dry_run, cluster_name).await
+}
+
+/// Pairs fetched transactions back up with the signature statuses they came from.
+///
+/// `retry_get_transactions` returns one entry per requested signature in request
+/// order, so this is a positional zip. The equality check guards against
+/// attributing a transaction's events to the wrong signature if that ever stops
+/// holding.
+fn pair_with_statuses(
+    signatures: &[RpcConfirmedTransactionStatusWithSignature],
+    transactions: Vec<(Signature, EncodedConfirmedTransactionWithStatusMeta)>,
+) -> Vec<(
+    RpcConfirmedTransactionStatusWithSignature,
+    EncodedConfirmedTransactionWithStatusMeta,
+)> {
+    signatures
+        .iter()
+        .zip(transactions)
+        .filter_map(|(status, (signature, tx))| {
+            if status.signature != signature.to_string() {
+                error!(
+                    "Signature mismatch: requested {}, RPC returned {signature}",
+                    status.signature
+                );
+                return None;
+            }
+            Some((status.clone(), tx))
+        })
+        .collect()
+}
+
+/// Human-readable transaction version for diagnostics, including versions this
+/// SDK is too old to decode.
+fn describe_version(version: Option<&TransactionVersion>) -> String {
+    match version {
+        Some(TransactionVersion::Number(n)) => format!("v{n}"),
+        Some(TransactionVersion::Legacy(_)) => "legacy".to_string(),
+        None => "unknown-version".to_string(),
+    }
 }
 
 async fn process_transactions(
@@ -273,6 +303,7 @@ async fn process_transactions(
     stake_pool: &Pubkey,
     store: &StewardEventsStore,
     dry_run: bool,
+    cluster_name: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     // If the slot from `signatures` doesn't match the slot in `transactions`, print it out
     for (status, tx) in transactions.iter() {
@@ -308,7 +339,15 @@ async fn process_transactions(
                 }
             },
             None => {
-                error!("No transaction found in encoded transaction {signature}");
+                let version = describe_version(transaction.version.as_ref());
+                error!("Could not decode {version} transaction {signature}, skipping its events");
+                datapoint_error!(
+                    "steward_writer_service-undecodable_transaction",
+                    ("signature", signature.to_string(), String),
+                    ("version", version, String),
+                    ("slot", *slot as i64, i64),
+                    "cluster" => cluster_name,
+                );
                 continue;
             }
         };
@@ -362,6 +401,7 @@ async fn process_transactions(
 
 const NUM_TRANSACTIONS: usize = 1000;
 
+#[allow(clippy::too_many_arguments)]
 async fn fetch_historical_program_transactions(
     program_id: &Pubkey,
     rpc_client: &RpcClient,
@@ -370,6 +410,7 @@ async fn fetch_historical_program_transactions(
     start_slot: u64,
     end_slot: u64,
     dry_run: bool,
+    cluster_name: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     info!("Backfilling transactions between slots {start_slot} and {end_slot}");
     let mut before = None;
@@ -436,23 +477,9 @@ async fn fetch_historical_program_transactions(
 
         let transactions = retry_get_transactions(rpc_client, &transaction_signatures).await?;
 
-        // Align transactions with signatures
-        let mut transaction_data = vec![];
-        for tx in transactions.into_iter() {
-            let target_signature = if let Some(tx) = tx.transaction.transaction.decode() {
-                *tx.signatures.first().unwrap()
-            } else {
-                continue;
-            };
-            let transaction_status = valid_signatures
-                .iter()
-                .find(|status| Signature::from_str(&status.signature).unwrap() == target_signature);
-            if let Some(status) = transaction_status {
-                transaction_data.push((status.clone(), tx));
-            }
-        }
+        let transaction_data = pair_with_statuses(&valid_signatures, transactions);
 
-        process_transactions(&transaction_data, stake_pool, store, dry_run).await?;
+        process_transactions(&transaction_data, stake_pool, store, dry_run, cluster_name).await?;
 
         if should_break {
             break;

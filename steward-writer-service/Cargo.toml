@@ -22,3 +22,10 @@ solana-metrics = { workspace = true }
 solana-sdk = { workspace = true }
 solana-transaction-status = { workspace = true }
 tokio = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
+
+[[example]]
+name = "verify_transaction_format"
+path = "examples/verify_transaction_format.rs"

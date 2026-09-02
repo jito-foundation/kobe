@@ -3234,6 +3234,7 @@ dependencies = [
  "kobe-core",
  "log",
  "mongodb",
+ "serde_json",
  "solana-client",
  "solana-metrics",
  "solana-sdk",

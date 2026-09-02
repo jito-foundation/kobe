@@ -1,28 +1,19 @@
 use std::{str::FromStr, time::Duration};
 
-use anchor_client::handle_program_log;
 use clap::{Parser, Subcommand};
-use jito_steward::{
-    events::{
-        AutoAddValidatorEvent, AutoRemoveValidatorEvent, DecreaseComponents,
-        DirectedRebalanceEvent, EpochMaintenanceEvent, InstantUnstakeComponents, RebalanceEvent,
-        ScoreComponents, StateTransition,
-    },
-    score::{InstantUnstakeComponentsV3, ScoreComponentsV5},
-};
 use kobe_core::db_models::steward_events::{StewardEvent, StewardEventsStore};
 use kobe_core::rpc_utils::{retry_get_slot, retry_get_transactions};
+use kobe_steward_writer_service::{
+    describe_version, fee_payer, get_epoch_from_slot, pair_with_statuses, parse_log,
+};
 use log::{debug, error, info};
 use mongodb::{Client, Collection};
 use solana_client::{
     nonblocking::rpc_client::RpcClient, rpc_client::GetConfirmedSignaturesForAddress2Config,
     rpc_response::RpcConfirmedTransactionStatusWithSignature,
 };
-use solana_metrics::datapoint_info;
-use solana_sdk::{
-    commitment_config::CommitmentConfig, pubkey::Pubkey, signature::Signature,
-    transaction::TransactionError,
-};
+use solana_metrics::{datapoint_error, datapoint_info};
+use solana_sdk::{commitment_config::CommitmentConfig, pubkey::Pubkey, signature::Signature};
 use solana_transaction_status::{
     option_serializer::OptionSerializer, EncodedConfirmedTransactionWithStatusMeta,
 };
@@ -143,6 +134,7 @@ async fn main() {
                 start_slot,
                 end_slot,
                 args.dry_run,
+                &args.cluster_name,
             )
             .await
             {
@@ -218,8 +210,15 @@ async fn listen(
                 .first()
                 .map(|status| Signature::from_str(&status.signature).unwrap());
 
-            fetch_and_process_transactions(rpc_client, &rpc_signatures, stake_pool, store, dry_run)
-                .await?;
+            fetch_and_process_transactions(
+                rpc_client,
+                &rpc_signatures,
+                stake_pool,
+                store,
+                dry_run,
+                cluster_name,
+            )
+            .await?;
         }
     }
 }
@@ -230,13 +229,8 @@ async fn fetch_and_process_transactions(
     stake_pool: &Pubkey,
     store: &StewardEventsStore,
     dry_run: bool,
-) -> Result<
-    Vec<(
-        RpcConfirmedTransactionStatusWithSignature,
-        EncodedConfirmedTransactionWithStatusMeta,
-    )>,
-    Box<dyn std::error::Error>,
-> {
+    cluster_name: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
     let transaction_signatures: Vec<Signature> = signatures
         .iter()
         .map(|status| Signature::from_str(&status.signature).unwrap())
@@ -246,23 +240,9 @@ async fn fetch_and_process_transactions(
 
     info!("Fetched {} transactions from rpc", transactions.len());
 
-    let mut transaction_data = vec![];
-    for tx in transactions.into_iter() {
-        let target_signature = if let Some(tx) = tx.transaction.transaction.decode() {
-            *tx.signatures.first().unwrap()
-        } else {
-            continue;
-        };
-        let transaction_status = signatures
-            .iter()
-            .find(|status| Signature::from_str(&status.signature).unwrap() == target_signature);
-        if let Some(status) = transaction_status {
-            transaction_data.push((status.clone(), tx));
-        }
-    }
-    process_transactions(&transaction_data, stake_pool, store, dry_run).await?;
+    let transaction_data = pair_with_statuses(signatures, transactions);
 
-    Ok(transaction_data)
+    process_transactions(&transaction_data, stake_pool, store, dry_run, cluster_name).await
 }
 
 async fn process_transactions(
@@ -273,6 +253,7 @@ async fn process_transactions(
     stake_pool: &Pubkey,
     store: &StewardEventsStore,
     dry_run: bool,
+    cluster_name: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     // If the slot from `signatures` doesn't match the slot in `transactions`, print it out
     for (status, tx) in transactions.iter() {
@@ -299,16 +280,18 @@ async fn process_transactions(
 
         let EncodedConfirmedTransactionWithStatusMeta { transaction, .. } = encoded_tx_with_meta;
 
-        let signer: Pubkey = match transaction.transaction.decode() {
-            Some(tx) => match tx.message.static_account_keys().first() {
-                Some(signer) => *signer,
-                None => {
-                    error!("No signer found in transaction {signature}");
-                    continue;
-                }
-            },
+        let signer: Pubkey = match fee_payer(&transaction.transaction) {
+            Some(signer) => signer,
             None => {
-                error!("No transaction found in encoded transaction {signature}");
+                let version = describe_version(transaction.version.as_ref());
+                error!("No fee payer in {version} transaction {signature}, skipping its events");
+                datapoint_error!(
+                    "steward_writer_service-unreadable_transaction",
+                    ("signature", signature.to_string(), String),
+                    ("version", version, String),
+                    ("slot", *slot as i64, i64),
+                    "cluster" => cluster_name,
+                );
                 continue;
             }
         };
@@ -362,6 +345,7 @@ async fn process_transactions(
 
 const NUM_TRANSACTIONS: usize = 1000;
 
+#[allow(clippy::too_many_arguments)]
 async fn fetch_historical_program_transactions(
     program_id: &Pubkey,
     rpc_client: &RpcClient,
@@ -370,6 +354,7 @@ async fn fetch_historical_program_transactions(
     start_slot: u64,
     end_slot: u64,
     dry_run: bool,
+    cluster_name: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     info!("Backfilling transactions between slots {start_slot} and {end_slot}");
     let mut before = None;
@@ -436,23 +421,9 @@ async fn fetch_historical_program_transactions(
 
         let transactions = retry_get_transactions(rpc_client, &transaction_signatures).await?;
 
-        // Align transactions with signatures
-        let mut transaction_data = vec![];
-        for tx in transactions.into_iter() {
-            let target_signature = if let Some(tx) = tx.transaction.transaction.decode() {
-                *tx.signatures.first().unwrap()
-            } else {
-                continue;
-            };
-            let transaction_status = valid_signatures
-                .iter()
-                .find(|status| Signature::from_str(&status.signature).unwrap() == target_signature);
-            if let Some(status) = transaction_status {
-                transaction_data.push((status.clone(), tx));
-            }
-        }
+        let transaction_data = pair_with_statuses(&valid_signatures, transactions);
 
-        process_transactions(&transaction_data, stake_pool, store, dry_run).await?;
+        process_transactions(&transaction_data, stake_pool, store, dry_run, cluster_name).await?;
 
         if should_break {
             break;
@@ -461,205 +432,3 @@ async fn fetch_historical_program_transactions(
     Ok(())
 }
 
-#[allow(clippy::too_many_arguments)]
-async fn parse_log(
-    log: String,
-    signature: &Signature,
-    instruction_idx: u32,
-    signer: &Pubkey,
-    stake_pool: &Pubkey,
-    timestamp: Option<i64>,
-    transaction_err: Option<TransactionError>,
-    epoch: u64,
-    slot: u64,
-) -> Result<Option<StewardEvent>, Box<dyn std::error::Error>> {
-    // Parse the log
-    let program = jito_steward::id().to_string();
-    let tx_error = transaction_err.map(|e| e.to_string());
-
-    // DecreaseComponents
-    if let Ok((Some(event), _, _)) = handle_program_log::<DecreaseComponents>(&program, &log) {
-        let steward_event = StewardEvent::from_decrease_components(
-            event,
-            signature,
-            instruction_idx,
-            tx_error,
-            epoch,
-            signer,
-            stake_pool,
-            timestamp,
-            slot,
-        );
-        return Ok(Some(steward_event));
-    }
-
-    // InstantUnstakeComponents
-    if let Ok((Some(event), _, _)) = handle_program_log::<InstantUnstakeComponents>(&program, &log)
-    {
-        let steward_event = StewardEvent::from_instant_unstake_components(
-            event,
-            signature,
-            instruction_idx,
-            tx_error,
-            signer,
-            stake_pool,
-            timestamp,
-            slot,
-        );
-        return Ok(Some(steward_event));
-    }
-
-    // InstantUnstakeComponentsV3
-    if let Ok((Some(event), _, _)) =
-        handle_program_log::<InstantUnstakeComponentsV3>(&program, &log)
-    {
-        let steward_event = StewardEvent::from_instant_unstake_components_v3(
-            event,
-            signature,
-            instruction_idx,
-            tx_error,
-            signer,
-            stake_pool,
-            timestamp,
-            slot,
-        );
-        return Ok(Some(steward_event));
-    }
-
-    // RebalanceEvent
-    if let Ok((Some(event), _, _)) = handle_program_log::<RebalanceEvent>(&program, &log) {
-        let steward_event = StewardEvent::from_rebalance_event(
-            event,
-            signature,
-            instruction_idx,
-            tx_error,
-            signer,
-            stake_pool,
-            timestamp,
-            slot,
-        );
-        return Ok(Some(steward_event));
-    }
-
-    // DirectedRebalanceEvent
-    if let Ok((Some(event), _, _)) = handle_program_log::<DirectedRebalanceEvent>(&program, &log) {
-        let steward_event = StewardEvent::from_directed_rebalance_event(
-            event,
-            signature,
-            instruction_idx,
-            tx_error,
-            signer,
-            stake_pool,
-            timestamp,
-            slot,
-        );
-        return Ok(Some(steward_event));
-    }
-
-    // ScoreComponents
-    if let Ok((Some(event), _, _)) = handle_program_log::<ScoreComponents>(&program, &log) {
-        let steward_event = StewardEvent::from_score_components(
-            event,
-            signature,
-            instruction_idx,
-            tx_error,
-            signer,
-            stake_pool,
-            timestamp,
-            slot,
-        );
-        return Ok(Some(steward_event));
-    }
-
-    // ScoreComponentsV5
-    if let Ok((Some(event), _, _)) = handle_program_log::<ScoreComponentsV5>(&program, &log) {
-        let steward_event = StewardEvent::from_score_components_v5(
-            event,
-            signature,
-            instruction_idx,
-            tx_error,
-            signer,
-            stake_pool,
-            timestamp,
-            slot,
-        );
-        return Ok(Some(steward_event));
-    }
-
-    // StateTransition
-    if let Ok((Some(event), _, _)) = handle_program_log::<StateTransition>(&program, &log) {
-        let steward_event = StewardEvent::from_state_transition(
-            event,
-            signature,
-            instruction_idx,
-            tx_error,
-            signer,
-            stake_pool,
-            timestamp,
-            slot,
-        );
-        return Ok(Some(steward_event));
-    }
-
-    // AutoRemoveValidatorEvent
-    if let Ok((Some(event), _, _)) =
-        handle_program_log::<AutoRemoveValidatorEvent>(&program.to_string(), &log)
-    {
-        let steward_event = StewardEvent::from_auto_remove_validator_event(
-            event,
-            signature,
-            instruction_idx,
-            tx_error,
-            signer,
-            stake_pool,
-            timestamp,
-            epoch,
-            slot,
-        );
-        return Ok(Some(steward_event));
-    }
-
-    // AutoAddValidatorEvent
-    if let Ok((Some(event), _, _)) =
-        handle_program_log::<AutoAddValidatorEvent>(&program.to_string(), &log)
-    {
-        let steward_event = StewardEvent::from_auto_add_validator_event(
-            event,
-            signature,
-            instruction_idx,
-            tx_error,
-            signer,
-            stake_pool,
-            timestamp,
-            epoch,
-            slot,
-        );
-        return Ok(Some(steward_event));
-    }
-
-    // EpochMaintenanceEvent
-    if let Ok((Some(event), _, _)) =
-        handle_program_log::<EpochMaintenanceEvent>(&program.to_string(), &log)
-    {
-        let steward_event = StewardEvent::from_epoch_maintenance_event(
-            event,
-            signature,
-            instruction_idx,
-            tx_error,
-            signer,
-            stake_pool,
-            timestamp,
-            epoch,
-            slot,
-        );
-        return Ok(Some(steward_event));
-    }
-
-    Ok(None)
-}
-
-fn get_epoch_from_slot(slot: u64) -> u64 {
-    // Calculate the epoch from the slot
-
-    slot / 432_000
-}

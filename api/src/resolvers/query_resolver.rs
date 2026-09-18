@@ -882,7 +882,7 @@ impl QueryResolver {
 
         let history = self
             .validator_store
-            .find_by_vote_account(&vote_account, req.start_epoch, req.end_epoch)
+            .find_pool_stake_by_vote_account(&vote_account, req.start_epoch, req.end_epoch)
             .await?
             .into_iter()
             .map(|v| JitoSolValidatorStakeHistoryEntry {

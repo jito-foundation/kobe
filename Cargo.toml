@@ -2,7 +2,6 @@
 resolver = "2"
 members = [
     "api",
-    "bam-writer-service",
     "client",
     "core",
     "cranker",

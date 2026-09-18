@@ -65,6 +65,30 @@ pub struct ValidatorsRequest {
     pub epoch: u64,
 }
 
+#[derive(Deserialize)]
+pub struct JitoSolValidatorStakeHistoryRequest {
+    pub start_epoch: Option<u64>,
+    pub end_epoch: Option<u64>,
+}
+
+#[derive(Default, Serialize, Deserialize, Clone)]
+pub struct JitoSolValidatorStakeHistoryResponse {
+    /// Vote account pubkey
+    pub vote_account: String,
+
+    /// One entry per epoch Kobe has a record for, ascending by epoch
+    pub history: Vec<JitoSolValidatorStakeHistoryEntry>,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct JitoSolValidatorStakeHistoryEntry {
+    pub epoch: u64,
+
+    /// Active stake lamports delegated to this validator from the JitoSOL stake-pool.
+    /// `null` when the validator was not in the pool's validator list that epoch.
+    pub jito_sol_active_lamports: Option<u64>,
+}
+
 impl std::fmt::Display for ValidatorsRequest {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.epoch)

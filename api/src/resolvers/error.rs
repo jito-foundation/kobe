@@ -28,5 +28,11 @@ pub enum QueryResolverError {
     ValidatorHistoryError(String),
 
     #[error("Jito Transaction Error: {0}")]
-    JitoTransactionError(#[from] JitoTransactionError),
+    JitoTransactionError(#[from] Box<JitoTransactionError>),
+}
+
+impl From<JitoTransactionError> for QueryResolverError {
+    fn from(value: JitoTransactionError) -> Self {
+        Self::JitoTransactionError(Box::new(value))
+    }
 }

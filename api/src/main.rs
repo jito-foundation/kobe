@@ -20,12 +20,12 @@ use kobe_api::{
         daily_mev_rewards_cacheable_wrapper, get_bam_boost_claim_wrapper,
         get_bam_boost_validators_wrapper, get_coinbase_balance_wrapper,
         get_validator_histories_wrapper, jito_stake_over_time_ratio_cacheable_wrapper,
-        jitosol_ratio_cacheable_wrapper, jitosol_validators_cacheable_wrapper,
-        mev_commission_average_over_time_cacheable_wrapper, mev_rewards_cacheable_wrapper,
-        preferred_withdraw_validator_list_cacheable_wrapper, stake_pool_stats_cacheable_wrapper,
-        staker_rewards_cacheable_wrapper, steward_events_cacheable_wrapper,
-        validator_by_vote_account_cacheable_wrapper, validator_rewards_cacheable_wrapper,
-        validators_cacheable_wrapper, QueryResolver,
+        jitosol_ratio_cacheable_wrapper, jitosol_validator_stake_history_cacheable_wrapper,
+        jitosol_validators_cacheable_wrapper, mev_commission_average_over_time_cacheable_wrapper,
+        mev_rewards_cacheable_wrapper, preferred_withdraw_validator_list_cacheable_wrapper,
+        stake_pool_stats_cacheable_wrapper, staker_rewards_cacheable_wrapper,
+        steward_events_cacheable_wrapper, validator_by_vote_account_cacheable_wrapper,
+        validator_rewards_cacheable_wrapper, validators_cacheable_wrapper, QueryResolver,
     },
     schemas::{
         bam_boost_validator::BamBoostValidatorsRequest,
@@ -35,7 +35,7 @@ use kobe_api::{
         preferred_withdraw::PreferredWithdrawRequest,
         stake_pool_stats::GetStakePoolStatsRequest,
         steward_events::StewardEventsRequest,
-        validator::ValidatorsRequest,
+        validator::{JitoSolValidatorStakeHistoryRequest, ValidatorsRequest},
         validator_history::EpochQuery,
     },
 };
@@ -101,6 +101,14 @@ async fn validator_by_vote_account_handler(
     resolver: Extension<QueryResolver>,
 ) -> impl IntoResponse {
     validator_by_vote_account_cacheable_wrapper(&vote_account, resolver).await
+}
+
+async fn jitosol_validator_stake_history_handler(
+    resolver: Extension<QueryResolver>,
+    Path(vote_account): Path<String>,
+    Query(request): Query<JitoSolValidatorStakeHistoryRequest>,
+) -> impl IntoResponse {
+    jitosol_validator_stake_history_cacheable_wrapper(resolver, vote_account, request).await
 }
 
 async fn mev_commission_average_over_time_handler(
@@ -354,6 +362,10 @@ async fn run_server(args: &Args) {
         .route(
             "/api/v1/validators/:vote_account",
             get(validator_by_vote_account_handler),
+        )
+        .route(
+            "/api/v1/jitosol_validators/:vote_account",
+            get(jitosol_validator_stake_history_handler),
         )
         .route(
             "/api/v1/mev_rewards",

@@ -24,7 +24,7 @@ pub fn retry() -> RetryStrategy {
 pub async fn retry_get_transactions(
     rpc_client: &RpcClient,
     transaction_signatures: &[Signature],
-) -> Result<Vec<EncodedConfirmedTransactionWithStatusMeta>, RpcError> {
+) -> Result<Vec<EncodedConfirmedTransactionWithStatusMeta>, Box<RpcError>> {
     let txes = Retry::spawn(retry(), || {
         get_signatures_internal(rpc_client, transaction_signatures)
     })
@@ -36,7 +36,7 @@ pub async fn retry_get_transactions(
 async fn get_signatures_internal(
     rpc_client: &RpcClient,
     transaction_signatures: &[Signature],
-) -> Result<Vec<EncodedConfirmedTransactionWithStatusMeta>, RpcError> {
+) -> Result<Vec<EncodedConfirmedTransactionWithStatusMeta>, Box<RpcError>> {
     let config = RpcTransactionConfig {
         commitment: CommitmentConfig::finalized().into(),
         encoding: UiTransactionEncoding::Base64.into(),
@@ -53,6 +53,8 @@ async fn get_signatures_internal(
     Ok(temp_txs)
 }
 
-pub async fn retry_get_slot(rpc_client: &RpcClient) -> Result<Slot, RpcError> {
-    Retry::spawn(retry(), || rpc_client.get_slot()).await
+pub async fn retry_get_slot(rpc_client: &RpcClient) -> Result<Slot, Box<RpcError>> {
+    Retry::spawn(retry(), || rpc_client.get_slot())
+        .await
+        .map_err(Box::new)
 }

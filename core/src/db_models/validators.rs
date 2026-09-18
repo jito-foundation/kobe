@@ -8,7 +8,12 @@ use std::{collections::HashMap, str::FromStr};
 
 use chrono::{serde::ts_seconds, DateTime, Utc};
 use futures::TryStreamExt;
-use mongodb::{bson, bson::doc, options::FindOneOptions, Collection};
+use mongodb::{
+    bson,
+    bson::doc,
+    options::{FindOneOptions, FindOptions},
+    Collection,
+};
 use serde::{Deserialize, Serialize};
 use solana_pubkey::Pubkey;
 
@@ -209,6 +214,31 @@ impl ValidatorStore {
         }
 
         Ok(validators_map.into_values().collect::<Vec<Validator>>())
+    }
+
+    /// All epoch entries for one validator, ascending by epoch, optionally bounded to
+    /// `[start_epoch, end_epoch]`. There is one document per (epoch, vote_account).
+    pub async fn find_by_vote_account(
+        &self,
+        vote_account: &str,
+        start_epoch: Option<u64>,
+        end_epoch: Option<u64>,
+    ) -> Result<Vec<Validator>, DataStoreError> {
+        let mut filter = doc! { "vote_account": vote_account };
+        let mut epoch_filter = doc! {};
+        if let Some(start_epoch) = start_epoch {
+            epoch_filter.insert("$gte", start_epoch as u32);
+        }
+        if let Some(end_epoch) = end_epoch {
+            epoch_filter.insert("$lte", end_epoch as u32);
+        }
+        if !epoch_filter.is_empty() {
+            filter.insert("epoch", epoch_filter);
+        }
+
+        let find_options = FindOptions::builder().sort(doc! { "epoch": 1 }).build();
+        let cursor = self.collection.find(filter, find_options).await?;
+        Ok(cursor.try_collect().await?)
     }
 
     pub async fn get_highest_epoch(&self) -> Result<u64, DataStoreError> {

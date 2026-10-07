@@ -6,7 +6,7 @@ use std::{
 
 use anchor_lang::AccountDeserialize;
 use axum::{http::StatusCode, Extension, Json};
-use cached::{proc_macro::cached, TimedCache};
+use cached::{proc_macro::cached, TimedSizedCache};
 use jito_bam_boost_merkle_tree::bam_boost_merkle_tree::BamBoostMerkleTree;
 use jito_steward::constants::MAX_VALIDATORS;
 use kobe_core::{
@@ -121,8 +121,8 @@ fn aggregate_mev_rewards(stats_entries: &[StakePoolStats]) -> u64 {
 // Cache with 60 second lifespan
 // If no request body, uses default, 7 days of data.
 #[cached(
-    type = "TimedCache<String, (StatusCode, Json<GetStakePoolStatsResponse>)>",
-    create = "{ TimedCache::with_lifespan_and_capacity(60, 1000) }",
+    type = "TimedSizedCache<String, (StatusCode, Json<GetStakePoolStatsResponse>)>",
+    create = "{ TimedSizedCache::with_size_and_lifespan(1000, 60) }",
     key = "String",
     convert = r#"{ format!("stake-pool-{}", stats_request.to_string()) }"#
 )]
@@ -142,8 +142,8 @@ pub async fn stake_pool_stats_cacheable_wrapper(
 
 // Cache with a 1 hour lifespan, using a fixed key since there's no varying input
 #[cached(
-    type = "TimedCache<String, (StatusCode, Json<AverageMevCommissionOverTimeResponse>)>",
-    create = "{ TimedCache::with_lifespan_and_capacity(3600, 100) }",
+    type = "TimedSizedCache<String, (StatusCode, Json<AverageMevCommissionOverTimeResponse>)>",
+    create = "{ TimedSizedCache::with_size_and_lifespan(100, 3600) }",
     key = "String",
     convert = r#"{ "running-mev-commission-all-time".to_string() }"#
 )]
@@ -161,8 +161,8 @@ pub async fn mev_commission_average_over_time_cacheable_wrapper(
 
 // Cache with a 1 hour lifespan, using a fixed key since there's no varying input
 #[cached(
-    type = "TimedCache<String, (StatusCode, Json<JitoStakeOverTimeResponse>)>",
-    create = "{ TimedCache::with_lifespan_and_capacity(3600, 100) }",
+    type = "TimedSizedCache<String, (StatusCode, Json<JitoStakeOverTimeResponse>)>",
+    create = "{ TimedSizedCache::with_size_and_lifespan(100, 3600) }",
     key = "String",
     convert = r#"{ "running-jito-stake-all-time".to_string() }"#
 )]
@@ -181,8 +181,8 @@ pub async fn jito_stake_over_time_ratio_cacheable_wrapper(
 // Cache with 60 second lifespan
 // If no request body, uses cache string "validators-", which stores most recent epoch results.
 #[cached(
-    type = "TimedCache<String, (StatusCode, Json<ValidatorsResponse>)>",
-    create = "{ TimedCache::with_lifespan_and_capacity(60, 1000) }",
+    type = "TimedSizedCache<String, (StatusCode, Json<ValidatorsResponse>)>",
+    create = "{ TimedSizedCache::with_size_and_lifespan(1000, 60) }",
     key = "String",
     convert = r#"{ format!("validators-{}", req.as_ref().map(|s| s.to_string()).unwrap_or_default()) }"#
 )]
@@ -201,8 +201,8 @@ pub async fn validators_cacheable_wrapper(
 }
 
 #[cached(
-    type = "TimedCache<String, (StatusCode, Json<ValidatorsResponse>)>",
-    create = "{ TimedCache::with_lifespan_and_capacity(60, 1000) }",
+    type = "TimedSizedCache<String, (StatusCode, Json<ValidatorsResponse>)>",
+    create = "{ TimedSizedCache::with_size_and_lifespan(1000, 60) }",
     key = "String",
     convert = r#"{ format!("jitosol-validators-{}", req.as_ref().map(|s| s.to_string()).unwrap_or_default()) }"#
 )]
@@ -221,8 +221,8 @@ pub async fn jitosol_validators_cacheable_wrapper(
 }
 
 #[cached(
-    type = "TimedCache<String, (StatusCode, Json<JitoSolValidatorStakeHistoryResponse>)>",
-    create = "{ TimedCache::with_lifespan_and_capacity(60, 1000) }",
+    type = "TimedSizedCache<String, (StatusCode, Json<JitoSolValidatorStakeHistoryResponse>)>",
+    create = "{ TimedSizedCache::with_size_and_lifespan(1000, 60) }",
     key = "String",
     convert = r#"{ format!("jitosol-validator-stake-history-{}-{}-{}", vote_account, req.start_epoch.map(|e| e.to_string()).unwrap_or_default(), req.end_epoch.map(|e| e.to_string()).unwrap_or_default()) }"#
 )]
@@ -248,8 +248,8 @@ pub async fn jitosol_validator_stake_history_cacheable_wrapper(
 }
 
 #[cached(
-    type = "TimedCache<String, (StatusCode, Json<Vec<ValidatorByVoteAccountResponse>>)>",
-    create = "{ TimedCache::with_lifespan_and_capacity(60, 1000) }",
+    type = "TimedSizedCache<String, (StatusCode, Json<Vec<ValidatorByVoteAccountResponse>>)>",
+    create = "{ TimedSizedCache::with_size_and_lifespan(1000, 60) }",
     key = "String",
     convert = r#"{ format!("validator-by-vote-account-{}", vote_account).to_string() }"#
 )]
@@ -265,8 +265,8 @@ pub async fn validator_by_vote_account_cacheable_wrapper(
 }
 
 #[cached(
-    type = "TimedCache<String, (StatusCode, Json<MevRewards>)>",
-    create = "{ TimedCache::with_lifespan_and_capacity(60, 1000) }",
+    type = "TimedSizedCache<String, (StatusCode, Json<MevRewards>)>",
+    create = "{ TimedSizedCache::with_size_and_lifespan(1000, 60) }",
     key = "String",
     convert = r#"{ format!("mev-rewards-{}", req.as_ref().map(|s| s.to_string()).unwrap_or_default()) }"#
 )]
@@ -285,8 +285,8 @@ pub async fn mev_rewards_cacheable_wrapper(
 }
 
 #[cached(
-    type = "TimedCache<String, (StatusCode, Json<Vec<Row>>)>",
-    create = "{ TimedCache::with_lifespan_and_capacity(3600, 10) }",
+    type = "TimedSizedCache<String, (StatusCode, Json<Vec<Row>>)>",
+    create = "{ TimedSizedCache::with_size_and_lifespan(10, 3600) }",
     key = "String",
     convert = r#"{ "daily-mev-rewards".to_string() }"#
 )]
@@ -299,9 +299,11 @@ pub async fn daily_mev_rewards_cacheable_wrapper() -> (StatusCode, Json<Vec<Row>
     }
 }
 
+// Paginated and filterable on several fields, so the key space is large and entries are
+// unbounded in row count; keep the entry cap low.
 #[cached(
-    type = "TimedCache<String, (StatusCode, Json<StewardEventsResponse>)>",
-    create = "{ TimedCache::with_lifespan_and_capacity(60, 1000) }",
+    type = "TimedSizedCache<String, (StatusCode, Json<StewardEventsResponse>)>",
+    create = "{ TimedSizedCache::with_size_and_lifespan(100, 60) }",
     key = "String",
     convert = r#"{ format!("steward-events-{}", req.to_string()) }"#
 )]
@@ -334,9 +336,11 @@ pub async fn steward_events_cacheable_wrapper(
     }
 }
 
+// Entries here can hold up to `ValidatorRewardsStore::MAX_LIMIT` (10k) rows each, so the
+// entry count is kept deliberately low to bound total bytes retained, not just key count.
 #[cached(
-    type = "TimedCache<String, (StatusCode, Json<ValidatorRewardsResponse>)>",
-    create = "{ TimedCache::with_lifespan_and_capacity(60, 1000) }",
+    type = "TimedSizedCache<String, (StatusCode, Json<ValidatorRewardsResponse>)>",
+    create = "{ TimedSizedCache::with_size_and_lifespan(100, 60) }",
     key = "String",
     convert = r#"{ format!("validator-rewards-{}", req.to_string()) }"#
 )]
@@ -365,9 +369,11 @@ pub async fn validator_rewards_cacheable_wrapper(
     }
 }
 
+// Entries here can hold up to `StakerRewardsStore::MAX_LIMIT` (10k) rows each, so the
+// entry count is kept deliberately low to bound total bytes retained, not just key count.
 #[cached(
-    type = "TimedCache<String, (StatusCode, Json<StakerRewardsResponse>)>",
-    create = "{ TimedCache::with_lifespan_and_capacity(60, 1000) }",
+    type = "TimedSizedCache<String, (StatusCode, Json<StakerRewardsResponse>)>",
+    create = "{ TimedSizedCache::with_size_and_lifespan(100, 60) }",
     key = "String",
     convert = r#"{ format!("staker-rewards-{}", req.to_string()) }"#
 )]
@@ -398,8 +404,8 @@ pub async fn staker_rewards_cacheable_wrapper(
 }
 
 #[cached(
-    type = "TimedCache<String, (StatusCode, Json<JitoSolRatioResponse>)>",
-    create = "{ TimedCache::with_lifespan_and_capacity(60, 1000) }",
+    type = "TimedSizedCache<String, (StatusCode, Json<JitoSolRatioResponse>)>",
+    create = "{ TimedSizedCache::with_size_and_lifespan(1000, 60) }",
     key = "String",
     convert = r#"{ format!("jitosol-ratio-{}", req.as_ref().map(|s| s.to_string()).unwrap_or_default()) }"#
 )]
@@ -418,8 +424,8 @@ pub async fn jitosol_ratio_cacheable_wrapper(
 }
 
 #[cached(
-    type = "TimedCache<String, (StatusCode, Json<ValidatorHistoryResponse>)>",
-    create = "{ TimedCache::with_lifespan_and_capacity(60, 1000) }",
+    type = "TimedSizedCache<String, (StatusCode, Json<ValidatorHistoryResponse>)>",
+    create = "{ TimedSizedCache::with_size_and_lifespan(1000, 60) }",
     key = "String",
     convert = r#"{ format!("validator-history-{}-{}", vote_account, epoch.epoch.as_ref().map(|e| e.to_string()).unwrap_or(0.to_string())) }"#
 )]
@@ -439,8 +445,8 @@ pub async fn get_validator_histories_wrapper(
 }
 
 #[cached(
-    type = "TimedCache<String, (StatusCode, Json<BamEpochMetricsResponse>)>",
-    create = "{ TimedCache::with_lifespan_and_capacity(60, 1000) }",
+    type = "TimedSizedCache<String, (StatusCode, Json<BamEpochMetricsResponse>)>",
+    create = "{ TimedSizedCache::with_size_and_lifespan(1000, 60) }",
     key = "String",
     convert = r#"{ format!("bam-epoch-metrics-{}", epoch.to_string()) }"#
 )]
@@ -459,8 +465,8 @@ pub async fn get_bam_epoch_metrics_wrapper(
 }
 
 #[cached(
-    type = "TimedCache<String, (StatusCode, Json<BamValidatorsResponse>)>",
-    create = "{ TimedCache::with_lifespan_and_capacity(60, 1000) }",
+    type = "TimedSizedCache<String, (StatusCode, Json<BamValidatorsResponse>)>",
+    create = "{ TimedSizedCache::with_size_and_lifespan(1000, 60) }",
     key = "String",
     convert = r#"{ format!("bam-validators-{}", epoch.to_string()) }"#
 )]
@@ -479,8 +485,8 @@ pub async fn get_bam_validators_wrapper(
 }
 
 #[cached(
-    type = "TimedCache<String, (StatusCode, Json<BamValidatorScoreResponse>)>",
-    create = "{ TimedCache::with_lifespan_and_capacity(60, 1000) }",
+    type = "TimedSizedCache<String, (StatusCode, Json<BamValidatorScoreResponse>)>",
+    create = "{ TimedSizedCache::with_size_and_lifespan(1000, 60) }",
     key = "String",
     convert = r#"{ format!("bam-validator-score-{epoch}-{vote_account}") }"#
 )]
@@ -500,8 +506,8 @@ pub async fn get_bam_validator_score_wrapper(
 }
 
 #[cached(
-    type = "TimedCache<String, Vec<PreferredWithdraw>>",
-    create = "{ TimedCache::with_lifespan_and_capacity(10, 100) }",
+    type = "TimedSizedCache<String, Vec<PreferredWithdraw>>",
+    create = "{ TimedSizedCache::with_size_and_lifespan(100, 10) }",
     key = "String",
     convert = r#"{ format!("preferred-withdraw-{}", min_stake_threshold) }"#,
     result = true
@@ -545,8 +551,8 @@ pub async fn preferred_withdraw_validator_list_cacheable_wrapper(
 }
 
 #[cached(
-    type = "TimedCache<String, (StatusCode, Json<Vec<BamDelegationBlacklistEntry>>)>",
-    create = "{ TimedCache::with_lifespan_and_capacity(60, 1000) }",
+    type = "TimedSizedCache<String, (StatusCode, Json<Vec<BamDelegationBlacklistEntry>>)>",
+    create = "{ TimedSizedCache::with_size_and_lifespan(1000, 60) }",
     key = "String",
     convert = r#"{ format!("bam-delegation-blacklist") }"#
 )]
@@ -561,8 +567,8 @@ pub async fn get_bam_delegation_blacklist_wrapper(
 }
 
 #[cached(
-    type = "TimedCache<String, (StatusCode, Json<BamBoostClaimResponse>)>",
-    create = "{ TimedCache::with_lifespan_and_capacity(60, 1000) }",
+    type = "TimedSizedCache<String, (StatusCode, Json<BamBoostClaimResponse>)>",
+    create = "{ TimedSizedCache::with_size_and_lifespan(1000, 60) }",
     key = "String",
     convert = r#"{ format!("bam-boost-claim-{epoch}-{validator_id}") }"#
 )]
@@ -593,8 +599,8 @@ pub async fn get_bam_boost_claim_wrapper(
 }
 
 #[cached(
-    type = "TimedCache<String, (StatusCode, Json<BamBoostValidatorsResponse>)>",
-    create = "{ TimedCache::with_lifespan_and_capacity(60, 1000) }",
+    type = "TimedSizedCache<String, (StatusCode, Json<BamBoostValidatorsResponse>)>",
+    create = "{ TimedSizedCache::with_size_and_lifespan(1000, 60) }",
     key = "String",
     convert = r#"{ format!("bam-boost-validators-{epoch}") }"#
 )]
@@ -613,8 +619,8 @@ pub async fn get_bam_boost_validators_wrapper(
 }
 
 #[cached(
-    type = "TimedCache<String, (StatusCode, Json<CoinbaseBalanceResponse>)>",
-    create = "{ TimedCache::with_lifespan_and_capacity(60, 1000) }",
+    type = "TimedSizedCache<String, (StatusCode, Json<CoinbaseBalanceResponse>)>",
+    create = "{ TimedSizedCache::with_size_and_lifespan(1000, 60) }",
     key = "String",
     convert = r#"{ format!("coinbase-balance-{epoch}") }"#
 )]
